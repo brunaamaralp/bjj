@@ -58,6 +58,21 @@ export function paymentCaixaMeta(payment) {
   };
 }
 
+/** Badge/link Caixa para lançamento financeiro de venda. */
+export function financialTxCaixaMeta(tx) {
+  const id = String(tx?.id || '').trim();
+  if (!id) return null;
+  const st = String(tx?.status || '').toLowerCase();
+  if (st === 'cancelled' || st === 'canceled') return null;
+  const label =
+    st === 'pending' || st === 'awaiting' ? 'A receber no Caixa' : 'No Caixa';
+  return {
+    label,
+    tone: st === 'pending' || st === 'awaiting' ? 'warning' : 'success',
+    href: `${FINANCEIRO_TX_PATH}&tx=${encodeURIComponent(id)}`,
+  };
+}
+
 /** Badge/link Caixa para venda de produto vinculada ao aluno. */
 export function saleCaixaMeta(sale) {
   const st = String(sale?.status || '').toLowerCase();

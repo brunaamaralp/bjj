@@ -4,6 +4,9 @@ import { useUiStore } from '../../store/useUiStore';
 import { friendlyError } from '../../lib/errorMessages';
 import { mergeSalesIntoSettings, readSalesSettings } from '../../lib/salesSettings';
 import { parseAcademySettings } from '../../lib/stockSettings';
+import { salesFetch } from '../../lib/salesApi';
+import { useAcademyRoleDoc } from '../../hooks/useAcademyRoleDoc.js';
+import { useCanManageAcademySales } from '../../lib/canManageStudentPayments.js';
 
 function buildDigest(lockPriceEdit, autoPrintReceipt, requireCashShift) {
   return JSON.stringify({
@@ -15,11 +18,14 @@ function buildDigest(lockPriceEdit, autoPrintReceipt, requireCashShift) {
 
 export default function SalesSettingsSection({ academyId }) {
   const addToast = useUiStore((s) => s.addToast);
+  const academyDoc = useAcademyRoleDoc();
+  const canManageSales = useCanManageAcademySales(academyDoc);
   const [loaded, setLoaded] = useState(false);
   const [lockPriceEdit, setLockPriceEdit] = useState(false);
   const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
   const [requireCashShift, setRequireCashShift] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [savedDigest, setSavedDigest] = useState('');
 
   useEffect(() => {
@@ -76,6 +82,34 @@ export default function SalesSettingsSection({ academyId }) {
     }
   };
 
+  const reconcileMirrors = async () => {
+    if (!canManageSales || reconciling) return;
+    setReconciling(true);
+    try {
+      const data = await salesFetch('/api/sales?action=reconcile', { method: 'POST' });
+      const repaired = Number(data.repaired_count) || 0;
+      const missing = Number(data.missing_count) || 0;
+      if (repaired > 0) {
+        addToast({
+          type: 'success',
+          message: `${repaired} espelho(s) de venda criado(s) no Caixa.`,
+        });
+      } else if (missing === 0) {
+        addToast({ type: 'success', message: 'Nenhuma venda concluída sem espelho encontrada.' });
+      } else {
+        addToast({
+          type: 'warning',
+          message: `${missing} venda(s) sem espelho — ${repaired} corrigida(s). Verifique o Caixa.`,
+        });
+      }
+    } catch (e) {
+      console.error('[SalesSettings] reconcile:', e);
+      addToast({ type: 'error', message: friendlyError(e, 'action') });
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   return (
     <section className="empresa-section animate-in" style={{ marginTop: 0 }}>
       <h3 className="navi-section-heading mb-2">Configurações de vendas</h3>
@@ -106,6 +140,23 @@ export default function SalesSettingsSection({ academyId }) {
           />
           Exigir abertura de caixa antes de registrar vendas
         </label>
+
+        {canManageSales ? (
+          <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+            <p className="text-small text-muted mb-2" style={{ lineHeight: 1.45 }}>
+              Verifica vendas concluídas sem lançamento espelhado no Caixa e tenta criar o espelho
+              automaticamente.
+            </p>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => void reconcileMirrors()}
+              disabled={reconciling}
+            >
+              {reconciling ? 'Verificando…' : 'Verificar espelhos de vendas'}
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex justify-end items-center gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
           {hasUnsaved ? (

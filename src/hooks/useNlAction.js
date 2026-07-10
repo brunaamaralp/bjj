@@ -351,6 +351,7 @@ export function useNlAction() {
           cliente_nome: d.student_id ? null : String(d.customer_name || d.student_name || '').trim() || null,
           cliente_telefone: d.customer_phone ? String(d.customer_phone).trim() : null,
           venda_colaborador: false,
+          sale_source: 'nl',
           itens: [
             {
               item_estoque_id: stockId,

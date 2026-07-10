@@ -14,6 +14,8 @@
 **Specs relacionadas:**
 
 - [2026-06-15-modal-venda-produto-PRODUCT.md](../../superpowers/specs/2026-06-15-modal-venda-produto-PRODUCT.md)
+- [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-07-01-relatorio-vendas-dia-PRODUCT.md)
+- [2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md](../../superpowers/specs/2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md) — correções cancelamento, turno de caixa, histórico (pendente/parcial)
 
 **Harness relacionado:** `npm test -- lojaSalesTabs nlAction`
 
@@ -68,7 +70,7 @@ flowchart TD
 | 13 | `&subtab=history` | `SalesHistoryTab` | Filtrar período/status | Lista paginada |
 | 14 | Histórico | Abrir venda | `SaleDetailModal` | Detalhe itens + pagamentos |
 | 15 | Histórico | Trocar produto (owner/admin) | `SalesEditItemModal` | Estoque revertido + novo item; ajuste no Caixa se preço mudar |
-| 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `cancelSale`; comprovante cancelamento |
+| 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `PATCH /api/sales` `action=cancelar` (Vercel); legado Appwrite opcional |
 | 17 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
 | 18 | `&subtab=history` | **Resumo do dia** | Botão na toolbar ou deep link `?report=1&date=YYYY-MM-DD` | `SalesDailyReportModal` — copiar / CSV / PDF / imprimir |
 
@@ -93,7 +95,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 - [ ] Módulo `sales` habilitado (`modules.sales === true`)
 - [ ] Pelo menos um produto ativo em **Produtos**
 - [ ] Saldo em estoque para itens com controle de quantidade
-- [ ] Opcional: turno de caixa aberto (`CashShiftBanner`) — bypass em `modalMode`
+- [ ] Opcional: turno de caixa aberto (`CashShiftBanner`) — obrigatório só no **PDV** quando `requireCashShift`; modal e perfil do aluno bypassam (`sale_source`)
 
 ### Permissões por papel
 
@@ -115,10 +117,12 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 7b. [ ] Cartão com 2 meios de captura — **Recebido via** na linha de pagamento
 8. [ ] **Modo PDV** (`?pdv=1`) oculta tabs do hub; preferência em `localStorage` `sales:pdvMode:v1`
 9. [ ] Atalho sidebar **Nova venda** abre modal; dirty → `ConfirmDialog` ao fechar
-10. [ ] Histórico: filtros período, status, canal, busca
+10. [ ] Histórico: filtros período, status (incl. pendente/parcial/em aberto), canal, busca; totais recebido + saldo em aberto
 11. [ ] Cancelamento só owner/admin; member não vê ação
-11b. [ ] Trocar produto ou cancelar venda concluída, pendente ou parcial (owner/admin) → estoque + total + Caixa ajustados
-11c. [ ] **Resumo do dia** no Histórico → copiar e CSV com vendas do dia (incl. perfil aluno)
+11b. [ ] Trocar produto (com quantidade) ou cancelar venda concluída, pendente ou parcial (owner/admin)
+11c. [ ] Rascunho incompleto → **Descartar rascunho** (sem modal de motivo de cancelamento)
+11d. [ ] Detalhe da venda → links **Caixa** por lançamento financeiro
+11e. [ ] **Resumo do dia** no Histórico → copiar e CSV com vendas do dia (incl. perfil aluno)
 12. [ ] Legacy `/vendas` → redirect para `/loja?tab=vendas`
 13. [ ] Legacy `?tab=new` → normaliza para `?tab=vendas&subtab=new`
 14. [ ] Trocar academia → catálogo e histórico da academia atual
@@ -172,7 +176,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 
 ## Variações e atalhos
 
-- **Modal global:** `NOVA_VENDA_MENU_ACTION` em `naviMenu.js` — não exige caixa aberto (`modalMode`)
+- **Modal global:** `NOVA_VENDA_MENU_ACTION` em `naviMenu.js` — não exige caixa aberto (`sale_source: modal`)
 - **Perfil do aluno:** pagamento → produto usa `StudentProductSaleStep` (mesma API, UX diferente)
 - **NL command bar:** `register_sale` via `useNlAction` → `createSale`
 - **Produtos:** pré-requisito em `/loja?tab=produtos`; estoque em `/loja?tab=estoque` quando `modules.inventory`
@@ -188,3 +192,4 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 | 2026-06-15 | — | Criação Fase 3 |
 | 2026-06-17 | — | Checkout: «Recebido via» em cartão (`SalesPaymentBlock`) |
 | 2026-07-01 | — | Relatório diário de vendas (Histórico → Resumo do dia) |
+| 2026-07-10 | — | Spec correções de fluxo: cancel Vercel, turno caixa, histórico em aberto — ver [spec](../../superpowers/specs/2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md) |

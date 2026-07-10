@@ -280,6 +280,14 @@ export default async function handler(req, res) {
         const { default: salesUpdateItemHandler } = await import('../lib/server/salesUpdateItemHandler.js');
         return salesUpdateItemHandler(req, res);
       }
+      if (patchAction === 'cancelar') {
+        const { default: salesCancelHandler } = await import('../lib/server/salesCancelHandler.js');
+        return salesCancelHandler(req, res);
+      }
+      if (patchAction === 'descartar_rascunho') {
+        const { default: salesDiscardDraftHandler } = await import('../lib/server/salesDiscardDraftHandler.js');
+        return salesDiscardDraftHandler(req, res);
+      }
       return salesLiquidateHandler(req, res);
     }
     if (req.method === 'GET') return salesHistoryHandler(req, res);

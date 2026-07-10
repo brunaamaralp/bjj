@@ -10,8 +10,10 @@ import { useSalesStore } from '../../store/useSalesStore';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useCanManageAcademySales } from '../../lib/canManageStudentPayments.js';
+import { useAcademyRoleDoc } from '../../hooks/useAcademyRoleDoc.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { readSalesSettings, SALES_CHANNEL_OPTIONS } from '../../lib/salesSettings';
+import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import {
   computeHistoryTotals,
   defaultPeriodRange,
@@ -19,6 +21,7 @@ import {
   formatDateTimeBr,
   formatSaleIdShort,
   SALE_STATUS_BADGE_MAP,
+  saleIsDraft,
   toDateInput,
 } from '../../lib/salesHistory';
 import { resolveDailyReportDateYmd } from '../../lib/salesDailyReport.js';
@@ -40,17 +43,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkAppliedRef = useRef(false);
   const academyId = useLeadStore((s) => s.academyId);
-  const academyList = useLeadStore((s) => s.academyList);
-  const teamIdFromStore = useLeadStore((s) => s.teamId);
-  const [academyRoleDoc, setAcademyRoleDoc] = useState(null);
-  const academyDoc = useMemo(() => {
-    if (!academyId) return null;
-    const fromList = (academyList || []).find((x) => x.id === academyId);
-    const ownerId = String(fromList?.ownerId || academyRoleDoc?.ownerId || '');
-    const teamId = String(fromList?.teamId || academyRoleDoc?.teamId || teamIdFromStore || '');
-    if (!ownerId && !teamId) return null;
-    return { ownerId, teamId };
-  }, [academyList, academyId, academyRoleDoc, teamIdFromStore]);
+  const academyDoc = useAcademyRoleDoc();
   const canManageSales = useCanManageAcademySales(academyDoc);
   const canCancelSale = canManageSales;
   const canEditSale = canManageSales;
@@ -59,6 +52,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const fetchSalesList = useSalesStore((s) => s.fetchSalesList);
   const fetchSaleDetail = useSalesStore((s) => s.fetchSaleDetail);
   const cancelSale = useSalesStore((s) => s.cancelSale);
+  const discardDraftSale = useSalesStore((s) => s.discardDraftSale);
   const cancelling = useSalesStore((s) => s.cancelling);
   const error = useSalesStore((s) => s.error);
 
@@ -78,6 +72,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [cancelReceipt, setCancelReceipt] = useState(null);
 
   const [editItemOpen, setEditItemOpen] = useState(false);
@@ -104,10 +99,6 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         if (cancelled) return;
         setAcademyName(String(doc.name || '').trim());
         setSalesSettings(readSalesSettings(doc.settings));
-        setAcademyRoleDoc({
-          ownerId: String(doc.ownerId || ''),
-          teamId: String(doc.teamId || ''),
-        });
       } catch (e) {
         console.error('[SalesHistory] academy', e);
       }
@@ -176,6 +167,22 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const handleDiscardConfirm = async () => {
+    if (!detailSale?.id) return;
+    const result = await discardDraftSale({ venda_id: detailSale.id });
+    if (!result?.ok) {
+      const msg =
+        friendlySaleError(useSalesStore.getState().error) ||
+        'Não foi possível descartar o rascunho.';
+      addToast({ type: 'error', message: msg });
+      return;
+    }
+    addToast({ type: 'success', message: 'Rascunho descartado.' });
+    setDiscardOpen(false);
+    setDetailOpen(false);
+    void loadSales();
   };
 
   const handleCancelConfirm = async (motivo) => {
@@ -278,8 +285,12 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
             <label className="text-xs">Status</label>
             <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">Todas</option>
+              <option value="em_aberto">Em aberto</option>
+              <option value="pendente">Pendente</option>
+              <option value="parcial">Parcial</option>
               <option value="concluida">Concluídas</option>
               <option value="cancelada">Canceladas</option>
+              <option value="rascunho">Rascunhos</option>
             </select>
           </div>
           <div className="form-group form-group--canal">
@@ -299,7 +310,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
               <Search size={16} className="sales-history-search-icon" />
               <input
                 className="form-input sales-history-search-input"
-                placeholder="Cliente ou ID da venda"
+                placeholder="Cliente, ID, produto ou pagamento"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -328,7 +339,15 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
           </div>
           <div className="sales-history-total">
             <span className="sales-history-total__label">Valor recebido</span>
-            <strong>{formatBRL(totals.concludedTotal)}</strong>
+            <strong>{formatBRL(totals.concludedReceived)}</strong>
+          </div>
+          <div className="sales-history-total">
+            <span className="sales-history-total__label">Em aberto</span>
+            <strong>{totals.openCount}</strong>
+          </div>
+          <div className="sales-history-total">
+            <span className="sales-history-total__label">Saldo a receber</span>
+            <strong>{formatBRL(totals.openRemaining)}</strong>
           </div>
           <div className="sales-history-total">
             <span className="sales-history-total__label">Cancelamentos</span>
@@ -468,13 +487,15 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
       </div>
 
       <SaleDetailModal
-        open={detailOpen && !cancelOpen && !editItemOpen}
+        open={detailOpen && !cancelOpen && !editItemOpen && !discardOpen}
         sale={detailSale}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}
         onCancelClick={() => setCancelOpen(true)}
-        canCancelSale={canCancelSale}
-        canEditSale={canEditSale}
+        onDiscardDraftClick={() => setDiscardOpen(true)}
+        canCancelSale={canCancelSale && !saleIsDraft(detailSale)}
+        canDiscardDraft={canCancelSale && saleIsDraft(detailSale)}
+        canEditSale={canEditSale && !saleIsDraft(detailSale)}
         onEditItemClick={(item) => {
           setEditSaleItem(item);
           setEditItemOpen(true);
@@ -509,6 +530,18 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         loading={cancelling}
         onClose={() => setCancelOpen(false)}
         onConfirm={handleCancelConfirm}
+      />
+
+      <ConfirmDialog
+        open={discardOpen}
+        title="Descartar rascunho?"
+        description="Esta venda não foi concluída. O estoque reservado será devolvido. Esta ação não pode ser desfeita."
+        confirmLabel="Descartar rascunho"
+        cancelLabel="Voltar"
+        confirmVariant="danger"
+        loading={cancelling}
+        onConfirm={() => void handleDiscardConfirm()}
+        onClose={() => setDiscardOpen(false)}
       />
 
       <CancelReceiptPanel

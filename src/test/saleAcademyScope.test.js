@@ -12,8 +12,8 @@ describe('saleAcademyScope', () => {
     expect(saleAcademyIds({})).toEqual([]);
   });
 
-  it('saleBelongsToAcademy accepts legacy docs without academy fields', () => {
-    expect(saleBelongsToAcademy({}, 'acad-1')).toBe(true);
+  it('saleBelongsToAcademy rejects legacy docs without academy fields', () => {
+    expect(saleBelongsToAcademy({}, 'acad-1')).toBe(false);
   });
 
   it('saleBelongsToAcademy matches either attribute', () => {
@@ -29,6 +29,6 @@ describe('saleAcademyScope', () => {
       { $id: '3', academy_id: 'other' },
       { $id: '4' },
     ];
-    expect(filterSalesForAcademy(rows, 'acad-1').map((r) => r.$id)).toEqual(['1', '2', '4']);
+    expect(filterSalesForAcademy(rows, 'acad-1').map((r) => r.$id)).toEqual(['1', '2']);
   });
 });

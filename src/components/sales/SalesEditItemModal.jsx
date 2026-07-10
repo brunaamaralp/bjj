@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
 import ModalShell from '../shared/ModalShell.jsx';
 import SalesCatalogPicker from './SalesCatalogPicker';
@@ -53,14 +53,30 @@ export default function SalesEditItemModal({
   const [variantPickerLineKind, setVariantPickerLineKind] = useState('sale');
   const [pendingPick, setPendingPick] = useState(null);
   const [localError, setLocalError] = useState('');
+  const [newQty, setNewQty] = useState(() => Math.max(1, Math.trunc(Number(saleItem?.quantidade) || 1)));
+
+  useEffect(() => {
+    setNewQty(Math.max(1, Math.trunc(Number(saleItem?.quantidade) || 1)));
+  }, [saleItem?.id, saleItem?.quantidade]);
 
   const lineKind = normalizeLineKind(saleItem?.line_kind || 'sale');
+  const oldQty = Math.max(1, Math.trunc(Number(saleItem?.quantidade) || 1));
+
+  const maxQty = useMemo(() => {
+    if (!pendingPick) return oldQty;
+    const avail = Number(
+      pendingPick.product?.disponivel ?? pendingPick.product?.disponivel_for_line ?? 0
+    );
+    if (!Number.isFinite(avail) || avail < 0) return Math.max(oldQty, newQty);
+    return Math.max(1, Math.trunc(avail) + oldQty);
+  }, [pendingPick, oldQty, newQty]);
 
   const resetPicker = useCallback(() => {
     setVariantPickerParent(null);
     setPendingPick(null);
     setLocalError('');
-  }, []);
+    setNewQty(Math.max(1, Math.trunc(Number(saleItem?.quantidade) || 1)));
+  }, [saleItem?.quantidade, saleItem?.id]);
 
   const handleClose = useCallback(() => {
     resetPicker();
@@ -128,13 +144,18 @@ export default function SalesEditItemModal({
 
   const handleConfirm = async () => {
     if (!pendingPick || !sale?.id || !saleItem?.id) return;
+    const qty = Math.max(1, Math.min(maxQty, Math.trunc(Number(newQty) || 1)));
+    if (qty < 1) {
+      setLocalError('Informe uma quantidade válida.');
+      return;
+    }
     setLocalError('');
     const result = await updateSaleItem({
       venda_id: sale.id,
       sale_item_id: saleItem.id,
       novo_item: {
         ...pendingPick.novo,
-        quantidade: saleItem.quantidade,
+        quantidade: qty,
       },
       motivo: 'troca_produto',
     });
@@ -155,8 +176,9 @@ export default function SalesEditItemModal({
   );
   const newSubtotal = useMemo(() => {
     if (!pendingPick) return 0;
-    return roundSubtotal(pendingPick.novo.preco_unitario, saleItem?.quantidade);
-  }, [pendingPick, saleItem?.quantidade]);
+    const qty = Math.max(1, Math.min(maxQty, Math.trunc(Number(newQty) || 1)));
+    return roundSubtotal(pendingPick.novo.preco_unitario, qty);
+  }, [pendingPick, newQty, maxQty]);
 
   if (!open || !sale || !saleItem) return null;
 
@@ -204,9 +226,27 @@ export default function SalesEditItemModal({
             <div className="sales-edit-item-modal__swap-col">
               <span className="text-xs text-muted">Para</span>
               <strong>{pendingPick.label}</strong>
+              <div className="flex items-center gap-2 mt-1" style={{ flexWrap: 'wrap' }}>
+                <label className="text-small" htmlFor="sales-edit-item-qty">
+                  Qtd
+                </label>
+                <input
+                  id="sales-edit-item-qty"
+                  type="number"
+                  className="form-input"
+                  style={{ width: 72 }}
+                  min={1}
+                  max={maxQty}
+                  step={1}
+                  value={newQty}
+                  disabled={updating}
+                  onChange={(e) => setNewQty(e.target.value)}
+                />
+                <span className="text-small text-muted">máx. {maxQty}</span>
+              </div>
               <span className="text-small">
-                {saleItem.quantidade} × {formatBRL(pendingPick.novo.preco_unitario)} ={' '}
-                {formatBRL(newSubtotal)}
+                {Math.max(1, Math.min(maxQty, Math.trunc(Number(newQty) || 1)))} ×{' '}
+                {formatBRL(pendingPick.novo.preco_unitario)} = {formatBRL(newSubtotal)}
               </span>
             </div>
           </div>

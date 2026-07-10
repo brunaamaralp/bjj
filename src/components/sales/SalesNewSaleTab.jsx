@@ -910,6 +910,7 @@ export default function SalesNewSaleTab({
       venda_colaborador: vendaColaborador,
       itens,
       idempotency_key: idempotencyKeyRef.current,
+      sale_source: modalMode ? 'modal' : 'pdv',
     });
 
     const st = useSalesStore.getState();

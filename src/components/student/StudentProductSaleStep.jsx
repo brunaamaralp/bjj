@@ -516,6 +516,7 @@ export default function StudentProductSaleStep({
       aluno_id: studentId,
       itens,
       idempotency_key: idempotencyKeyRef.current,
+      sale_source: 'student',
     };
     if (receiveLater) {
       salePayload.deferred = true;

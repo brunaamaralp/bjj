@@ -23,6 +23,7 @@ export const useSalesStore = create((set) => ({
     venda_colaborador = false,
     itens,
     idempotency_key = undefined,
+    sale_source = 'pdv',
   }) => {
     set({ creating: true, error: null, errorDetail: null });
     try {
@@ -34,6 +35,7 @@ export const useSalesStore = create((set) => ({
         venda_colaborador,
         itens,
         academy_id: academyId,
+        sale_source,
       };
       if (deferred === true) {
         payload.deferred = true;
@@ -80,7 +82,7 @@ export const useSalesStore = create((set) => ({
     return data.sale || null;
   },
 
-  liquidateSale: async ({ venda_id, pagamentos }) => {
+  liquidateSale: async ({ venda_id, pagamentos, pagamentos_snapshot }) => {
     set({ creating: true, error: null, errorDetail: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
@@ -90,6 +92,7 @@ export const useSalesStore = create((set) => ({
           id: venda_id,
           action: 'liquidar',
           pagamentos,
+          pagamentos_snapshot: pagamentos_snapshot ?? '[]',
           academy_id: academyId,
         }),
       });
@@ -128,18 +131,61 @@ export const useSalesStore = create((set) => ({
     }
   },
 
-  cancelSale: async ({ venda_id, motivo }) => {
-    if (!SALES_CANCEL_FN_ID) {
-      set({ error: 'SALES_CANCEL_FN_ID not set' });
+  discardDraftSale: async ({ venda_id }) => {
+    set({ cancelling: true, error: null });
+    try {
+      const academyId = useLeadStore.getState().academyId || null;
+      const body = await salesFetch('/api/sales', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: venda_id,
+          action: 'descartar_rascunho',
+          academy_id: academyId,
+        }),
+      });
+      set({ lastSale: body, cancelling: false, error: null });
+      return body;
+    } catch (e) {
+      const code = e instanceof SalesApiError ? e.code : String(e?.message || e);
+      set({ error: code, cancelling: false });
       return null;
     }
+  },
+
+  cancelSale: async ({ venda_id, motivo }) => {
     if (!String(motivo || '').trim()) {
       set({ error: 'motivo_required' });
+      return null;
+    }
+    const cancelViaApi = import.meta.env.VITE_SALES_CANCEL_VIA_API !== 'false';
+    if (!cancelViaApi && !SALES_CANCEL_FN_ID) {
+      set({ error: 'SALES_CANCEL_FN_ID not set' });
       return null;
     }
     set({ cancelling: true, error: null });
     try {
       const academyId = useLeadStore.getState().academyId || null;
+      const motivoTrim = String(motivo).trim();
+      const idempotency_key =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `cancel-${Date.now()}`;
+
+      if (cancelViaApi) {
+        const body = await salesFetch('/api/sales', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            id: venda_id,
+            action: 'cancelar',
+            motivo: motivoTrim,
+            academy_id: academyId,
+            idempotency_key,
+          }),
+        });
+        set({ lastSale: body, cancelling: false, error: null });
+        return body;
+      }
+
       const jwt = await createSessionJwt();
       if (!jwt) {
         set({ error: 'session_required', cancelling: false });
@@ -147,7 +193,12 @@ export const useSalesStore = create((set) => ({
       }
       const exec = await functions.createExecution(
         SALES_CANCEL_FN_ID,
-        JSON.stringify({ venda_id, motivo: String(motivo).trim(), academy_id: academyId }),
+        JSON.stringify({
+          venda_id,
+          motivo: motivoTrim,
+          academy_id: academyId,
+          idempotency_key,
+        }),
         false,
         undefined,
         undefined,

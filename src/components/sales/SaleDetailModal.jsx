@@ -2,9 +2,10 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit } from '../../lib/salesHistory';
+import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit, saleIsDraft } from '../../lib/salesHistory';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
+import { financialTxCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
 import { useSalesStore } from '../../store/useSalesStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -17,6 +18,7 @@ import {
 } from '../../lib/salePayments';
 import { downloadSaleReceiptPdf } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
+import { friendlySaleError } from '../../lib/errorMessages.js';
 
 function SaleDetailModalContent({
   sale,
@@ -25,6 +27,8 @@ function SaleDetailModalContent({
   onCancelClick,
   canCancelSale = false,
   canEditSale = false,
+  canDiscardDraft = false,
+  onDiscardDraftClick,
   onEditItemClick,
   onLiquidated,
 }) {
@@ -64,7 +68,8 @@ function SaleDetailModalContent({
   const isPendente = statusLower === 'pendente';
   const isParcial = statusLower === 'parcial';
   const canReceivePayment = isPendente || isParcial;
-  const canModifySale = saleAllowsCancelOrEdit(sale.status);
+  const isDraft = saleIsDraft(sale);
+  const canModifySale = saleAllowsCancelOrEdit(sale);
 
   const paymentValid = paymentsUiValid(payments, remainingCents, { allowPartial: true });
 
@@ -87,9 +92,21 @@ function SaleDetailModalContent({
       return;
     }
     const pagamentos = serializePagamentosForApi(payments);
-    const result = await liquidateSale({ venda_id: sale.id, pagamentos });
+    const pagamentos_snapshot =
+      typeof sale.pagamentos_json === 'string'
+        ? sale.pagamentos_json
+        : JSON.stringify(sale.pagamentos || []);
+    const result = await liquidateSale({
+      venda_id: sale.id,
+      pagamentos,
+      pagamentos_snapshot,
+    });
     if (!result?.ok) {
-      addToast({ type: 'error', message: 'Não foi possível registrar o pagamento.' });
+      const msg =
+        friendlySaleError(useSalesStore.getState().error) ||
+        'Não foi possível registrar o pagamento.';
+      setLiquidateError(msg);
+      addToast({ type: 'error', message: msg });
       return;
     }
     addToast({
@@ -108,7 +125,41 @@ function SaleDetailModalContent({
       onClose={onClose}
       maxWidth={560}
       className="sales-modal-backdrop navi-modal-overlay--form"
-      dialogClassName="sales-modal card sales-modal--wide"
+      dialogClassName="sales-modal card sales-modal--wide sales-modal--detail"
+      footer={
+        isDraft && canDiscardDraft ? (
+          <div className="sale-detail-modal__footer">
+            <button
+              type="button"
+              className="btn-outline sales-discard-draft-btn"
+              onClick={onDiscardDraftClick}
+            >
+              <XCircle size={16} aria-hidden />
+              Descartar rascunho
+            </button>
+            <p className="sale-detail-modal__perm-hint text-small text-muted">
+              Venda incompleta — remove o rascunho e devolve o estoque, sem cancelamento financeiro.
+            </p>
+          </div>
+        ) : canModifySale ? (
+          <div className="sale-detail-modal__footer">
+            {canCancelSale ? (
+              <button
+                type="button"
+                className="btn-outline sales-cancel-sale-btn"
+                onClick={onCancelClick}
+              >
+                <XCircle size={16} aria-hidden />
+                Cancelar venda
+              </button>
+            ) : (
+              <p className="sale-detail-modal__perm-hint text-small text-muted">
+                Cancelar ou trocar produto: titular ou administrador da academia.
+              </p>
+            )}
+          </div>
+        ) : null
+      }
     >
         {loading ? (
           <div className="sale-detail-skeleton" role="status" aria-live="polite" aria-label="Carregando detalhes da venda">
@@ -198,6 +249,24 @@ function SaleDetailModalContent({
               <strong>Total:</strong> {formatBRL(sale.total)}
             </div>
 
+            {sale.financial_txs?.length ? (
+              <div className="mt-3">
+                <h4 className="navi-section-heading sales-modal__section-title">Caixa</h4>
+                <ul className="sales-detail-caixa-list text-small" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                  {sale.financial_txs.map((tx) => (
+                    <li key={tx.id} className="sales-detail-caixa-list__item" style={{ marginBottom: 6 }}>
+                      <span>
+                        {tx.description || tx.type || 'Lançamento'} — {formatBRL(tx.net)}
+                      </span>
+                      <div>
+                        <CaixaLinkBadge meta={financialTxCaixaMeta(tx)} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {isConcluida ? (
               <div className="mt-3">
                 <ReceiptPdfButton
@@ -266,13 +335,6 @@ function SaleDetailModalContent({
                 </div>
               </div>
             ) : null}
-
-            {canModifySale && canCancelSale ? (
-              <button type="button" className="btn-outline mt-4 sales-cancel-sale-btn" onClick={onCancelClick}>
-                <XCircle size={16} aria-hidden />
-                Cancelar venda
-              </button>
-            ) : null}
           </>
         )}
     </ModalShell>
@@ -287,6 +349,8 @@ export default function SaleDetailModal({
   onCancelClick,
   canCancelSale = false,
   canEditSale = false,
+  canDiscardDraft = false,
+  onDiscardDraftClick,
   onEditItemClick,
   onLiquidated,
 }) {
@@ -300,6 +364,8 @@ export default function SaleDetailModal({
       onCancelClick={onCancelClick}
       canCancelSale={canCancelSale}
       canEditSale={canEditSale}
+      canDiscardDraft={canDiscardDraft}
+      onDiscardDraftClick={onDiscardDraftClick}
       onEditItemClick={onEditItemClick}
       onLiquidated={onLiquidated}
     />

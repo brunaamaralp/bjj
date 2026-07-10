@@ -18,10 +18,23 @@ export const SALES_CHANNEL_OPTIONS = [
   { value: 'whatsapp_retirada', label: 'WhatsApp — retirada' },
 ];
 
+/** Origem da venda — alinha política de turno de caixa (UI ↔ API). */
+export const SALE_SOURCES = ['pdv', 'modal', 'student', 'nl'];
+
+export function normalizeSaleSource(raw) {
+  const s = String(raw || 'pdv').toLowerCase();
+  return SALE_SOURCES.includes(s) ? s : 'pdv';
+}
+
 export function readSalesSettings(settingsRaw) {
   const settings = parseAcademySettings(settingsRaw);
   const sales = settings?.sales && typeof settings.sales === 'object' ? settings.sales : {};
   const saleIncomeCategory = String(sales.saleIncomeCategory || '').trim();
+  const requiredRaw = sales.cashShiftRequiredFor;
+  const cashShiftRequiredFor =
+    Array.isArray(requiredRaw) && requiredRaw.length
+      ? requiredRaw.map((x) => String(x).toLowerCase()).filter((x) => SALE_SOURCES.includes(x))
+      : ['pdv'];
   return {
     receiptTemplate: DEFAULT_SALES_RECEIPT_TEMPLATE,
     receiptFooter: DEFAULT_SALES_FOOTER,
@@ -29,6 +42,7 @@ export function readSalesSettings(settingsRaw) {
     lockPriceEdit: sales.lockPriceEdit === true,
     autoPrintReceipt: sales.autoPrintReceipt === true,
     requireCashShift: sales.requireCashShift === true,
+    cashShiftRequiredFor: cashShiftRequiredFor.length ? cashShiftRequiredFor : ['pdv'],
     saleIncomeCategory,
   };
 }

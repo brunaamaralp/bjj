@@ -1,5 +1,9 @@
 import { channelLabel } from './salesSettings.js';
-import { formatSalePaymentHistoryLabel } from './salePayments.js';
+import {
+  formatSalePaymentHistoryLabel,
+  salePaidAmountNet,
+  saleRemainingAmount,
+} from './salePayments.js';
 import { formatBRL } from './moneyBr.js';
 import { productDisplayLabel } from './stockProducts.js';
 
@@ -92,21 +96,62 @@ export function itemsSummaryFromSnapshot(doc) {
   }
 }
 
+function resolveSalePaidAmount(sale) {
+  const fromField = Number(sale?.paid_amount);
+  if (Number.isFinite(fromField) && fromField >= 0) return fromField;
+  return salePaidAmountNet(sale?.pagamentos ?? sale?.pagamentos_json);
+}
+
+function resolveSaleRemaining(sale) {
+  const fromField = Number(sale?.remaining_amount);
+  if (Number.isFinite(fromField) && fromField >= 0) return fromField;
+  const total = Number(sale?.total) || 0;
+  return saleRemainingAmount(total, resolveSalePaidAmount(sale));
+}
+
 export function computeHistoryTotals(sales) {
   let concludedCount = 0;
-  let concludedTotal = 0;
+  let concludedReceived = 0;
+  let openCount = 0;
+  let openRemaining = 0;
   let cancelCount = 0;
   for (const s of sales || []) {
     const st = String(s.status || '').toLowerCase();
     const total = Number(s.total) || 0;
+    const paid = resolveSalePaidAmount(s);
     if (st === 'concluida') {
       concludedCount += 1;
-      concludedTotal += total;
+      concludedReceived += paid > 0.009 ? paid : total;
+    } else if (st === 'pendente' || st === 'parcial') {
+      openCount += 1;
+      openRemaining += resolveSaleRemaining(s);
     } else if (st === 'cancelada') {
       cancelCount += 1;
     }
   }
-  return { concludedCount, concludedTotal, cancelCount };
+  return {
+    concludedCount,
+    concludedReceived,
+    /** @deprecated use concludedReceived */
+    concludedTotal: concludedReceived,
+    openCount,
+    openRemaining,
+    cancelCount,
+  };
+}
+
+/** Estorno estimado ao cancelar (valor já recebido / liquidado). */
+export function estimateCancelRefund(sale) {
+  return resolveSalePaidAmount(sale);
+}
+
+export function saleIsPartiallyPaid(sale) {
+  const st = String(sale?.status || '').toLowerCase();
+  if (st === 'parcial') return true;
+  if (st === 'pendente') return false;
+  const total = Number(sale?.total) || 0;
+  const paid = resolveSalePaidAmount(sale);
+  return paid > 0.009 && paid < total - 0.009;
 }
 
 export function filterSalesList(sales, { status, canal, search }) {
@@ -115,9 +160,24 @@ export function filterSalesList(sales, { status, canal, search }) {
     const st = String(s.status || '').toLowerCase();
     if (status === 'concluida' && st !== 'concluida') return false;
     if (status === 'cancelada' && st !== 'cancelada') return false;
+    if (status === 'pendente' && st !== 'pendente') return false;
+    if (status === 'parcial' && st !== 'parcial') return false;
+    if (status === 'rascunho' && st !== 'rascunho') return false;
+    if (status === 'em_aberto' && st !== 'pendente' && st !== 'parcial') return false;
     if (canal && canal !== 'all' && String(s.canal || 'presencial') !== canal) return false;
     if (q) {
-      const hay = `${s.id} ${s.client_name} ${formatSaleIdShort(s.id)}`.toLowerCase();
+      const hay = [
+        s.id,
+        s.client_name,
+        formatSaleIdShort(s.id),
+        s.items_summary,
+        s.payment_label,
+        s.forma_pagamento,
+        saleStatusLabel(s.status),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -200,6 +260,7 @@ export function saleStatusLabel(status) {
   if (st === 'concluida') return 'Concluída';
   if (st === 'parcial') return 'Parcial';
   if (st === 'pendente') return 'Pendente';
+  if (st === 'rascunho') return 'Rascunho';
   return status || '—';
 }
 
@@ -208,12 +269,33 @@ export const SALE_STATUS_BADGE_MAP = {
   cancelada: { label: 'Cancelada', tone: 'danger' },
   pendente: { label: 'Pendente', tone: 'warning' },
   parcial: { label: 'Parcial', tone: 'warning' },
+  rascunho: { label: 'Rascunho', tone: 'muted' },
 };
 
+export function saleIsDraft(statusOrSale) {
+  const st =
+    statusOrSale != null && typeof statusOrSale === 'object'
+      ? String(statusOrSale.status || '').toLowerCase()
+      : String(statusOrSale || '').toLowerCase();
+  return st === 'rascunho';
+}
+
+/** Rascunhos incompletos — descarte sem motivo de cancelamento. */
+export function saleAllowsDiscardDraft(statusOrSale) {
+  return saleIsDraft(statusOrSale);
+}
+
 /** Vendas em que owner/admin pode cancelar ou trocar produto (histórico / detalhe). */
-export function saleAllowsCancelOrEdit(status) {
-  const st = String(status || '').toLowerCase();
-  return st === 'concluida' || st === 'pendente' || st === 'parcial';
+export function saleAllowsCancelOrEdit(statusOrSale) {
+  const sale =
+    statusOrSale != null && typeof statusOrSale === 'object'
+      ? statusOrSale
+      : { status: statusOrSale };
+  const st = String(sale.status || '').toLowerCase();
+  if (st === 'cancelada' || st === 'rascunho') return false;
+  if (st === 'concluida' || st === 'pendente' || st === 'parcial') return true;
+  if (sale.deferred === true) return true;
+  return false;
 }
 
 /** @deprecated Use StatusBadge + SALE_STATUS_BADGE_MAP */

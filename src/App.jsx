@@ -11,7 +11,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { authService } from './lib/auth';
-import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, SALES_CREATE_FN_ID, SALES_CANCEL_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
+import { databases, DB_ID, ACADEMIES_COL, STOCK_ITEMS_COL, INVENTORY_MOVE_FN_ID, LEADS_COL, createSessionJwt, teams } from './lib/appwrite';
 import { isBillingLive } from './lib/billingEnabled';
 import { Query } from 'appwrite';
 import { useLeadStore, cancelFetchLeads } from './store/useLeadStore';
@@ -1229,8 +1229,6 @@ const App = () => {
             }
             if (modules.sales === true) {
               if (!STOCK_ITEMS_COL) missing.push('VITE_APPWRITE_STOCK_ITEMS_COLLECTION_ID');
-              if (!SALES_CREATE_FN_ID) missing.push('VITE_APPWRITE_SALES_CREATE_FN_ID');
-              if (!SALES_CANCEL_FN_ID) missing.push('VITE_APPWRITE_SALES_CANCEL_FN_ID');
             }
             return missing.length > 0 && (
               <div style={{ background: 'var(--warn-bg)', color: 'var(--warn-text)', padding: '10px 20px', fontSize: 13 }}>
