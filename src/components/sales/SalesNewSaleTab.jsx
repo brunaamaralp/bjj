@@ -310,6 +310,33 @@ export default function SalesNewSaleTab({
   const shiftBlocksSale =
     salesSettings.requireCashShift && !openCashShift && !modalMode;
 
+  const subtotalMasked = useMemo(() => {
+    try {
+      return totalCart.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${totalCart.toFixed(2)}`.replace('.', ',');
+    }
+  }, [totalCart]);
+
+  const descGeralMaskedOut = useMemo(() => {
+    const v = discountDisplayValue;
+    try {
+      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${v.toFixed(2)}`.replace('.', ',');
+    }
+  }, [discountDisplayValue]);
+
+  const totalMasked = useMemo(() => {
+    try {
+      return totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch {
+      return `R$ ${totalFinal.toFixed(2)}`.replace('.', ',');
+    }
+  }, [totalFinal]);
+
+  const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
+
   const checkoutDirty = useMemo(
     () =>
       isSaleCheckoutDirty({
@@ -491,33 +518,6 @@ export default function SalesNewSaleTab({
   useEffect(() => {
     setPayments((prev) => rebalancePaymentsForTotal(prev, totalFinalCents));
   }, [totalFinalCents]);
-
-  const subtotalMasked = useMemo(() => {
-    try {
-      return totalCart.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${totalCart.toFixed(2)}`.replace('.', ',');
-    }
-  }, [totalCart]);
-
-  const descGeralMaskedOut = useMemo(() => {
-    const v = discountDisplayValue;
-    try {
-      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${v.toFixed(2)}`.replace('.', ',');
-    }
-  }, [discountDisplayValue]);
-
-  const totalMasked = useMemo(() => {
-    try {
-      return totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${totalFinal.toFixed(2)}`.replace('.', ',');
-    }
-  }, [totalFinal]);
-
-  const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
   const buildCartLine = useCallback(
     (product, parent = null, lineKind = 'sale') => {
