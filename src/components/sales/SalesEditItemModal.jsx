@@ -177,7 +177,7 @@ export default function SalesEditItemModal({
       title="Trocar produto"
       onClose={handleClose}
       maxWidth={720}
-      className="sales-modal-backdrop navi-modal-overlay--form"
+      className="sales-modal-backdrop navi-modal-overlay--form navi-modal-overlay--stacked"
       dialogClassName="sales-modal card sales-modal--wide sales-edit-item-modal"
     >
       <p className="text-small text-muted sales-edit-item-modal__intro">

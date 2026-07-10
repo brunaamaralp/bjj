@@ -810,7 +810,7 @@ export default function StudentFinancialTimeline({
       </div>
 
       <SaleDetailModal
-        open={detailOpen}
+        open={detailOpen && !cancelOpen && !editItemOpen}
         sale={detailSale}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}

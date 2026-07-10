@@ -30,7 +30,7 @@ import {
 import SalesDailyReportModal from './SalesDailyReportModal';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import { formatBRL } from '../../lib/moneyBr';
-import { friendlyError } from '../../lib/errorMessages';
+import { friendlyError, friendlySaleError } from '../../lib/errorMessages';
 import SaleDetailModal from './SaleDetailModal';
 import SalesCancelModal from './SalesCancelModal';
 import SalesEditItemModal from './SalesEditItemModal';
@@ -41,12 +41,16 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const deepLinkAppliedRef = useRef(false);
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
+  const teamIdFromStore = useLeadStore((s) => s.teamId);
+  const [academyRoleDoc, setAcademyRoleDoc] = useState(null);
   const academyDoc = useMemo(() => {
     if (!academyId) return null;
-    const a = (academyList || []).find((x) => x.id === academyId);
-    if (!a) return null;
-    return { ownerId: String(a.ownerId || ''), teamId: String(a.teamId || '') };
-  }, [academyList, academyId]);
+    const fromList = (academyList || []).find((x) => x.id === academyId);
+    const ownerId = String(fromList?.ownerId || academyRoleDoc?.ownerId || '');
+    const teamId = String(fromList?.teamId || academyRoleDoc?.teamId || teamIdFromStore || '');
+    if (!ownerId && !teamId) return null;
+    return { ownerId, teamId };
+  }, [academyList, academyId, academyRoleDoc, teamIdFromStore]);
   const canManageSales = useCanManageAcademySales(academyDoc);
   const canCancelSale = canManageSales;
   const canEditSale = canManageSales;
@@ -100,6 +104,10 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         if (cancelled) return;
         setAcademyName(String(doc.name || '').trim());
         setSalesSettings(readSalesSettings(doc.settings));
+        setAcademyRoleDoc({
+          ownerId: String(doc.ownerId || ''),
+          teamId: String(doc.teamId || ''),
+        });
       } catch (e) {
         console.error('[SalesHistory] academy', e);
       }
@@ -174,9 +182,12 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
     if (!detailSale?.id) return;
     const result = await cancelSale({ venda_id: detailSale.id, motivo });
     if (!result?.ok) {
+      const msg =
+        friendlySaleError(useSalesStore.getState().error) ||
+        'Não foi possível cancelar a venda. Tente novamente.';
       addToast({
         type: 'error',
-        message: 'Não foi possível cancelar a venda. Tente novamente.',
+        message: msg,
       });
       return;
     }
@@ -457,7 +468,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
       </div>
 
       <SaleDetailModal
-        open={detailOpen}
+        open={detailOpen && !cancelOpen && !editItemOpen}
         sale={detailSale}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}

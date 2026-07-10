@@ -29,7 +29,7 @@ function SalesCancelModalForm({ sale, loading, onClose, onConfirm }) {
       closeOnOverlay={!loading}
       closeOnEsc={!loading}
       maxWidth={420}
-      className="sales-modal-backdrop navi-modal-overlay--form"
+      className="sales-modal-backdrop navi-modal-overlay--form navi-modal-overlay--stacked"
       dialogClassName="sales-modal card"
       footer={
         <div className="flex gap-2" style={{ justifyContent: 'flex-end', flexWrap: 'wrap', width: '100%' }}>

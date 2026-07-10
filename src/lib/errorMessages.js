@@ -225,6 +225,9 @@ const SALE_ERROR_CODES = {
   forbidden: 'Sem permissão para alterar esta venda.',
   forbidden_role: 'Apenas titular ou administrador pode trocar produtos na venda.',
   forbidden_sale_academy: 'Esta venda pertence a outra academia. Abra em Loja → Vendas.',
+  invalid_status: 'Só é possível cancelar vendas concluídas.',
+  financial_refund_failed: 'Não foi possível estornar o pagamento. Verifique o Caixa.',
+  'SALES_CANCEL_FN_ID not set': 'Cancelamento de vendas não configurado. Fale com o suporte.',
 };
 
 /**
