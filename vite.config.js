@@ -39,13 +39,9 @@ export default defineConfig(({ mode }) => {
           globIgnores: ['**/assets/**'],
           runtimeCaching: [
             {
+              // Chunks com hash no nome são imutáveis — não cachear no SW (evita TDZ/bugs de deploy antigo).
               urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'assets',
-                networkTimeoutSeconds: 8,
-                expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 },
-              },
+              handler: 'NetworkOnly',
             },
             {
               urlPattern: ({ request }) => request.mode === 'navigate',

@@ -1,5 +1,4 @@
 import { parseAcademySettings } from './stockSettings.js';
-import { DEFAULT_CANCEL_RECEIPT_TEMPLATE } from './salesHistory.js';
 
 export const DEFAULT_SALES_RECEIPT_TEMPLATE = `*{academy_name}*
 Venda #{sale_id} — {date}
@@ -8,6 +7,18 @@ Venda #{sale_id} — {date}
 
 *Total: {total}*
 Pagamento: {payment}
+
+{footer}`;
+
+export const DEFAULT_CANCEL_RECEIPT_TEMPLATE = `*Cancelamento — {academy_name}*
+Venda #{sale_id} cancelada em {cancel_date}
+
+Motivo: {cancel_reason}
+
+Itens devolvidos ao estoque:
+{items_lines}
+
+Valor estornado: {refund_total}
 
 {footer}`;
 

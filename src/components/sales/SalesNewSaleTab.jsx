@@ -63,6 +63,16 @@ const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
 const SALE_ALUNO_SUGGESTIONS_ID = 'sale-aluno-suggestions';
 const saleAlunoOptionId = (id) => `sale-aluno-option-${id}`;
 
+function formatSaleTotalBRL(total) {
+  const n = Number(total);
+  if (!Number.isFinite(n)) return 'R$ 0,00';
+  try {
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  } catch {
+    return `R$ ${n.toFixed(2)}`.replace('.', ',');
+  }
+}
+
 export default function SalesNewSaleTab({
   modalMode = false,
   onSaleComplete,
@@ -327,13 +337,7 @@ export default function SalesNewSaleTab({
     }
   }, [discountDisplayValue]);
 
-  const totalMasked = useMemo(() => {
-    try {
-      return totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } catch {
-      return `R$ ${totalFinal.toFixed(2)}`.replace('.', ',');
-    }
-  }, [totalFinal]);
+  const totalMasked = useMemo(() => formatSaleTotalBRL(totalFinal), [totalFinal]);
 
   const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
@@ -371,7 +375,7 @@ export default function SalesNewSaleTab({
           ? 'Registrando venda…'
           : cart.length === 0
             ? 'Concluir venda'
-            : `Concluir venda — ${totalMasked}`,
+            : `Concluir venda — ${formatSaleTotalBRL(totalFinal)}`,
       footerHint: canSubmit || footerError
         ? null
         : getSaleFooterHint({
@@ -387,7 +391,7 @@ export default function SalesNewSaleTab({
     paymentValid.ok,
     creating,
     shiftBlocksSale,
-    totalMasked,
+    totalFinal,
     deferredSale,
     localError,
     error,

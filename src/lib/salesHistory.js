@@ -1,4 +1,4 @@
-import { channelLabel } from './salesSettings.js';
+import { channelLabel, DEFAULT_CANCEL_RECEIPT_TEMPLATE } from './salesSettings.js';
 import {
   formatSalePaymentHistoryLabel,
   salePaidAmountNet,
@@ -7,24 +7,15 @@ import {
 import { formatBRL } from './moneyBr.js';
 import { productDisplayLabel } from './stockProducts.js';
 
+
+export { DEFAULT_CANCEL_RECEIPT_TEMPLATE } from './salesSettings.js';
+
 export const CANCEL_REASON_OPTIONS = [
   { value: 'desistencia', label: 'Desistência do cliente' },
   { value: 'defeito', label: 'Produto com defeito' },
   { value: 'erro', label: 'Erro na venda' },
   { value: 'outro', label: 'Outro' },
 ];
-
-export const DEFAULT_CANCEL_RECEIPT_TEMPLATE = `*Cancelamento — {academy_name}*
-Venda #{sale_id} cancelada em {cancel_date}
-
-Motivo: {cancel_reason}
-
-Itens devolvidos ao estoque:
-{items_lines}
-
-Valor estornado: {refund_total}
-
-{footer}`;
 
 export function formatSaleIdShort(id) {
   const s = String(id || '').trim();
