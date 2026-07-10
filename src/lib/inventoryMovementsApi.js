@@ -11,6 +11,7 @@ export async function fetchInventoryMovements({
   sale_id,
   movement_kind,
   usuario_id,
+  cliente_q,
   limit = 50,
   cursor,
 }) {
@@ -25,6 +26,7 @@ export async function fetchInventoryMovements({
   if (sale_id) params.set('sale_id', sale_id);
   if (movement_kind) params.set('movement_kind', movement_kind);
   if (usuario_id) params.set('usuario_id', usuario_id);
+  if (cliente_q) params.set('cliente_q', cliente_q);
   if (cursor) params.set('cursor', cursor);
 
   const res = await authedFetch(`/api/inventory/movements?${params}`, {

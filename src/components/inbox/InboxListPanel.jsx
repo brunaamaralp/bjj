@@ -23,6 +23,7 @@ export default function InboxListPanel({
   listFetchedOnce = false,
   itemsLength,
   waChatConnected,
+  whatsappDisconnected = false,
   loadingMore,
   handleSelectConversation,
   onPrefetchConversation,
@@ -289,6 +290,7 @@ export default function InboxListPanel({
           listFetchedOnce={listFetchedOnce}
           totalItems={itemsLength}
           whatsAppConnected={waChatConnected}
+          whatsappDisconnected={whatsappDisconnected}
           loadingMore={loadingMore}
           onSelectConversation={handleSelectConversation}
           onPrefetchConversation={onPrefetchConversation}

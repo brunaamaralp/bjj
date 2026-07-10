@@ -437,26 +437,21 @@ export default async function handler(req, res) {
         );
       }
 
-      let whatsappProfileImageUrl = String(doc.whatsapp_profile_image_url || '').trim();
-      let whatsappProfileName = String(doc.whatsapp_profile_name || '').trim();
+      const whatsappProfileImageUrl = String(doc.whatsapp_profile_image_url || '').trim();
+      const whatsappProfileName = String(doc.whatsapp_profile_name || '').trim();
       if (!whatsappProfileImageUrl && isInitialThreadPage(cursor)) {
         const recipientPhone = primaryInboxPhone(doc.phone_number || phoneDigits) || phoneDigits;
         if (recipientPhone) {
-          try {
-            const { avatars, persists } = await resolveInboxProfileAvatars({
+          waitUntil(
+            resolveInboxProfileAvatars({
               academyId,
               academyDoc,
               phones: [recipientPhone],
-            });
-            const url = String(avatars[recipientPhone] || '').trim();
-            if (url) whatsappProfileImageUrl = url;
-            const nameRow = persists.find((row) => String(row?.payload?.whatsapp_profile_name || '').trim());
-            if (nameRow && !whatsappProfileName) {
-              whatsappProfileName = String(nameRow.payload.whatsapp_profile_name).trim();
-            }
-            if (persists.length) {
-              waitUntil(
-                Promise.all(
+              docsByPhone: { [recipientPhone]: doc },
+            })
+              .then(({ persists }) => {
+                if (!persists.length) return;
+                return Promise.all(
                   persists.map(({ docId, payload }) =>
                     databases.updateDocument(DB_ID, CONVERSATIONS_COL, docId, payload).catch((e) => {
                       console.warn(
@@ -468,18 +463,18 @@ export default async function handler(req, res) {
                       );
                     })
                   )
-                )
-              );
-            }
-          } catch (e) {
-            console.warn(
-              JSON.stringify({
-                event: 'whatsapp_profile_image_resolve_failed',
-                phone: recipientPhone,
-                error: e?.message || String(e),
+                );
               })
-            );
-          }
+              .catch((e) => {
+                console.warn(
+                  JSON.stringify({
+                    event: 'whatsapp_profile_image_resolve_failed',
+                    phone: recipientPhone,
+                    error: e?.message || String(e),
+                  })
+                );
+              })
+          );
         }
       }
 

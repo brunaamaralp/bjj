@@ -17,7 +17,10 @@ import { useStudentStore } from '../store/useStudentStore';
 import { useUserRole } from '../lib/useUserRole';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection';
-import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
+import {
+  isWhatsAppIntegrationConnected,
+  isWhatsAppIntegrationDisconnected,
+} from '../lib/whatsappIntegrationState.js';
 import { INTEGRACOES_WHATSAPP_PATH } from '../lib/integracoesRoutes.js';
 import { X } from 'lucide-react';
 import InboxListSection from '../components/inbox/InboxListSection.jsx';
@@ -375,14 +378,11 @@ export default function Inbox() {
   const threadRequestSeqRef = useRef(0);
   const realtimeTimersRef = useRef({ list: null, thread: null });
   const academyIdRef = useRef('');
+  academyIdRef.current = String(academyId || '').trim();
   const handleSelectConversationRef = useRef(() => {});
   const markSeenRef = useRef(null);
   const messageFlagsMigrationDoneRef = useRef(false);
   const inboxAutoSelectDoneRef = useRef(false);
-
-  useEffect(() => {
-    academyIdRef.current = String(academyId || '').trim();
-  }, [academyId]);
 
   const threadMessageCount = Array.isArray(selected?.messages) ? selected.messages.length : 0;
   const handleThreadPhoneChange = useCallback(() => {
@@ -454,6 +454,11 @@ export default function Inbox() {
     waDeferredOnceRef.current = false;
   }, [academyId]);
 
+  const whatsappDisconnected = useMemo(
+    () => isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked),
+    [waStatus, waStatusChecked]
+  );
+
   const { loadList, loadListRef, listFetchedOnce } = useInboxConversationList({
     academyId,
     academyIdRef,
@@ -468,6 +473,7 @@ export default function Inbox() {
     hasMore,
     loading,
     loadingMore,
+    whatsappDisconnected,
     setNextCursor,
     setHasMore,
     setError,
@@ -1173,10 +1179,10 @@ export default function Inbox() {
   }, [setListFilter, setExtraFiltersMenuOpen, setSearch]);
 
   const waChatConnected = useMemo(
-    () => !waStatusChecked || String(waStatus || '').trim() === 'connected',
+    () => isWhatsAppIntegrationConnected(waStatus, waStatusChecked),
     [waStatus, waStatusChecked]
   );
-  const showWaDisconnectBanner = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
+  const showWaDisconnectBanner = whatsappDisconnected;
 
   const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
   const visibleConversationCount = flatVisibleConversations.length;
@@ -1210,6 +1216,7 @@ export default function Inbox() {
     listFetchedOnce,
     itemsLength: items.length,
     waChatConnected,
+    whatsappDisconnected,
     loadingMore,
     handleSelectConversation,
     onPrefetchConversation: handlePrefetchConversation,

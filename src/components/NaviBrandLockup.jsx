@@ -16,7 +16,16 @@ export default function NaviBrandLockup({ height = 28, variant = 'light', classN
       alt="nave"
       className={`navi-brand-lockup navi-brand-lockup--${variant}${className ? ` ${className}` : ''}`}
       height={height}
-      style={{ display: 'block', height, width: 'auto', maxWidth: '100%', flexShrink: 0 }}
+      style={{
+        display: 'block',
+        height,
+        width: 'auto',
+        maxWidth: '100%',
+        maxHeight: height,
+        objectFit: 'contain',
+        objectPosition: 'left center',
+        flexShrink: 0,
+      }}
       decoding="async"
     />
   );

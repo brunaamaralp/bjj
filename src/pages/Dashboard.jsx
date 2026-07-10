@@ -115,6 +115,7 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
+import KimonoLoanPanel from '../components/recepcao/KimonoLoanPanel.jsx';
 import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
 import { fetchSalesDailyReport } from '../lib/salesDailyReportApi.js';
@@ -1501,6 +1502,8 @@ const Dashboard = () => {
             ) : null}
 
 
+
+            <KimonoLoanPanel academyId={academyId} modules={modules} />
 
             <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
 

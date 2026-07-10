@@ -52,6 +52,9 @@ const OPTIONAL_ATTRS = [
   'troco',
   'forma_troco',
   'troco_account',
+  'covered_reason',
+  'billing_reference_id',
+  'issued_at',
 ];
 
 const MIRROR_SYNC_WARNING =
@@ -108,6 +111,12 @@ function buildPaymentPayload(data) {
   if (data.bundle_origin_id != null && String(data.bundle_origin_id).trim()) {
     payload.bundle_origin_id = String(data.bundle_origin_id).trim();
   }
+
+  const coveredReason = String(data.covered_reason || '').trim();
+  if (coveredReason) payload.covered_reason = coveredReason.slice(0, 64);
+  const billingRef = String(data.billing_reference_id || '').trim();
+  if (billingRef) payload.billing_reference_id = billingRef.slice(0, 128);
+  if (data.issued_at) payload.issued_at = String(data.issued_at);
 
   const troco = Math.round(Number(data.troco || 0) * 100) / 100;
   if (troco > 0) {

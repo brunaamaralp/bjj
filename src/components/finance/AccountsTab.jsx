@@ -24,6 +24,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import { accountCodeDepth } from '../../lib/financeAccountCategories.js';
 import { FINANCE_DRE_GROUP_OPTIONS } from '../../lib/financeDreGroups.js';
+import { FINANCE_CASH_FLOW_CLASS_OPTIONS } from '../../lib/financeCashFlowMapping.js';
 import {
   validateAccountForm,
   inheritFromParentAccount,
@@ -46,6 +47,7 @@ const EMPTY_FORM = {
   dreGrupo: '',
   dfcClasse: '',
   dfcSubclasse: '',
+  cashFlowClass: '',
   cash: false,
   isActive: true,
 };
@@ -79,6 +81,7 @@ function mapDoc(d) {
     dreGrupo: d.dreGrupo || '',
     dfcClasse: d.dfcClasse || '',
     dfcSubclasse: d.dfcSubclasse || '',
+    cashFlowClass: d.cashFlowClass || '',
     cash: Boolean(d.cash),
     isActive: d.is_active !== false,
     createdAt: d.$createdAt || d.created_at || null,
@@ -95,6 +98,7 @@ function accountToPayload(academyId, form) {
     dreGrupo: String(form.dreGrupo || '').trim(),
     dfcClasse: String(form.dfcClasse || '').trim(),
     dfcSubclasse: String(form.dfcSubclasse || '').trim(),
+    cashFlowClass: String(form.cashFlowClass || '').trim(),
     cash: Boolean(form.cash),
     is_active: Boolean(form.isActive),
   };
@@ -139,6 +143,18 @@ function AccountDfcSelect({ value, onChange, className = 'form-input' }) {
       <option value="Investimento">Investimento</option>
       <option value="Financiamento">Financiamento</option>
       <option value="Caixa">Caixa</option>
+    </select>
+  );
+}
+
+function AccountCashFlowSelect({ value, onChange, className = 'form-input' }) {
+  return (
+    <select className={className} value={value} onChange={onChange}>
+      {FINANCE_CASH_FLOW_CLASS_OPTIONS.map((opt) => (
+        <option key={opt.value || 'inherit'} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
     </select>
   );
 }
@@ -388,6 +404,13 @@ function AccountsAccountDrawer({
                   />
                 </div>
                 <div className="form-group">
+                  <label htmlFor="acc-drawer-cascade">Linha cascata (caixa gerencial)</label>
+                  <AccountCashFlowSelect
+                    value={form.cashFlowClass}
+                    onChange={(e) => patchForm({ cashFlowClass: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
                   <label htmlFor="acc-drawer-dfc-sub">Subclasse DFC</label>
                   <input
                     id="acc-drawer-dfc-sub"
@@ -539,6 +562,7 @@ export default function AccountsTab({
       dreGrupo: acc.dreGrupo || '',
       dfcClasse: acc.dfcClasse || '',
       dfcSubclasse: acc.dfcSubclasse || '',
+      cashFlowClass: acc.cashFlowClass || '',
       cash: Boolean(acc.cash),
       isActive: acc.isActive !== false,
     };
@@ -748,6 +772,7 @@ export default function AccountsTab({
             dreGrupo: form.dreGrupo,
             dfcClasse: form.dfcClasse,
             dfcSubclasse: form.dfcSubclasse,
+            cashFlowClass: form.cashFlowClass,
             cash: form.cash,
             isActive: form.isActive,
             id: tempId,
@@ -776,6 +801,7 @@ export default function AccountsTab({
             dreGrupo: form.dreGrupo,
             dfcClasse: form.dfcClasse,
             dfcSubclasse: form.dfcSubclasse,
+            cashFlowClass: form.cashFlowClass,
             cash: form.cash,
             isActive: form.isActive,
           });

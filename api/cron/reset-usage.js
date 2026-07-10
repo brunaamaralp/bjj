@@ -24,6 +24,8 @@ import { runBookingNoShowCron } from '../../lib/server/runBookingNoShowCron.js';
 import { runPagbankReconcileCron } from '../../lib/server/pagbankReconcileHandler.js';
 import { runFinanceReceivablesWarmCron } from '../../lib/server/runFinanceReceivablesWarmCron.js';
 import { runStaleOrphanMetricsCron } from '../../lib/server/bankReconciliationMetricsStore.js';
+import { runStudentPaymentMaterializeCron } from '../../lib/server/runStudentPaymentMaterializeCron.js';
+import { runMessagesRecentBackfillCron } from '../../lib/server/runMessagesRecentBackfillCron.js';
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
 const PROJECT_ID =
@@ -271,6 +273,26 @@ export default async function handler(req, res) {
     const databases = new Databases(client);
     const out = await runStaleOrphanMetricsCron(databases, DB_ID);
     return res.status(200).json({ mode: 'recon-stale-orphans', ...out });
+  }
+  if (action === 'student-payment-materialize') {
+    const monthOverride = String(req.query?.month || '').trim();
+    const out = await runStudentPaymentMaterializeCron({
+      referenceMonth: monthOverride || undefined,
+    });
+    return res.status(200).json({ mode: 'student-payment-materialize', ...out });
+  }
+  if (action === 'messages-recent-backfill') {
+    const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
+    const databases = new Databases(client);
+    const academyId = String(req.query?.academy_id || req.query?.academyId || '').trim();
+    const cursor = String(req.query?.cursor || '').trim();
+    const dryRun = String(req.query?.dry_run || req.query?.dryRun || '').trim() === '1';
+    const out = await runMessagesRecentBackfillCron(databases, DB_ID, {
+      academyId: academyId || undefined,
+      cursor: cursor || undefined,
+      dryRun,
+    });
+    return res.status(200).json({ mode: 'messages-recent-backfill', ...out });
   }
   const shouldCheckTrials = action === 'check-trials' || hourUtc === 9;
 

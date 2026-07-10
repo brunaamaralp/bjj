@@ -2,6 +2,7 @@
  * Verifica e provisiona schema Appwrite (Financeiro + Produtos + Vendas).
  *
  * Uso: node scripts/verify-and-fix-schema.mjs
+ *      DRY_RUN=1 node scripts/verify-and-fix-schema.mjs   (só lista o que criaria)
  *
  * Idempotente — pausa 1s entre criações na mesma collection.
  * Não aborta por erro em um campo; continua e resume no final.
@@ -65,8 +66,15 @@ const SALE_ITEMS_COL =
   process.env.VITE_APPWRITE_SALE_ITEMS_COL ||
   '';
 const SALES_COL = process.env.VITE_APPWRITE_SALES_COLLECTION_ID || process.env.SALES_COL || '';
+const KIMONO_LOANS_COL =
+  process.env.KIMONO_LOANS_COL ||
+  process.env.VITE_APPWRITE_KIMONO_LOANS_COLLECTION_ID ||
+  'kimono_loans';
+const PAGBANK_PAYMENTS_COL =
+  process.env.APPWRITE_PAGBANK_PAYMENTS_COLLECTION_ID || 'pagbank_payments';
 
 const ATTR_GAP_MS = Number(process.env.PROVISION_ATTR_GAP_MS || 1000);
+const DRY_RUN = ['1', 'true', 'yes'].includes(String(process.env.DRY_RUN || '').trim().toLowerCase());
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function emptyStats() {
@@ -76,10 +84,12 @@ function emptyStats() {
 const summary = {
   FINANCIAL_TX: emptyStats(),
   STUDENT_PAYMENTS: emptyStats(),
+  PAGBANK_PAYMENTS: emptyStats(),
   financial_audit: emptyStats(),
   STOCK_ITEMS: emptyStats(),
   SALE_ITEMS: emptyStats(),
   SALES: emptyStats(),
+  KIMONO_LOANS: emptyStats(),
 };
 
 function isAlreadyExists(err) {
@@ -125,7 +135,7 @@ async function listIndexKeys(databases, collectionId) {
 }
 
 async function waitForAttribute(databases, collectionId, key) {
-  const deadline = Date.now() + 120000;
+  const deadline = Date.now() + 300000;
   while (Date.now() < deadline) {
     const res = await databases.listAttributes({ databaseId: DB_ID, collectionId });
     const attr = (res.attributes || []).find((a) => a.key === key);
@@ -139,6 +149,23 @@ async function waitForAttribute(databases, collectionId, key) {
     await sleep(1500);
   }
   throw new Error('timeout_waiting_attribute');
+}
+
+async function waitForIndex(databases, collectionId, key) {
+  const deadline = Date.now() + 300000;
+  while (Date.now() < deadline) {
+    const res = await databases.listIndexes({ databaseId: DB_ID, collectionId });
+    const idx = (res.indexes || []).find((i) => i.key === key);
+    if (!idx) {
+      await sleep(800);
+      continue;
+    }
+    const status = String(idx.status || '').toLowerCase();
+    if (status === 'available' || status === 'enabled') return;
+    if (status === 'failed') throw new Error(idx.error || 'index_failed');
+    await sleep(1500);
+  }
+  throw new Error('timeout_waiting_index');
 }
 
 async function ensureAttr(databases, collectionId, statsKey, spec) {
@@ -166,6 +193,12 @@ async function ensureAttr(databases, collectionId, statsKey, spec) {
       );
       stats.divergent += 1;
     }
+    return;
+  }
+
+  if (DRY_RUN) {
+    console.log(`🔍 [dry-run] criaria — ${label}.${key} (${type})`);
+    stats.created += 1;
     return;
   }
 
@@ -233,7 +266,7 @@ async function ensureAttr(databases, collectionId, statsKey, spec) {
   await sleep(ATTR_GAP_MS);
 }
 
-async function ensureIndex(databases, collectionId, statsKey, indexKey, attributes) {
+async function ensureIndex(databases, collectionId, statsKey, indexKey, attributes, indexType = 'key') {
   const stats = summary[statsKey];
   const label = statsKey;
 
@@ -252,15 +285,29 @@ async function ensureIndex(databases, collectionId, statsKey, indexKey, attribut
     return;
   }
 
+  if (DRY_RUN) {
+    console.log(`🔍 [dry-run] criaria — ${label} índice ${indexKey} (${indexType}: ${attributes.join(', ')})`);
+    stats.created += 1;
+    return;
+  }
+
   try {
     await databases.createIndex({
       databaseId: DB_ID,
       collectionId,
       key: indexKey,
-      type: 'key',
+      type: indexType,
       attributes,
     });
-    console.log(`✅ criado — ${label} índice ${indexKey}`);
+    try {
+      await waitForIndex(databases, collectionId, indexKey);
+    } catch (e) {
+      console.log(`❌ erro — ${label} índice ${indexKey}: ${e?.message || e}`);
+      stats.errors += 1;
+      await sleep(ATTR_GAP_MS);
+      return;
+    }
+    console.log(`✅ criado — ${label} índice ${indexKey} (${indexType})`);
     stats.created += 1;
   } catch (e) {
     if (isAlreadyExists(e)) {
@@ -296,9 +343,9 @@ async function processCollection(databases, { id, statsKey, title, attrs, indexe
       summary[statsKey].errors += 1;
     }
   }
-  for (const { key, attributes } of indexes) {
+  for (const { key, attributes, type } of indexes) {
     try {
-      await ensureIndex(databases, cid, statsKey, key, attributes);
+      await ensureIndex(databases, cid, statsKey, key, attributes, type || 'key');
     } catch (e) {
       console.log(`❌ erro — ${statsKey} índice ${key}: ${e?.message || e}`);
       summary[statsKey].errors += 1;
@@ -365,6 +412,42 @@ const STUDENT_PAYMENTS_ATTRS = [
   { key: 'financial_tx_sync_pending', type: 'boolean' },
   { key: 'installments', type: 'integer' },
   { key: 'installment_schedule_json', type: 'string', size: 4096 },
+  // Parte A — opcionais já gravados pelos handlers (retrocompat)
+  { key: 'bundle_months', type: 'integer' },
+  { key: 'bundle_origin_id', type: 'string', size: 64 },
+  { key: 'capture_method_id', type: 'string', size: 64 },
+  { key: 'capture_method_name', type: 'string', size: 80 },
+  { key: 'fee_receiver_id', type: 'string', size: 64 },
+  { key: 'card_brand', type: 'string', size: 32 },
+  { key: 'troco', type: 'float' },
+  { key: 'forma_troco', type: 'string', size: 32 },
+  { key: 'troco_account', type: 'string', size: 128 },
+  // Parte B — rastreabilidade financeira (fase refatoração)
+  { key: 'billing_reference_id', type: 'string', size: 80 },
+  { key: 'gateway_payment_id', type: 'string', size: 64 },
+  { key: 'gateway_provider', type: 'string', size: 32 },
+  { key: 'issued_at', type: 'string', size: 32 },
+  { key: 'covered_reason', type: 'string', size: 32 },
+];
+
+const PAGBANK_PAYMENTS_ATTRS = [
+  { key: 'payment_id', type: 'string', size: 64 },
+  { key: 'subscription_id', type: 'string', size: 64 },
+  { key: 'student_id', type: 'string', size: 64 },
+  { key: 'academy_id', type: 'string', size: 64 },
+  { key: 'amount', type: 'integer' },
+  { key: 'status', type: 'string', size: 32 },
+  { key: 'reference_month', type: 'string', size: 7 },
+  { key: 'paid_at', type: 'datetime' },
+  { key: 'invoice_id', type: 'string', size: 64 },
+  { key: 'webhook_event_id', type: 'string', size: 128 },
+  { key: 'created_at', type: 'datetime' },
+  { key: 'financial_entry_id', type: 'string', size: 64 },
+  { key: 'decline_reason', type: 'string', size: 256 },
+  { key: 'attempt_number', type: 'integer' },
+  { key: 'is_final_attempt', type: 'boolean' },
+  { key: 'refunded_at', type: 'datetime' },
+  { key: 'student_payment_id', type: 'string', size: 64 },
 ];
 
 const AUDIT_ATTRS = [
@@ -411,6 +494,25 @@ const SALE_ITEMS_ATTRS = [
   { key: 'cmv', type: 'float' },
 ];
 
+const KIMONO_LOANS_ATTRS = [
+  { key: 'academy_id', type: 'string', size: 64 },
+  { key: 'variant_id', type: 'string', size: 64 },
+  { key: 'product_id', type: 'string', size: 64 },
+  { key: 'borrower_type', type: 'string', size: 16 },
+  { key: 'borrower_id', type: 'string', size: 64 },
+  { key: 'borrower_name', type: 'string', size: 128 },
+  { key: 'size_label', type: 'string', size: 32 },
+  { key: 'item_label', type: 'string', size: 160 },
+  { key: 'status', type: 'string', size: 16 },
+  { key: 'lent_at', type: 'string', size: 64 },
+  { key: 'returned_at', type: 'string', size: 64 },
+  { key: 'stock_move_out_id', type: 'string', size: 64 },
+  { key: 'stock_move_in_id', type: 'string', size: 64 },
+  { key: 'lent_by_user_id', type: 'string', size: 64 },
+  { key: 'returned_by_user_id', type: 'string', size: 64 },
+  { key: 'notes', type: 'string', size: 512 },
+];
+
 const SALES_ATTRS = [
   { key: 'academy_id', type: 'string', size: 64 },
   { key: 'academyId', type: 'string', size: 64 },
@@ -453,7 +555,13 @@ async function main() {
 
   console.log('Verificação e correção de schema Appwrite');
   console.log(`Database: ${DB_ID}`);
-  console.log(`Intervalo entre operações: ${ATTR_GAP_MS}ms\n`);
+  console.log(`Intervalo entre operações: ${ATTR_GAP_MS}ms`);
+  if (DRY_RUN) console.log('Modo: DRY_RUN (nenhuma alteração será aplicada)\n');
+  else console.log('');
+  console.log(
+    `Manifesto STUDENT_PAYMENTS: ${STUDENT_PAYMENTS_ATTRS.length} atributos (+9 sync código, +5 rastreabilidade)`
+  );
+  console.log(`Manifesto PAGBANK_PAYMENTS: ${PAGBANK_PAYMENTS_ATTRS.length} atributos\n`);
 
   await processCollection(databases, {
     id: FINANCIAL_TX_COL,
@@ -478,6 +586,25 @@ async function main() {
       { key: 'idx_student_payments_lead_id', attributes: ['lead_id'] },
       { key: 'idx_student_payments_reference_month', attributes: ['reference_month'] },
       { key: 'idx_student_payments_status', attributes: ['status'] },
+      { key: 'idx_sp_billing_reference_id', attributes: ['billing_reference_id'] },
+      // Prompt 1 (test-unique-null-index): múltiplos ausentes/null = ACEITA → UNIQUE viável em campo opcional
+      {
+        key: 'idx_sp_gateway_payment_id',
+        attributes: ['gateway_payment_id'],
+        type: 'unique',
+      },
+    ],
+  });
+
+  await processCollection(databases, {
+    id: PAGBANK_PAYMENTS_COL,
+    statsKey: 'PAGBANK_PAYMENTS',
+    title: 'PAGBANK_PAYMENTS',
+    attrs: PAGBANK_PAYMENTS_ATTRS,
+    indexes: [
+      { key: 'idx_pagbank_payments_payment_id', attributes: ['payment_id'] },
+      { key: 'idx_pagbank_payments_academy_id', attributes: ['academy_id'] },
+      { key: 'idx_pb_webhook_event_id', attributes: ['webhook_event_id'] },
     ],
   });
 
@@ -531,15 +658,28 @@ async function main() {
     ],
   });
 
+  await processCollection(databases, {
+    id: KIMONO_LOANS_COL,
+    statsKey: 'KIMONO_LOANS',
+    title: 'KIMONO_LOANS',
+    attrs: KIMONO_LOANS_ATTRS,
+    indexes: [
+      { key: 'idx_kimono_loans_academy_status', attributes: ['academy_id', 'status'] },
+      { key: 'idx_kimono_loans_borrower', attributes: ['borrower_id'] },
+    ],
+  });
+
   console.log('\n════════════════════════════════════════');
   console.log('RESUMO POR COLLECTION');
   console.log('════════════════════════════════════════');
   printLineSummary('FINANCIAL_TX', summary.FINANCIAL_TX);
   printLineSummary('STUDENT_PAYMENTS', summary.STUDENT_PAYMENTS);
+  printLineSummary('PAGBANK_PAYMENTS', summary.PAGBANK_PAYMENTS);
   printLineSummary('financial_audit', summary.financial_audit);
   printLineSummary('STOCK_ITEMS', summary.STOCK_ITEMS);
   printLineSummary('SALE_ITEMS', summary.SALE_ITEMS);
   printLineSummary('SALES', summary.SALES);
+  printLineSummary('KIMONO_LOANS', summary.KIMONO_LOANS);
   console.log('════════════════════════════════════════\n');
 
   const totalErrors = Object.values(summary).reduce((n, s) => n + s.errors, 0);

@@ -146,10 +146,6 @@ export function resolveGridDisplayStatus(student, payment, currentMonth, today =
   const row = getPaymentRowStatus(student, payment, currentMonth, today);
   const db = String(payment?.status || '').toLowerCase();
 
-  if (String(student?.freeze_status || student?.freezeStatus || '').trim() === 'active') {
-    return { key: 'frozen', label: GRID_STATUS_LABELS.frozen, dbStatus: 'frozen', row };
-  }
-
   if (db === 'frozen') {
     return { key: 'frozen', label: GRID_STATUS_LABELS.frozen, dbStatus: 'frozen', row };
   }

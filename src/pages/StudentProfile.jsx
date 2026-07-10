@@ -40,6 +40,7 @@ import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnect
 import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useCanManageStudentPayments, useCanManageAcademySales } from '../lib/canManageStudentPayments.js';
+import { useAcademyRoleDoc } from '../hooks/useAcademyRoleDoc.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
@@ -464,19 +465,20 @@ export default function StudentProfile() {
 
     const leadId = id || '';
 
-    const academyDocForRole = useMemo(
+    const academyDocFromList = useMemo(
         () => (academyList || []).find((a) => a.id === academyId) || null,
         [academyList, academyId]
     );
-    const navRole = useUserRole(academyDocForRole);
-    const canEditProfile = useCanEditProfile(academyDocForRole);
+    const academyDocForRole = useAcademyRoleDoc();
+    const navRole = useUserRole(academyDocForRole || academyDocFromList);
+    const canEditProfile = useCanEditProfile(academyDocForRole || academyDocFromList);
     const canConfigureBankAccounts = navRole === 'owner' || navRole === 'admin';
     const canManagePayments = useCanManageStudentPayments(academyDocForRole);
     const canManageSales = useCanManageAcademySales(academyDocForRole);
 
     const academySettingsRaw = useMemo(
-        () => academySettingsDoc?.settings ?? academyDocForRole?.settings ?? null,
-        [academySettingsDoc?.settings, academyDocForRole?.settings]
+        () => academySettingsDoc?.settings ?? academyDocFromList?.settings ?? null,
+        [academySettingsDoc?.settings, academyDocFromList?.settings]
     );
 
     const graduationReadOnly = useMemo(

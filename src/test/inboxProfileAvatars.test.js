@@ -55,4 +55,22 @@ describe('resolveInboxProfileAvatars', () => {
     expect(persists).toHaveLength(1);
     expect(persists[0].docId).toBe('conv-2');
   });
+
+  it('usa docsByPhone e não chama findConversationDoc', async () => {
+    mocks.fetchZapsterRecipientProfile.mockResolvedValue({
+      profilePicture: 'https://zapster/preloaded.jpg',
+      name: '',
+    });
+
+    const { resolveInboxProfileAvatars } = await import('../../lib/server/inboxProfileAvatars.js');
+    const { avatars } = await resolveInboxProfileAvatars({
+      academyId: 'acad-1',
+      academyDoc: { zapster_instance_id: 'inst-1' },
+      phones: ['5511999887766'],
+      docsByPhone: { '5511999887766': { $id: 'conv-pre' } },
+    });
+
+    expect(avatars['5511999887766']).toBe('https://zapster/preloaded.jpg');
+    expect(mocks.findConversationDoc).not.toHaveBeenCalled();
+  });
 });

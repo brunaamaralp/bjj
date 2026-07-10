@@ -9,8 +9,12 @@ function useInboxListTopbarMeta({
   visibleConversationCount,
   itemsLength,
   lastUpdatedAt,
+  whatsappDisconnected = false,
 }) {
   return useMemo(() => {
+    if (whatsappDisconnected && listFetchedOnce) {
+      return 'WhatsApp não conectado';
+    }
     if (loading || searchPending || !listFetchedOnce) {
       if (searchPending) return 'Buscando…';
       return 'Carregando…';
@@ -30,6 +34,7 @@ function useInboxListTopbarMeta({
     visibleConversationCount,
     itemsLength,
     lastUpdatedAt,
+    whatsappDisconnected,
   ]);
 }
 
@@ -54,6 +59,7 @@ export function useInboxListPanelProps(params) {
     listFetchedOnce = false,
     itemsLength,
     waChatConnected,
+    whatsappDisconnected = false,
     loadingMore,
     handleSelectConversation,
     onPrefetchConversation,
@@ -85,6 +91,7 @@ export function useInboxListPanelProps(params) {
     visibleConversationCount,
     itemsLength,
     lastUpdatedAt,
+    whatsappDisconnected,
   });
 
   const activeFilterLabel = inboxExtraFilterActive ? inboxFilterLabel(listFilter) : '';
@@ -107,6 +114,7 @@ export function useInboxListPanelProps(params) {
       listFetchedOnce,
       itemsLength,
       waChatConnected,
+      whatsappDisconnected,
       loadingMore,
       handleSelectConversation,
       onPrefetchConversation,
@@ -146,6 +154,7 @@ export function useInboxListPanelProps(params) {
       listFetchedOnce,
       itemsLength,
       waChatConnected,
+      whatsappDisconnected,
       loadingMore,
       handleSelectConversation,
       onPrefetchConversation,

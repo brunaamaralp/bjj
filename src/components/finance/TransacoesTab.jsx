@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import './finance.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { listFinanceTx, createFinanceTx, patchFinanceTx, reverseFinanceTx, anticipateFinanceTx } from '../../lib/financeTxApi.js';
+import {
+  listFinanceTx,
+  createFinanceTx,
+  patchFinanceTx,
+  reverseFinanceTx,
+  anticipateFinanceTx,
+  fetchPayables,
+} from '../../lib/financeTxApi.js';
 import {
   FINANCE_TX_LIST_INITIAL_PAGE_SIZE,
   FINANCE_TX_LIST_PAGE_SIZE,
@@ -30,7 +37,11 @@ import {
   normalizeRecurrenceDay,
 } from '../../lib/financeRecurrence.js';
 import { dueDateForRecurrenceMonth } from '../../lib/financeRecurrenceDedup.js';
-import { todayYmdLocal } from '../../lib/financeForecastCore.js';
+import { todayYmdLocal, addDaysYmd } from '../../lib/financeForecastCore.js';
+import {
+  findMatchingPendingPayable,
+  formatPayableMatchDescription,
+} from '../../lib/financePayableMatch.js';
 import { txSettlementSubtitle } from '../../lib/financeTxSettlementDisplay.js';
 import { useToast } from '../../hooks/useToast';
 import useFinanceCategorySuggestion from '../../hooks/useFinanceCategorySuggestion.js';
@@ -332,6 +343,8 @@ export default function TransacoesTab({
   const [detailTx, setDetailTx] = useState(null);
   const [anticipateTarget, setAnticipateTarget] = useState(null);
   const [pendingAnticipation, setPendingAnticipation] = useState(null);
+  const [pendingPayableMatch, setPendingPayableMatch] = useState(null);
+  const [settlePayableSaving, setSettlePayableSaving] = useState(false);
   const [anticipateSaving, setAnticipateSaving] = useState(false);
   const [showDiscardTxModal, setShowDiscardTxModal] = useState(false);
   const [showCancelTxDialog, setShowCancelTxDialog] = useState(false);
@@ -1156,7 +1169,7 @@ export default function TransacoesTab({
     }
   };
 
-  const saveManualTx = async () => {
+  const saveManualTx = async ({ skipPayableMatch = false } = {}) => {
     if (!academyId) return;
     if (txForm.direction === 'out' && !canManageAdvanced) {
       toast.show({ type: 'error', message: 'Apenas gestores podem registrar saída.' });
@@ -1201,6 +1214,43 @@ export default function TransacoesTab({
       txForm.direction === 'out' ? 0 : parseFloat(String(txForm.fee || '').replace(',', '.')) || 0;
     const installments =
       txForm.method === STORAGE_CREDIT_METHOD ? Math.min(12, Math.max(1, Number(txForm.installments) || 1)) : 1;
+
+    const categoryLabel = cat.label;
+
+    if (
+      !skipPayableMatch &&
+      !editingTxId &&
+      dir === 'out' &&
+      receiveNow &&
+      !txForm.repeat_enabled
+    ) {
+      try {
+        const today = todayYmdLocal();
+        const body = await fetchPayables({
+          academyId,
+          from: addDaysYmd(today, -180),
+          to: addDaysYmd(today, 90),
+          section: 'contas-fixas',
+        });
+        const match = findMatchingPendingPayable(body.items || [], {
+          planName: txForm.planName,
+          gross: grossNum,
+          category: categoryLabel,
+        });
+        if (match?.tx_id) {
+          setPendingPayableMatch({
+            item: match,
+            grossNum,
+            bankAccount,
+            method: txForm.method,
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('[saveManualTx] payable match check failed', e);
+      }
+    }
+
     setSavingTx(true);
     try {
       const payload = {
@@ -1274,6 +1324,50 @@ export default function TransacoesTab({
       toast.show({ type: 'error', message: financeTxFriendlyError(e, 'save') });
     } finally {
       setSavingTx(false);
+    }
+  };
+
+  const settleExistingPayable = async () => {
+    const match = pendingPayableMatch;
+    const txId = String(match?.item?.tx_id || '').trim();
+    if (!txId || !academyId) return;
+    setSettlePayableSaving(true);
+    try {
+      const row = await patchFinanceTx({
+        academyId,
+        id: txId,
+        payload: {
+          action: 'settle',
+          gross: match.grossNum,
+          method: match.method,
+          bank_account: match.bankAccount || undefined,
+          direction: 'out',
+          settledAt: new Date().toISOString(),
+        },
+      });
+      const nowIso = row.settledAt || new Date().toISOString();
+      setTransactions((prev) => {
+        const exists = prev.some((t) => String(t.id) === txId);
+        if (exists) {
+          return prev.map((t) =>
+            String(t.id) === txId ? { ...row, status: 'settled', settledAt: nowIso } : t
+          );
+        }
+        return [{ ...row, status: 'settled', settledAt: nowIso }, ...prev];
+      });
+      if (row) applySettleAccountingSideEffects(row, academyId);
+      toast.success('Conta a pagar liquidada.');
+      setPendingPayableMatch(null);
+      resetTxModal();
+      if (typeof onTxMutated === 'function') onTxMutated();
+      window.dispatchEvent(new CustomEvent('navi-financial-tx-settled'));
+      window.dispatchEvent(new CustomEvent('navi-finance-forecast-invalidate'));
+      void loadTransactions();
+    } catch (e) {
+      console.error(e);
+      toast.show({ type: 'error', message: financeTxFriendlyError(e, 'action') });
+    } finally {
+      setSettlePayableSaving(false);
     }
   };
 
@@ -2556,6 +2650,25 @@ export default function TransacoesTab({
         onConfirm={({ feeAmount }) => {
           setPendingAnticipation({ tx: anticipateTarget, feeAmount });
           setAnticipateTarget(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingPayableMatch)}
+        title="Conta a pagar pendente"
+        description={
+          pendingPayableMatch ? formatPayableMatchDescription(pendingPayableMatch.item) : ''
+        }
+        confirmLabel="Liquidar conta existente"
+        cancelLabel="Criar lançamento mesmo assim"
+        confirmVariant="primary"
+        loading={settlePayableSaving}
+        onConfirm={() => void settleExistingPayable()}
+        onClose={() => {
+          if (settlePayableSaving) return;
+          const skip = pendingPayableMatch;
+          setPendingPayableMatch(null);
+          if (skip) void saveManualTx({ skipPayableMatch: true });
         }}
       />
 

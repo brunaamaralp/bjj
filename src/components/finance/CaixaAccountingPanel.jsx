@@ -32,6 +32,7 @@ const mapAccountDoc = (d) => ({
   dreGrupo: d.dreGrupo || '',
   dfcClasse: d.dfcClasse || '',
   dfcSubclasse: d.dfcSubclasse || '',
+  cashFlowClass: d.cashFlowClass || '',
   cash: Boolean(d.cash),
 });
 

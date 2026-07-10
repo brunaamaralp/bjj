@@ -1,0 +1,233 @@
+.kimono-loan-panel {
+  margin-bottom: 1.25rem;
+}
+
+.kimono-loan-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kimono-loan-panel__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kimono-loan-panel__overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--danger, #b42318);
+  background: rgba(180, 35, 24, 0.1);
+}
+
+.kimono-loan-panel__lend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+
+.kimono-loan-panel__settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.kimono-loan-panel__hours-input {
+  width: 72px;
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+.kimono-loan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kimono-loan-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--paper, #fff);
+}
+
+.kimono-loan-list__item--overdue {
+  border-color: rgba(180, 35, 24, 0.35);
+  background: rgba(180, 35, 24, 0.04);
+}
+
+.kimono-loan-list__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kimono-loan-list__name {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+.kimono-loan-list__name:hover {
+  text-decoration: underline;
+}
+
+.kimono-loan-list__meta {
+  display: block;
+  margin-top: 2px;
+}
+
+.kimono-loan-list__alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--danger, #b42318);
+  font-weight: 600;
+}
+
+.kimono-loan-list__return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.kimono-loan-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1200);
+  background: rgba(15, 12, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.kimono-loan-modal {
+  width: min(100%, 420px);
+  max-height: min(90vh, 640px);
+  overflow: auto;
+  padding: 20px;
+}
+
+.kimono-loan-modal__title {
+  margin: 0 0 16px;
+  font-size: var(--font-xl);
+}
+
+.kimono-loan-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kimono-loan-modal__tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.kimono-loan-modal__tabs button {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-page, #f8f9fb);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kimono-loan-modal__tabs button.is-active {
+  border-color: var(--v500, #6c47d8);
+  background: rgba(108, 71, 216, 0.08);
+  color: var(--v700, #4c2da8);
+}
+
+.kimono-loan-modal__hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.kimono-loan-modal__hit {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.kimono-loan-modal__hit:last-child {
+  border-bottom: none;
+}
+
+.kimono-loan-modal__hit:hover {
+  background: rgba(108, 71, 216, 0.06);
+}
+
+.kimono-loan-modal__selected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(34, 139, 87, 0.08);
+}
+
+.kimono-loan-modal__clear {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--v600);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.kimono-loan-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .kimono-loan-list__item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kimono-loan-list__return-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

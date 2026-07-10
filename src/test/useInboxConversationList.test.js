@@ -318,4 +318,78 @@ describe('useInboxConversationList', () => {
       expect.objectContaining({ firstPhone: '5511888777666', firstConversationId: 'c1' })
     );
   });
+
+  it('não busca lista quando WhatsApp está desconectado', async () => {
+    const h = createListHarness();
+    await act(async () => {
+      renderHook(() =>
+        useInboxConversationList({
+          academyId: 'acad-1',
+          academyIdRef: h.academyIdRef,
+          debouncedSearchQuery: '',
+          listFilter: 'all',
+          listFilterRef: h.listFilterRef,
+          selectedPhoneRef: h.selectedPhoneRef,
+          listMetaRef: h.listMetaRef,
+          notifiedOnceRef: h.notifiedOnceRef,
+          loadingListRef: h.loadingListRef,
+          nextCursor: h.state.nextCursor,
+          hasMore: h.state.hasMore,
+          loading: h.state.loading,
+          loadingMore: h.state.loadingMore,
+          whatsappDisconnected: true,
+          onListItemNotifyRef: h.onListItemNotifyRef,
+          ...h,
+        })
+      );
+      await Promise.resolve();
+    });
+
+    expect(fetchWithBillingGuard).not.toHaveBeenCalled();
+    expect(h.setLoading).toHaveBeenCalledWith(false);
+    expect(h.state.items).toEqual([]);
+  });
+
+  it('usa academyId da prop quando o ref ainda não foi sincronizado', async () => {
+    vi.mocked(fetchWithBillingGuard).mockResolvedValue({
+      blocked: false,
+      res: {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            items: [{ phone_number: '5511999990001', unread_count: 0 }],
+            next_cursor: '',
+          }),
+      },
+    });
+
+    const h = createListHarness();
+    h.academyIdRef.current = '';
+    const { result } = renderHook(() =>
+      useInboxConversationList({
+        academyId: 'acad-1',
+        academyIdRef: h.academyIdRef,
+        debouncedSearchQuery: '',
+        listFilter: 'all',
+        listFilterRef: h.listFilterRef,
+        selectedPhoneRef: h.selectedPhoneRef,
+        listMetaRef: h.listMetaRef,
+        notifiedOnceRef: h.notifiedOnceRef,
+        loadingListRef: h.loadingListRef,
+        nextCursor: h.state.nextCursor,
+        hasMore: h.state.hasMore,
+        loading: h.state.loading,
+        loadingMore: h.state.loadingMore,
+        onListItemNotifyRef: h.onListItemNotifyRef,
+        ...h,
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadList({ reset: true });
+    });
+
+    expect(fetchWithBillingGuard).toHaveBeenCalled();
+    expect(h.state.items).toHaveLength(1);
+  });
 });

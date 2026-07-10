@@ -177,6 +177,36 @@ describe('studentPaymentFinancialTxMirror', () => {
     );
   });
 
+  it('propaga gateway_charge_id e gateway_provider do payment de origem PagBank', async () => {
+    serverMocks.resolveFinancialTxSettlement.mockReturnValue({
+      status: 'settled',
+      settledAt: '2026-07-05T12:00:00.000Z',
+      expected_settlement_at: null,
+    });
+    const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule();
+
+    await mirrorStudentPaymentToFinancialTx({
+      paymentDoc: buildPaymentDoc({
+        gateway_payment_id: 'PAY_GW_123',
+        gateway_provider: 'pagbank',
+      }),
+      payload: {},
+      financeConfig: {},
+      studentDoc: { name: 'Joao', plan: 'Adulto' },
+    });
+
+    expect(serverMocks.createDocument).toHaveBeenCalledWith(
+      'db-test',
+      'financial-tx-col',
+      'tx-new',
+      expect.objectContaining({
+        gateway_charge_id: 'PAY_GW_123',
+        gateway_provider: 'pagbank',
+      }),
+      ['read', 'update']
+    );
+  });
+
   it('prioriza APPWRITE_FINANCIAL_TX_COLLECTION_ID sobre VITE_APPWRITE_FINANCIAL_TX_COLLECTION_ID e FINANCIAL_TX_COL', async () => {
     const { mirrorStudentPaymentToFinancialTx } = await loadMirrorModule({
       appwriteFinancialTxCollectionId: 'financial-tx-appwrite',

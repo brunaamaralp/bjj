@@ -14,6 +14,7 @@ import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx
 import ReportDataTable from './shared/ReportDataTable.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
+import HubTabBar from '../shared/HubTabBar.jsx';
 import './reports.css';
 
 const ReportsEstoqueMovimentacoesSection = lazy(() => import('./ReportsEstoqueMovimentacoesSection.jsx'));
@@ -39,6 +40,13 @@ const DAYS_CLASS = {
   critical: 'reports-days-stock--critical',
   stalled: 'reports-days-stock--stalled',
 };
+
+const ESTOQUE_HUB_TABS = [
+  { id: 'estoque', label: 'Giro e ABC', shortLabel: 'Estoque' },
+  { id: 'movements', label: 'Movimentações', shortLabel: 'Movs' },
+  { id: 'by_product', label: 'Por produto', shortLabel: 'Produtos' },
+  { id: 'conciliation', label: 'Pagamento vs saída', shortLabel: 'Pagamento' },
+];
 
 const ESTOQUE_COLUMNS = [
   { key: 'nome', label: 'Produto' },
@@ -82,7 +90,7 @@ const ESTOQUE_COLUMNS = [
   },
 ];
 
-export default function ReportsEstoquePanel({ academyId, from, to, hasInventory, kpiGoals = {} }) {
+export default function ReportsEstoquePanel({ academyId, from, to, hasInventory, hasFinance = false, kpiGoals = {} }) {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -207,6 +215,8 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
     downloadCsv(rows, `relatorio-estoque-${from}_${to}.csv`);
   };
 
+  const isMovimentacoesView = hubSection !== 'estoque';
+
   useRegisterReportsExport(
     hasInventory && hubSection === 'estoque' && !loading && !error && data && filtered.length > 0
       ? {
@@ -241,30 +251,37 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
 
   return (
     <ReportsPanelShell>
-      <div className="reports-moves-view-tabs" role="tablist" aria-label="Seções do estoque">
-        <button
-          type="button"
-          className={hubSection === 'estoque' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
-          onClick={() => setHubSection('estoque')}
-        >
-          Estoque
-        </button>
-        <button
-          type="button"
-          className={hubSection === 'movimentacoes' ? 'btn-secondary btn-sm' : 'btn-outline btn-sm'}
-          onClick={() => setHubSection('movimentacoes')}
-        >
-          Movimentações
-        </button>
-      </div>
+      <HubTabBar
+        tabs={ESTOQUE_HUB_TABS}
+        activeId={hubSection}
+        onChange={setHubSection}
+        ariaLabel="Seções do estoque"
+        variant="secondary"
+        size="sm"
+        className="reports-estoque-hub-tabs"
+        panelIdPrefix="reports-estoque-"
+      />
 
-      {hubSection === 'movimentacoes' ? (
+      {isMovimentacoesView ? (
         <Suspense fallback={movimentacoesFallback}>
-          <ReportsEstoqueMovimentacoesSection academyId={academyId} from={from} to={to} />
+          <ReportsEstoqueMovimentacoesSection
+            academyId={academyId}
+            from={from}
+            to={to}
+            hasFinance={hasFinance}
+            panelView={hubSection}
+            onPanelViewChange={setHubSection}
+          />
         </Suspense>
       ) : null}
 
-      {hubSection === 'estoque' && loading ? (
+      {hubSection === 'estoque' ? (
+        <div
+          id="reports-estoque-estoque"
+          role="tabpanel"
+          aria-labelledby="reports-estoque-tab-estoque"
+        >
+      {loading ? (
         <ReportsPanelSection aria-busy="true">
           <div className="reports-kpi-grid">
             {[1, 2, 3, 4].map((i) => (
@@ -273,8 +290,8 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
           </div>
         </ReportsPanelSection>
       ) : null}
-      {hubSection === 'estoque' && error ? <ErrorBanner message={friendlyError(error)} /> : null}
-      {hubSection === 'estoque' && !loading && !error && data ? (
+      {error ? <ErrorBanner message={friendlyError(error)} /> : null}
+      {!loading && !error && data ? (
         <>
           <ReportsPanelSection title="Estoque" subtitle={`${from} — ${to}`}>
             <div className="reports-kpi-grid">
@@ -378,6 +395,8 @@ export default function ReportsEstoquePanel({ academyId, from, to, hasInventory,
             )}
           </ReportsPanelSection>
         </>
+      ) : null}
+        </div>
       ) : null}
     </ReportsPanelShell>
   );

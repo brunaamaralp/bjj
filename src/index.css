@@ -900,8 +900,9 @@ a.btn-ghost:focus-visible {
 .navi-sidebar-brand .navi-brand-lockup--sidebar {
   display: block;
   width: auto !important;
-  height: 120px !important;
-  max-width: none !important;
+  height: auto !important;
+  max-height: 120px !important;
+  max-width: 100% !important;
   object-fit: contain;
   object-position: left center;
 }
@@ -910,6 +911,8 @@ a.btn-ghost:focus-visible {
 .navi-logo {
   user-select: none;
   -webkit-user-drag: none;
+  object-fit: contain;
+  object-position: left center;
 }
 
 /* Superfícies que hospedam PNGs com fundo embutido */
@@ -1754,7 +1757,8 @@ a.btn-ghost:focus-visible {
 @media (min-width: 1024px) and (max-height: 900px) {
   .navi-sidebar-brand .navi-brand-lockup,
   .navi-sidebar-brand .navi-brand-lockup--sidebar {
-    height: 76px !important;
+    max-height: 76px !important;
+    height: auto !important;
   }
 
   .navi-sidebar-header {

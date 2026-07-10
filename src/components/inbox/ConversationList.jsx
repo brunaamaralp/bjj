@@ -83,6 +83,7 @@ export default function ConversationList(props) {
     listFetchedOnce = false,
     totalItems,
     whatsAppConnected = true,
+    whatsappDisconnected = false,
     loadingMore,
     onSelectConversation,
     onPrefetchConversation,
@@ -160,7 +161,10 @@ export default function ConversationList(props) {
   }, []);
 
   const showSkeleton = Boolean(
-    (loading || !listFetchedOnce) && groups.every((g) => g.items.length === 0) && totalItems === 0
+    !whatsappDisconnected &&
+      (loading || !listFetchedOnce) &&
+      groups.every((g) => g.items.length === 0) &&
+      totalItems === 0
   );
 
   const renderRow = (row, rowIndex = 0) => {
@@ -251,7 +255,7 @@ export default function ConversationList(props) {
       ) : (
         rows.map((row, idx) => renderRow(row, idx))
       )}
-      {!loading && listFetchedOnce && totalItems === 0 && !whatsAppConnected && (
+      {!loading && listFetchedOnce && whatsappDisconnected && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="default"
@@ -266,7 +270,7 @@ export default function ConversationList(props) {
           />
         </div>
       )}
-      {!loading && listFetchedOnce && totalItems === 0 && whatsAppConnected && (
+      {!loading && listFetchedOnce && !whatsappDisconnected && totalItems === 0 && whatsAppConnected && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="compact"
@@ -277,7 +281,7 @@ export default function ConversationList(props) {
           />
         </div>
       )}
-      {!loading && listFetchedOnce && totalItems > 0 && flatCount === 0 && (
+      {!loading && listFetchedOnce && !whatsappDisconnected && totalItems > 0 && flatCount === 0 && (
         <div style={{ padding: 12 }}>
           <EmptyState
             variant="compact"

@@ -27,6 +27,7 @@ export function useInboxConversationList({
   hasMore,
   loading,
   loadingMore,
+  whatsappDisconnected = false,
   setNextCursor,
   setHasMore,
   setError,
@@ -55,8 +56,14 @@ export function useInboxConversationList({
   debouncedSearchRef.current = debouncedSearchQuery;
 
   const loadList = useCallback(async ({ reset = false, silent = false, includeStats = false } = {}) => {
-    const aid = String(academyIdRef.current || '').trim();
-    if (!aid) return;
+    const aid = String(academyIdRef.current || academyId || '').trim();
+    if (!aid) {
+      if (reset) {
+        setListFetchedOnce(true);
+        if (!silent) setLoading(false);
+      }
+      return;
+    }
     if (!reset && (!hasMoreRef.current || loadingMoreRef.current || loadingRef.current)) return;
 
     const requestId = ++listRequestSeqRef.current;
@@ -195,6 +202,7 @@ export function useInboxConversationList({
       }
     }
   }, [
+    academyId,
     academyIdRef,
     listFilterRef,
     listMetaRef,
@@ -225,14 +233,38 @@ export function useInboxConversationList({
 
     const filter = String(listFilter || listFilterRef.current || 'all').trim() || 'all';
     const search = String(debouncedSearchQuery || '').trim();
-    const key = `${aid}|${filter}|${search}`;
+    const key = `${aid}|${filter}|${search}|${whatsappDisconnected ? 'wa-off' : 'wa-on'}`;
     if (listBootstrapKeyRef.current === key) return;
     listBootstrapKeyRef.current = key;
+
+    if (whatsappDisconnected) {
+      setItems([]);
+      setListCapped(false);
+      setNextCursor(null);
+      setHasMore(false);
+      setListFetchedOnce(true);
+      setLoading(false);
+      return;
+    }
+
     setListFetchedOnce(false);
     setLoading(true);
 
     void loadList({ reset: true, includeStats: false });
-  }, [academyId, debouncedSearchQuery, listFilter, loadList, academyIdRef, listFilterRef, setLoading]);
+  }, [
+    academyId,
+    debouncedSearchQuery,
+    listFilter,
+    loadList,
+    academyIdRef,
+    listFilterRef,
+    setLoading,
+    setItems,
+    setListCapped,
+    setNextCursor,
+    setHasMore,
+    whatsappDisconnected,
+  ]);
 
   return { loadList, loadListRef, listFetchedOnce };
 }

@@ -24,7 +24,7 @@ describe('Welcome brand lockup', () => {
     const cssSource = readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
 
     expect(appSource).toContain('NaviBrandLockup height={120} variant="dark" className="navi-brand-lockup--sidebar"');
-    expect(cssSource).toContain('height: 120px !important;');
-    expect(cssSource).toContain('height: 76px !important;');
+    expect(cssSource).toContain('max-height: 120px !important;');
+    expect(cssSource).toContain('max-height: 76px !important;');
   });
 });
