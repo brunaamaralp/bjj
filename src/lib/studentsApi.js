@@ -44,6 +44,13 @@ export async function freezeStudentApi(payload) {
   });
 }
 
+export async function unfreezeStudentApi(payload) {
+  return studentsFetch('/api/students/unfreeze', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 /** Histórico de trancamentos via API (evita 401 no client Appwrite). */
 export async function listPlanFreezesApi(leadId, { limit = 50 } = {}) {
   const id = encodeURIComponent(String(leadId || '').trim());

@@ -1,8 +1,6 @@
 import { ID, Query } from 'appwrite';
 import { databases, DB_ID } from './appwrite.js';
-import { addLeadEvent, addStudentLifecycleEvent } from './leadEvents.js';
-import { STUDENT_EVENT_TYPES } from './studentEventTypes.js';
-import { freezeStudentApi, listPlanFreezesApi } from './studentsApi.js';
+import { freezeStudentApi, listPlanFreezesApi, unfreezeStudentApi } from './studentsApi.js';
 import { applyTaskTemplateForTrigger, TASK_TEMPLATE_TRIGGERS } from './applyTaskTemplateClient.js';
 import {
   findPaymentForMonthUpsert,
@@ -12,8 +10,12 @@ import {
 import { PAYMENT_CATEGORY } from './paymentCategories.js';
 import { coverageEndMonth } from './bundleCoverage.js';
 import { isBundleAnchorPayment } from './paymentCategories.js';
-import { revokeControlIdStudent, syncControlIdStudentBackground } from './controlidApi.js';
+import { revokeControlIdStudent } from './controlidApi.js';
 import { readControlIdConfig } from '../../lib/controlidSettings.js';
+import {
+  buildFrozenPaymentFields,
+  monthsToRevertOnUnfreeze,
+} from '../../lib/planFreezeProjection.js';
 import {
   FREEZE_STATUS_ACTIVE,
   effectiveFreezeDaysUsed,
@@ -34,6 +36,8 @@ const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || ''
 function freezeIsoFromYmd(ymd) {
   return `${String(ymd).slice(0, 10)}T12:00:00.000Z`;
 }
+
+export { monthsToRevertOnUnfreeze } from '../../lib/planFreezeProjection.js';
 
 export {
   canStartPlanFreeze,
@@ -101,19 +105,18 @@ async function markPaymentsFrozen({ leadId, academyId, startYmd, endYmd, planNam
   if (!PAYMENTS_COL) return { updated: 0 };
   const months = referenceMonthsInRange(startYmd, endYmd);
   let updated = 0;
+  const issuedAt = new Date().toISOString();
 
   for (const reference_month of months) {
     const existing = await findPaymentForMonthUpsert(leadId, reference_month, PAYMENT_CATEGORY.PLAN);
-    const base = {
-      lead_id: leadId,
-      academy_id: academyId,
-      reference_month,
-      status: 'frozen',
-      plan_name: planName || '',
-      amount: existing ? Number(existing.amount) || 0 : 0,
-      note: existing?.note || `Trancamento — ${reference_month}`,
-      payment_category: existing?.payment_category || PAYMENT_CATEGORY.PLAN,
-    };
+    const base = buildFrozenPaymentFields({
+      leadId,
+      academyId,
+      referenceMonth: reference_month,
+      planName,
+      existing,
+      issuedAt,
+    });
     await upsertStudentPayment({
       data: { ...base, team_id: teamId, registered_by: userId },
       existingId: existing?.$id || null,
@@ -124,22 +127,68 @@ async function markPaymentsFrozen({ leadId, academyId, startYmd, endYmd, planNam
   return { updated };
 }
 
-async function clearFrozenPaymentsInRange({ leadId, academyId, startYmd, endYmd }) {
-  if (!PAYMENTS_COL) return;
-  const months = new Set(referenceMonthsInRange(startYmd, endYmd));
+async function revertFrozenPaymentsAfterUnfreeze({
+  leadId,
+  academyId,
+  unfreezeYmd,
+  freezeStartYmd,
+  freezeEndYmd,
+}) {
+  if (!PAYMENTS_COL) return { reverted: 0 };
+  const monthsToRevert = new Set(monthsToRevertOnUnfreeze(unfreezeYmd, freezeStartYmd, freezeEndYmd));
+  if (!monthsToRevert.size) return { reverted: 0 };
+
   const payments = await getStudentPayments(leadId, academyId || '');
+  let reverted = 0;
+
   for (const p of payments) {
     const ym = String(p.reference_month || '');
-    if (!months.has(ym)) continue;
+    if (!monthsToRevert.has(ym)) continue;
     if (String(p.status || '').toLowerCase() !== 'frozen') continue;
+
+    const patch = {
+      status: 'pending',
+      covered_reason: null,
+      note: String(p.note || '').replace(/^Trancamento — /, '').trim() || '',
+    };
     try {
-      await databases.updateDocument(DB_ID, PAYMENTS_COL, p.$id, {
-        status: 'pending',
-        note: String(p.note || '').replace(/^Trancamento — /, '') || '',
-      });
+      await databases.updateDocument(DB_ID, PAYMENTS_COL, p.$id, patch);
+      reverted += 1;
     } catch (e) {
       console.warn('[planFreeze] unfreeze payment:', p.$id, e?.message);
     }
+  }
+  return { reverted };
+}
+
+async function shortenPlanFreezeRecordClient({ leadId, academyId, freezeStartYmd, newEndYmd }) {
+  if (!PLAN_FREEZES_COL) return { updated: false };
+  const start = String(freezeStartYmd || '').slice(0, 10);
+  const end = String(newEndYmd || '').slice(0, 10);
+  if (!start || !end) return { updated: false };
+
+  try {
+    const res = await databases.listDocuments(DB_ID, PLAN_FREEZES_COL, [
+      Query.equal('lead_id', String(leadId).trim()),
+      Query.equal('academy_id', String(academyId).trim()),
+      Query.orderDesc('start_date'),
+      Query.limit(20),
+    ]);
+    const match = (res.documents || []).find((fr) => {
+      const frStart = String(fr.start_date || fr.startDate || '').trim().slice(0, 10);
+      return frStart === start;
+    });
+    if (!match?.$id) return { updated: false, reason: 'freeze_record_not_found' };
+
+    await databases.updateDocument(DB_ID, PLAN_FREEZES_COL, match.$id, {
+      end_date: freezeIsoFromYmd(end),
+      indefinite: false,
+      days: computeDurationDays(start, end),
+    });
+    return { updated: true, freezeId: match.$id };
+  } catch (e) {
+    console.warn('[planFreeze] shorten plan_freezes:', e?.message || e);
+    return { updated: false, error: e?.message };
   }
 }
 
@@ -321,88 +370,23 @@ export async function endPlanFreeze({
     return { skipped: true };
   }
 
-  const startYmd = String(student.freeze_start || '').slice(0, 10);
-  const plannedEndYmd = String(student.freeze_end || '').slice(0, 10);
-  const indefinite = isFreezeIndefinite(student);
-  const todayYmd = toYmd(new Date());
-  const actualEndYmd = early || indefinite ? todayYmd : plannedEndYmd || todayYmd;
-
-  const actualDays = computeDurationDays(startYmd, actualEndYmd);
-  const plannedDays = indefinite ? 0 : computeDurationDays(startYmd, plannedEndYmd);
-  const daysCharged = early || indefinite ? actualDays : plannedDays;
-
-  const enroll = String(student.enrollmentDate || '').trim().slice(0, 10);
-  const quotaYear = enroll ? planYearStartYmd(enroll) : toYmd(new Date()).slice(0, 10);
-  let baseUsed = effectiveFreezeDaysUsed(student);
-  if (String(student.freeze_quota_year || '') !== quotaYear) baseUsed = 0;
-
-  const prevActiveDays = indefinite ? 0 : computeDurationDays(startYmd, plannedEndYmd);
-  const adjustedUsed = Math.max(0, baseUsed - prevActiveDays + daysCharged);
+  const apiRes = await unfreezeStudentApi({
+    student_id: leadId,
+    early: early !== false,
+  });
 
   const unfreezePatch = {
     freeze_status: null,
     freeze_start: null,
     freeze_end: null,
-    freeze_days_used: adjustedUsed,
-    freeze_quota_year: quotaYear,
+    freeze_days_used: apiRes.freeze_days_used,
+    freeze_quota_year: apiRes.freeze_quota_year,
   };
   if (mergeStudent) {
     mergeStudent(leadId, unfreezePatch);
   } else if (updateLead) {
     await updateLead(leadId, unfreezePatch);
   }
-
-  const payList = payments || (await getStudentPayments(leadId, academyId));
-  let extension = { extended: 0 };
-  const anchor = payList.find((p) => isBundleAnchorPayment(p));
-  if (anchor) {
-    extension = await extendBundleAfterFreeze({
-      leadId,
-      academyId,
-      daysUsed: daysCharged,
-      payments: payList,
-      teamId,
-      userId,
-    });
-  } else if (daysCharged > 0) {
-    await addLeadEvent({
-      academyId,
-      leadId,
-      type: 'plan_extended',
-      text: `Plano estendido em ${daysCharged} dias após trancamento.`,
-      payloadJson: { days: daysCharged, early },
-      createdBy: userId || 'system',
-      permissionContext: { teamId, userId },
-    });
-  }
-
-  await clearFrozenPaymentsInRange({
-    leadId,
-    academyId,
-    startYmd,
-    endYmd: indefinite ? actualEndYmd : plannedEndYmd || actualEndYmd,
-  });
-
-  const controlIdCfg = readControlIdConfig(academySettingsRaw);
-  if (controlIdCfg.enabled && student?.controlid_synced) {
-    syncControlIdStudentBackground(academyId, leadId, { photoUrl: student.photo_url });
-  }
-
-  await addStudentLifecycleEvent({
-    studentId: leadId,
-    academyId,
-    actorUserId: userId || 'system',
-    type: STUDENT_EVENT_TYPES.FREEZE_ENDED,
-    text: early || indefinite
-      ? `Trancamento encerrado antecipadamente (${actualDays} dias utilizados).`
-      : `Trancamento encerrado — retorno em ${formatFreezeDateBr(actualEndYmd)}.`,
-    payload: {
-      days_used: daysCharged,
-      early,
-      extension_months: extension.extended || 0,
-    },
-    permissionContext: { teamId, userId },
-  });
 
   if (onAfterUnfreeze) {
     try {
@@ -418,13 +402,17 @@ export async function endPlanFreeze({
       trigger: TASK_TEMPLATE_TRIGGERS.STUDENT_UNFREEZE,
       leadId,
       leadName: String(student?.name || '').trim(),
-      anchorDate: actualEndYmd,
+      anchorDate: String(apiRes.actualEndYmd || '').slice(0, 10),
     });
   } catch (e) {
     console.warn('[planFreeze] template student_unfreeze:', e?.message || e);
   }
 
-  return { daysCharged, extension };
+  return {
+    daysCharged: apiRes.daysCharged,
+    extension: apiRes.extension,
+    actualEndYmd: apiRes.actualEndYmd,
+  };
 }
 
 /** Notificação pendente após cron (localStorage). */

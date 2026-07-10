@@ -67,6 +67,7 @@
     { "source": "/api/cron/pagbank-reconcile", "destination": "/api/cron/reset-usage.js?action=pagbank-reconcile" },
     { "source": "/api/cron/recon-stale-orphans", "destination": "/api/cron/reset-usage.js?action=recon-stale-orphans" },
     { "source": "/api/students/freeze", "destination": "/api/leads.js?route=students&action=freeze" },
+    { "source": "/api/students/unfreeze", "destination": "/api/leads.js?route=students&action=unfreeze" },
     { "source": "/api/students/deactivate", "destination": "/api/leads.js?route=students&action=deactivate" },
     { "source": "/api/students/collection-snooze", "destination": "/api/leads.js?route=students&action=collection-snooze" },
     { "source": "/api/students/plan-freezes", "destination": "/api/leads.js?route=students&action=plan-freezes" },
