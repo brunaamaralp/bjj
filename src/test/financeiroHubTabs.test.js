@@ -131,8 +131,9 @@ describe('financeiroHubTabs', () => {
     );
   });
 
-  it('FINANCE_STATEMENT_VIEWS expõe dre e dfc', () => {
+  it('FINANCE_STATEMENT_VIEWS expõe dre, dfc e cascade', () => {
     expect(FINANCE_STATEMENT_VIEWS.DRE).toBe('dre');
     expect(FINANCE_STATEMENT_VIEWS.DFC).toBe('dfc');
+    expect(FINANCE_STATEMENT_VIEWS.CASCADE).toBe('cascade');
   });
 });

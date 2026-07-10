@@ -38,3 +38,14 @@ export function buildDfcCompareDelta(current, compare) {
   }
   return { lines, groups };
 }
+
+/** @param {ReturnType<import('./computeCashFlowCascade.js').computeCashFlowCascade>} current */
+export function buildCascadeCompareDelta(current, compare) {
+  const lines = {};
+  for (const key of Object.keys(current?.cascadeData || {})) {
+    lines[key] = roundMoney(
+      (current.cascadeData[key] || 0) - (compare?.cascadeData?.[key] || 0)
+    );
+  }
+  return { lines };
+}

@@ -31,6 +31,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'receita_servico',
   },
   VENDA_PRODUTO: {
     label: 'Vendas de produtos',
@@ -38,6 +39,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'receita_produto',
   },
   MATRICULA: {
     label: 'Matrículas',
@@ -45,6 +47,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'receita_servico',
   },
   ALUGUEL_RECEITA: {
     label: 'Aluguéis recebidos',
@@ -53,6 +56,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
+    cascadeSplitRevenue: true,
   },
   OUTROS_RECEITA: {
     label: 'Outras receitas',
@@ -60,6 +64,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Receita Bruta',
     dreAccount: '4.1.1',
     operationalBucket: 'operational',
+    cascadeSplitRevenue: true,
   },
   RECEITA_FINANCEIRA: {
     label: 'Receitas financeiras',
@@ -67,6 +72,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.2',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   APORTE_CAPITAL: {
     label: 'Aporte de capital',
@@ -74,6 +80,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: '',
     dreAccount: '3.1.1',
     operationalBucket: 'financing',
+    cashFlowClass: 'injecao_socio',
   },
   EMPRESTIMO_RECEBIDO: {
     label: 'Empréstimo recebido',
@@ -81,6 +88,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: '',
     dreAccount: '2.2.1',
     operationalBucket: 'financing',
+    cashFlowClass: 'tomada_emprestimo',
   },
   TRANSFERENCIA_RECEBIDA: {
     label: 'Transferência recebida',
@@ -95,6 +103,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Deduções',
     dreAccount: '4.9.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   DESCONTO: {
     label: 'Descontos concedidos',
@@ -102,6 +111,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Deduções',
     dreAccount: '4.9.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   CUSTO_ESTOQUE: {
     label: 'Custo de estoque',
@@ -109,13 +119,23 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'CMV/CPV',
     dreAccount: '5.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'pgto_fornecedor',
   },
   CUSTO_SERVICO: {
     label: 'Custo do serviço',
-    type: 'stock_purchase',
+    type: 'service_cogs',
     dreGroup: 'CMV/CPV',
     dreAccount: '5.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'pgto_fornecedor',
+  },
+  INSUMO_ATENDIMENTO: {
+    label: 'Insumos de atendimento (café, fruta…)',
+    type: 'consumable_cogs',
+    dreGroup: 'CMV/CPV',
+    dreAccount: '5.1.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   ALUGUEL_ESPACO: {
     label: 'Aluguel do espaço',
@@ -123,6 +143,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   SALARIOS: {
     label: 'Salários e encargos',
@@ -130,6 +151,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   MARKETING: {
     label: 'Marketing',
@@ -137,6 +159,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   SISTEMAS: {
     label: 'Sistemas / Software',
@@ -144,6 +167,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   MANUTENCAO: {
     label: 'Manutenção',
@@ -151,6 +175,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   AGUA: {
     label: 'Água e esgoto',
@@ -158,6 +183,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   LUZ: {
     label: 'Luz / energia',
@@ -165,6 +191,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   TELEFONE_INTERNET: {
     label: 'Telefone e internet',
@@ -172,6 +199,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   CONDOMINIO: {
     label: 'Condomínio',
@@ -179,6 +207,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   IMPOSTOS_TAXAS: {
     label: 'Impostos e taxas',
@@ -186,6 +215,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   OUTRAS_DESPESAS: {
     label: 'Outras despesas',
@@ -193,6 +223,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Despesas Operacionais',
     dreAccount: '6.2.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
   },
   EMPRESTIMO_PAGO: {
     label: 'Pagamento de empréstimo',
@@ -200,6 +231,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: '',
     dreAccount: '2.2.1',
     operationalBucket: 'financing',
+    cashFlowClass: 'pgto_emprestimo',
   },
   TRANSFERENCIA_ENVIADA: {
     label: 'Transferência enviada',
@@ -214,6 +246,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   JUROS: {
     label: 'Juros',
@@ -221,6 +254,7 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
   },
   TAXA_CARTAO: {
     label: 'Taxas de cartão',
@@ -228,6 +262,95 @@ export const FINANCE_CATEGORIES = {
     dreGroup: 'Resultado Financeiro',
     dreAccount: '7.1.1',
     operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
+  },
+  PRO_LABORE: {
+    label: 'Pró-labore',
+    type: 'equity_withdrawal',
+    dreGroup: '',
+    dreAccount: '3.1.2',
+    operationalBucket: 'financing',
+    cashFlowClass: 'retirada_socio',
+  },
+  ROYALTY_FRANQUIA: {
+    label: 'Royalty de franquia (mensal)',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
+  },
+  FRANQUIA_PATRIMONIO: {
+    label: 'Taxa de franquia / licenciamento (patrimonial)',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'investment',
+    cashFlowClass: 'investimento',
+  },
+  REEMBOLSO_FUNCIONARIO: {
+    label: 'Reembolso a funcionário',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
+  },
+  REEMBOLSO_COMPRAS: {
+    label: 'Reembolso de compras',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'desp_fixa',
+  },
+  RECEITA_TERCEIROS: {
+    label: 'Receita de terceiros',
+    type: 'third_party_in',
+    dreGroup: 'Receita Bruta',
+    dreAccount: '4.1.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'receita_terceiro',
+  },
+  EMPRESTIMO_TERCEIRO_RECEBIDO: {
+    label: 'Empréstimo de terceiro (passagem)',
+    type: 'third_party_loan_in',
+    dreGroup: '',
+    dreAccount: '2.2.2',
+    operationalBucket: 'financing',
+    cashFlowClass: 'receita_terceiro',
+  },
+  EMPRESTIMO_TERCEIRO_PAGO: {
+    label: 'Devolução empréstimo de terceiro',
+    type: 'third_party_loan_out',
+    dreGroup: '',
+    dreAccount: '2.2.2',
+    operationalBucket: 'financing',
+    cashFlowClass: 'despesa_terceiro',
+  },
+  DESPESA_TERCEIROS: {
+    label: 'Despesas de terceiros',
+    type: 'expense_operational',
+    dreGroup: 'Despesas Operacionais',
+    dreAccount: '6.2.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'despesa_terceiro',
+  },
+  ANTECIPACAO_CARTAO: {
+    label: 'Antecipação de cartão',
+    type: 'expense_financial',
+    dreGroup: 'Resultado Financeiro',
+    dreAccount: '7.1.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'desp_variavel',
+  },
+  PAGAMENTO_FORNECEDOR: {
+    label: 'Pagamento a fornecedor',
+    type: 'stock_purchase',
+    dreGroup: 'CMV/CPV',
+    dreAccount: '5.1.1',
+    operationalBucket: 'operational',
+    cashFlowClass: 'pgto_fornecedor',
   },
 };
 
@@ -286,7 +409,13 @@ export function getCategoriesByGroup(group) {
   return Object.values(FINANCE_CATEGORIES).filter((c) => c.dreGroup === group);
 }
 
-const EXPENSE_TYPES_MANUAL = new Set(['expense_operational', 'expense_financial', 'stock_purchase']);
+const EXPENSE_TYPES_MANUAL = new Set([
+  'expense_operational',
+  'expense_financial',
+  'stock_purchase',
+  'service_cogs',
+  'consumable_cogs',
+]);
 
 /** Ordem de exibição no select de saída (operacional antes de CMV). */
 export const EXPENSE_CATEGORY_GROUP_ORDER = [
@@ -332,12 +461,15 @@ function sortCategoryGroupMap(map, nature) {
   return sorted;
 }
 
-const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'rental', 'other']);
+const REVENUE_TYPES = new Set(['plan', 'product', 'enrollment', 'rental', 'other', 'third_party_in']);
 
 const TYPE_TO_OPERATIONAL_BUCKET = {
   equity_injection: 'financing',
+  equity_withdrawal: 'financing',
   loan_proceeds: 'financing',
   loan_repayment: 'financing',
+  third_party_loan_in: 'financing',
+  third_party_loan_out: 'financing',
   balance_sheet_in: 'financing',
   balance_sheet_out: 'financing',
   internal_transfer: 'neutral',
@@ -355,12 +487,17 @@ function getPatrimonialInflowCategories() {
   return [
     FINANCE_CATEGORIES.APORTE_CAPITAL,
     FINANCE_CATEGORIES.EMPRESTIMO_RECEBIDO,
+    FINANCE_CATEGORIES.EMPRESTIMO_TERCEIRO_RECEBIDO,
     FINANCE_CATEGORIES.TRANSFERENCIA_RECEBIDA,
   ];
 }
 
 function getPatrimonialOutflowCategories() {
-  return [FINANCE_CATEGORIES.EMPRESTIMO_PAGO, FINANCE_CATEGORIES.TRANSFERENCIA_ENVIADA];
+  return [
+    FINANCE_CATEGORIES.EMPRESTIMO_PAGO,
+    FINANCE_CATEGORIES.EMPRESTIMO_TERCEIRO_PAGO,
+    FINANCE_CATEGORIES.TRANSFERENCIA_ENVIADA,
+  ];
 }
 
 /** Agrupa categorias por dreGroup para optgroup no select. */
@@ -421,7 +558,9 @@ export function operationalBucketForTx(doc, accounts = null) {
   if (type === 'expense_financial' || type === 'card_fee' || type === 'financial_revenue') {
     return 'operational';
   }
-  if (['expense_operational', 'expense', 'stock_purchase'].includes(type)) return 'operational';
+  if (['expense_operational', 'expense', 'stock_purchase', 'service_cogs', 'consumable_cogs'].includes(type)) {
+    return 'operational';
+  }
   return 'operational';
 }
 
@@ -475,12 +614,18 @@ export function defaultCategoryForTxType(type) {
   if (t === 'enrollment') return FINANCE_CATEGORIES.MATRICULA.label;
   if (t === 'refund') return FINANCE_CATEGORIES.CANCELAMENTO.label;
   if (t === 'stock_purchase') return FINANCE_CATEGORIES.CUSTO_ESTOQUE.label;
+  if (t === 'service_cogs') return FINANCE_CATEGORIES.CUSTO_SERVICO.label;
+  if (t === 'consumable_cogs') return FINANCE_CATEGORIES.INSUMO_ATENDIMENTO.label;
   if (t === 'card_fee') return FINANCE_CATEGORIES.TAXA_CARTAO.label;
   if (t === 'expense_financial') return FINANCE_CATEGORIES.TARIFAS_BANCARIAS.label;
   if (t === 'financial_revenue') return FINANCE_CATEGORIES.RECEITA_FINANCEIRA.label;
   if (t === 'equity_injection') return FINANCE_CATEGORIES.APORTE_CAPITAL.label;
   if (t === 'loan_proceeds') return FINANCE_CATEGORIES.EMPRESTIMO_RECEBIDO.label;
   if (t === 'loan_repayment') return FINANCE_CATEGORIES.EMPRESTIMO_PAGO.label;
+  if (t === 'third_party_loan_in') return FINANCE_CATEGORIES.EMPRESTIMO_TERCEIRO_RECEBIDO.label;
+  if (t === 'third_party_loan_out') return FINANCE_CATEGORIES.EMPRESTIMO_TERCEIRO_PAGO.label;
+  if (t === 'third_party_in') return FINANCE_CATEGORIES.RECEITA_TERCEIROS.label;
+  if (t === 'equity_withdrawal') return FINANCE_CATEGORIES.PRO_LABORE.label;
   if (t === 'internal_transfer') return FINANCE_CATEGORIES.TRANSFERENCIA_RECEBIDA.label;
   if (t === 'expense' || t === 'expense_operational') return FINANCE_CATEGORIES.OUTRAS_DESPESAS.label;
   return FINANCE_CATEGORIES.OUTROS_RECEITA.label;
@@ -498,6 +643,16 @@ export function isFinancialCategory(value) {
 
 export function categoryIsUnclassified(value) {
   return resolveFinanceCategory(value) == null && String(value || '').trim() !== '';
+}
+
+export function categoryHasExplicitCashFlowClass(value, accounts = null) {
+  const cat = resolveFinanceCategory(value, accounts);
+  return Boolean(cat?.cashFlowClass);
+}
+
+export function cascadeSplitRevenueForCategory(value, accounts = null) {
+  const cat = resolveFinanceCategory(value, accounts);
+  return Boolean(cat?.cascadeSplitRevenue);
 }
 
 export function dreGroupForCategory(value) {

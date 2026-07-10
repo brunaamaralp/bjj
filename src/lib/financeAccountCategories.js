@@ -89,6 +89,7 @@ export function accountToFinanceCategory(account, nature = 'in') {
     isRevenue: REVENUE_ACCOUNT_TYPES.has(accountType),
     isBalanceSheetCategory: isBalanceSheet,
     operationalBucket,
+    cashFlowClass: String(account.cashFlowClass || '').trim(),
   };
 }
 

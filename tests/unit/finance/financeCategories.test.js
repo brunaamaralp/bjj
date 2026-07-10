@@ -153,15 +153,21 @@ describe('financeCategories', () => {
       expect(group.every((c) => c.dreGroup === 'Receita Bruta')).toBe(true);
     });
 
-    it('getExpenseCategories() → types expense_operational, expense_financial ou stock_purchase', () => {
-      const allowed = new Set(['expense_operational', 'expense_financial', 'stock_purchase']);
+    it('getExpenseCategories() → types expense_operational, expense_financial, stock_purchase, service_cogs ou consumable_cogs', () => {
+      const allowed = new Set([
+        'expense_operational',
+        'expense_financial',
+        'stock_purchase',
+        'service_cogs',
+        'consumable_cogs',
+      ]);
       const items = getExpenseCategories();
       expect(items.length).toBeGreaterThan(0);
       expect(items.every((c) => allowed.has(c.type))).toBe(true);
     });
 
-    it("getRevenueCategories() → types plan, product, enrollment, rental ou other", () => {
-      const allowed = new Set(['plan', 'product', 'enrollment', 'rental', 'other']);
+    it("getRevenueCategories() → types plan, product, enrollment, rental, other ou third_party_in", () => {
+      const allowed = new Set(['plan', 'product', 'enrollment', 'rental', 'other', 'third_party_in']);
       const items = getRevenueCategories();
       expect(items.length).toBeGreaterThan(0);
       expect(items.every((c) => allowed.has(c.type))).toBe(true);

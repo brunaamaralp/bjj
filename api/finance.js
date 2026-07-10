@@ -3,7 +3,7 @@
 // Não tem relação com a assinatura do Nave — ver api/billing.js.
 /**
  * Hub financeiro (Vercel Hobby: uma função para tx, mensalidades, resumos, previsão e conciliação).
- * Rotas: ?route=tx | student-payments | summary | closing | forecast | bank-balances | overview | dre | dfc
+ * Rotas: ?route=tx | student-payments | summary | closing | forecast | bank-balances | overview | dre | dfc | cascade
  * Conciliação: ?finance_hub=bank-reconciliation&route=list|detail|import|…
  * Rewrites: /api/student-payments, /api/finance-tx, /api/finance/*, /api/bank-reconciliation
  */
@@ -20,7 +20,7 @@ import financeOverviewHandler from '../lib/server/financeOverviewHandler.js';
 import collectionQueueHandler from '../lib/server/collectionQueueHandler.js';
 import payablesHandler from '../lib/server/payablesHandler.js';
 import financeAnticipationHandler from '../lib/server/financeAnticipationHandler.js';
-import { financeDreHandler, financeDfcHandler } from '../lib/server/financeStatementsHandler.js';
+import { financeDreHandler, financeDfcHandler, financeCascadeHandler } from '../lib/server/financeStatementsHandler.js';
 
 export const config = {
   maxDuration: 60,
@@ -74,6 +74,9 @@ export default async function handler(req, res) {
   }
   if (route === 'dfc') {
     return financeDfcHandler(req, res);
+  }
+  if (route === 'cascade') {
+    return financeCascadeHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);

@@ -97,6 +97,27 @@ export async function fetchFinanceDfc({ academyId, month, from, to }) {
   return body;
 }
 
+export async function fetchFinanceCascade({ academyId, month, from, to, format } = {}) {
+  const params = new URLSearchParams({ route: 'cascade' });
+  if (month) params.set('month', month);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (format) params.set('format', format);
+  const res = await authedFetch(`/api/finance?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  if (format === 'pdf') {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Erro ao exportar cascata PDF');
+    }
+    return res.blob();
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar fluxo de caixa gerencial');
+  return body;
+}
+
 export async function fetchFinanceOverview({
   academyId,
   month,
