@@ -16,6 +16,8 @@ import {
 import { normalizeLineKind } from '../../lib/saleLineKind';
 import { formatBRL } from '../../lib/moneyBr';
 import { friendlySaleError } from '../../lib/errorMessages.js';
+import { useAcademyRoleDoc } from '../../hooks/useAcademyRoleDoc.js';
+import { useCanManageAcademySales } from '../../lib/canManageStudentPayments.js';
 
 function buildNovoItem(product, parent, lineKind, lockPriceEdit) {
   const kind = normalizeLineKind(lineKind);
@@ -33,15 +35,14 @@ export default function SalesEditItemModal({
   open,
   sale,
   saleItem,
+  canEditSale = false,
   onClose,
   onSuccess,
 }) {
   const academyId = useLeadStore((s) => s.academyId);
-  const academyList = useLeadStore((s) => s.academyList);
-  const academyDoc = useMemo(() => {
-    if (!academyId) return null;
-    return (academyList || []).find((x) => x.id === academyId) || null;
-  }, [academyList, academyId]);
+  const academyDoc = useAcademyRoleDoc();
+  const canManageSales = useCanManageAcademySales(academyDoc);
+  const allowEdit = canEditSale && canManageSales;
   const salesSettings = useMemo(() => readSalesSettings(academyDoc?.settings), [academyDoc]);
 
   const { products, loading: catalogLoading, error: catalogError } = useSalesCatalog(academyId);
@@ -143,6 +144,13 @@ export default function SalesEditItemModal({
   );
 
   const handleConfirm = async () => {
+    if (!allowEdit) {
+      addToast({
+        type: 'error',
+        message: 'Apenas titular ou administrador pode trocar produtos na venda.',
+      });
+      return;
+    }
     if (!pendingPick || !sale?.id || !saleItem?.id) return;
     const qty = Math.max(1, Math.min(maxQty, Math.trunc(Number(newQty) || 1)));
     if (qty < 1) {
@@ -180,7 +188,7 @@ export default function SalesEditItemModal({
     return roundSubtotal(pendingPick.novo.preco_unitario, qty);
   }, [pendingPick, newQty, maxQty]);
 
-  if (!open || !sale || !saleItem) return null;
+  if (!open || !sale || !saleItem || !allowEdit) return null;
 
   if (variantPickerParent) {
     return (

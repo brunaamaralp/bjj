@@ -507,6 +507,7 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
         open={editItemOpen}
         sale={detailSale}
         saleItem={editSaleItem}
+        canEditSale={canEditSale}
         onClose={() => {
           setEditItemOpen(false);
           setEditSaleItem(null);

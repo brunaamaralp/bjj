@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../lib/appwriteRealtime.js', () => ({
+  subscribeAppwriteRealtime: vi.fn(async (client, channel, cb) => {
+    const sub = await client.subscribe(channel, cb);
+    return sub;
+  }),
+  closeAppwriteRealtimeSubscription: vi.fn((sub) => sub?.close?.()),
+}));
+
 vi.mock('../lib/appwrite.js', () => ({
   syncClientSessionJwt: vi.fn().mockResolvedValue('test-jwt'),
 }));

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Info, RefreshCw, Users } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useWhatsappTemplates } from '../../lib/useWhatsappTemplates.js';
+import { createCheckin, isAttendanceConfigured } from '../../lib/attendance.js';
 import { fetchAttendanceRetention, postAttendanceRetentionAction } from '../../lib/attendanceRetentionApi.js';
 import { sendWhatsappTemplateOutbound } from '../../lib/outboundWhatsappTemplate.js';
 import { addLeadEvent } from '../../lib/leadEvents.js';
@@ -25,6 +26,8 @@ import AttendanceAbsenceReasonModal from './AttendanceAbsenceReasonModal.jsx';
 import AttendanceAtRiskRowActions from './AttendanceAtRiskRowActions.jsx';
 import DeactivateStudentModal from '../DeactivateStudentModal.jsx';
 import { useTerms } from '../../lib/terminology.js';
+import { emitLeadAttendanceChanged } from '../../lib/leadTimelineEvents.js';
+import { useSessionUser } from '../../hooks/useSessionUser.js';
 import './attendance-at-risk.css';
 
 const URL_RET_TURMA = 'ret_turma';
@@ -106,6 +109,9 @@ function StudentCell({ row }) {
  */
 export default function AttendanceAtRiskSection({ className = '', layout = 'full', onDataLoaded }) {
   const terms = useTerms();
+  const navigate = useNavigate();
+  const { firstName: sessionUserName } = useSessionUser();
+  const attendanceReady = isAttendanceConfigured();
   const [searchParams, setSearchParams] = useSearchParams();
   const turma = String(searchParams.get(URL_RET_TURMA) || '').trim();
   const belt = String(searchParams.get(URL_RET_BELT) || '').trim();
@@ -122,6 +128,7 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [waBusyId, setWaBusyId] = useState('');
+  const [checkinBusyId, setCheckinBusyId] = useState('');
   const [waSentIds, setWaSentIds] = useState(() => new Set());
   const [actionBusyId, setActionBusyId] = useState('');
   const [absenceRow, setAbsenceRow] = useState(null);
@@ -189,6 +196,33 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
   const activeCount = summary?.active ?? 0;
   const kpiTooltips = useMemo(() => attendanceRetentionKpiTooltips(), []);
 
+  const handleCheckin = async (row) => {
+    const studentId = String(row?.studentId || '').trim();
+    if (!studentId || checkinBusyId || !academyId || !attendanceReady) return;
+    setCheckinBusyId(studentId);
+    try {
+      await createCheckin(
+        {
+          lead_id: studentId,
+          academy_id: academyId,
+          checked_in_by: userId || 'user',
+          checked_in_by_name: sessionUserName || 'Usuário',
+        },
+        permissionContext
+      );
+      addToast({
+        type: 'success',
+        message: `${terms.attendance} registrada para ${row.name || 'aluno'}.`,
+      });
+      emitLeadAttendanceChanged(studentId);
+      await load();
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'save') });
+    } finally {
+      setCheckinBusyId('');
+    }
+  };
+
   const handleWhatsApp = async (row) => {
     const studentId = String(row?.studentId || '').trim();
     if (!studentId || waBusyId) return;
@@ -202,12 +236,13 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
         templateKey: 'recovery',
         templatesMap: templates || {},
         zapsterInstanceId,
-        onToast: (t) => addToast(t),
+        suppressToasts: true,
         permissionContext,
         createdBy: userId || 'user',
       });
       if (result?.ok) {
         setWaSentIds((prev) => new Set(prev).add(studentId));
+        addToast({ type: 'success', message: 'Mensagem de reativação enviada!' });
         await addLeadEvent({
           academyId,
           leadId: studentId,
@@ -217,6 +252,25 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
           permissionContext,
           payloadJson: { source: 'attendance_retention', templateKey: 'recovery' },
         }).catch(() => {});
+      } else if (result?.reason === 'no_recent_interaction') {
+        const digits = String(row.phone || '').replace(/\D/g, '');
+        addToast({
+          type: 'warning',
+          message:
+            result.error ||
+            'Sem conversa recente no WhatsApp. Envie manualmente pelo Inbox.',
+          action: digits
+            ? {
+                label: 'Abrir Inbox',
+                onClick: () => navigate(`/inbox?phone=${encodeURIComponent(digits)}`),
+              }
+            : undefined,
+        });
+      } else {
+        addToast({
+          type: 'error',
+          message: result?.error || 'Não foi possível enviar o WhatsApp de reativação.',
+        });
       }
     } finally {
       setWaBusyId('');
@@ -370,15 +424,18 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
         key: 'actions',
         label: '',
         align: 'right',
-        width: '120px',
+        width: '156px',
         render: (row) => {
           const sid = String(row.studentId || '');
           return (
             <AttendanceAtRiskRowActions
               row={row}
+              showCheckin={attendanceReady}
+              checkinLoading={checkinBusyId === sid}
+              onCheckin={handleCheckin}
               waLoading={waBusyId === sid}
               waSent={waSentIds.has(sid)}
-              rowBusy={actionBusyId === sid}
+              rowBusy={actionBusyId === sid || checkinBusyId === sid}
               menuOpen={menuOpenId}
               onMenuOpenChange={setMenuOpenId}
               onWhatsApp={handleWhatsApp}

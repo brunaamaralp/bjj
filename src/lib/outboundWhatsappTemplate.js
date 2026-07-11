@@ -118,7 +118,10 @@ export async function sendWhatsappTemplateOutbound({
         if (j && typeof j === 'object' && typeof j.erro === 'string' && j.erro.trim()) msg = String(j.erro).trim();
         else if (txt) msg = txt.slice(0, 200);
         const skipReason = j && typeof j === 'object' ? String(j.skipped || j.code || '').trim() : '';
-        if (skipReason === 'no_recent_interaction') {
+        if (
+          skipReason === 'no_recent_interaction' ||
+          (resp.status === 409 && /conversa/i.test(msg))
+        ) {
           toast({ type: 'warning', message: msg });
           return { ok: false, reason: 'no_recent_interaction', error: msg };
         }

@@ -3,11 +3,19 @@ import { teams } from './appwrite.js';
 import { useLeadStore } from '../store/useLeadStore.js';
 
 /** Titular (ownerId) ou membro do time com papel admin/owner. */
+function teamHasAdminRole(roles) {
+  if (!Array.isArray(roles)) return false;
+  return roles.some((r) => {
+    const role = String(r || '').trim().toLowerCase();
+    return role === 'admin' || role === 'administrador' || role === 'owner';
+  });
+}
+
 export function canManageStudentPayments(userId, academyDoc, membership = null) {
   if (!academyDoc || !userId) return false;
   if (String(academyDoc.ownerId || '').trim() === String(userId || '').trim()) return true;
   const roles = Array.isArray(membership?.roles) ? membership.roles : [];
-  return roles.includes('admin') || roles.includes('owner');
+  return teamHasAdminRole(roles);
 }
 
 export function useCanManageStudentPayments(academyDoc) {
@@ -38,8 +46,13 @@ export function useCanManageStudentPayments(academyDoc) {
 
   const membership =
     membershipState.key === fetchKey ? membershipState.value : null;
+  const membershipResolved = !shouldFetch || membershipState.key === fetchKey;
 
-  return canManageStudentPayments(userId, academyDoc, membership);
+  const canManage = membershipResolved
+    ? canManageStudentPayments(userId, academyDoc, membership)
+    : false;
+
+  return canManage;
 }
 
 /** Mesma regra do servidor em alterar_item / cancelar venda (titular ou admin do time). */

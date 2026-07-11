@@ -37,6 +37,8 @@ const ERROR_MAP = {
   instance_not_found: 'WhatsApp desconectado. Verifique a página Agente IA.',
   instance_not_connected: 'WhatsApp sem sinal. Reconecte o dispositivo.',
 
+  no_recent_interaction:
+    'Sem conversa recente no WhatsApp com este contato. Envie manualmente pelo Inbox.',
   phone_duplicate: 'Este telefone já está cadastrado como aluno ativo.',
   phone_duplicate_active: 'Este telefone já está cadastrado como aluno ativo.',
 

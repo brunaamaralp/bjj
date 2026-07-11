@@ -7,6 +7,24 @@
           --color-bg-secondary: color-mix(in srgb, var(--color-primary-surface) 55%, var(--color-content-bg));
         }
 
+/* Abas Comercial / Presença — metade da largura cada */
+.reception-dashboard .reception-hub-tabs.navi-hub-tabs--full {
+  display: flex;
+  width: 100%;
+  flex-wrap: nowrap;
+  overflow: visible;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.reception-dashboard .reception-hub-tabs .navi-hub-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 50%;
+  max-width: 50%;
+  justify-content: center;
+}
+
         /* —— Hero do dia —— */
         .dashboard-day-hero {
           display: flex;

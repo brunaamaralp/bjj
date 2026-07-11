@@ -12,12 +12,14 @@ import { queryClient } from './lib/queryClient'
 import { registerSW } from 'virtual:pwa-register';
 import { initStores } from './lib/initStores.js';
 import { clearChunkReloadFlag, installChunkLoadRecovery } from './lib/lazyWithRetry.js';
+import { installAppwriteRealtimeErrorGuard } from './lib/appwriteRealtime.js';
 
 import client from './lib/appwrite'
 
 initStores();
 clearChunkReloadFlag();
 installChunkLoadRecovery();
+installAppwriteRealtimeErrorGuard();
 
 const updateSW = registerSW({
   immediate: true,

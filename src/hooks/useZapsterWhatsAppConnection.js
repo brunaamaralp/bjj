@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createSessionJwt, realtime, ACADEMIES_COL, DB_ID, syncClientSessionJwt } from '../lib/appwrite';
+import { createSessionJwt, realtime, ACADEMIES_COL, DB_ID } from '../lib/appwrite';
+import {
+  closeAppwriteRealtimeSubscription,
+  subscribeAppwriteRealtime,
+} from '../lib/appwriteRealtime.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { useUiStore } from '../store/useUiStore';
 import { normalizeWaPhoneDigits } from '../../lib/zapsterInstancePhone.js';
@@ -1253,26 +1257,17 @@ export function useZapsterWhatsAppConnection(academyId, options = {}) {
     };
 
     void (async () => {
-      try {
-        await syncClientSessionJwt();
-        const sub = await realtime.subscribe(channel, onAcademyEvent);
-        if (cancelled) {
-          void sub?.close?.();
-          return;
-        }
-        subscription = sub;
-      } catch {
-        void 0;
+      const sub = await subscribeAppwriteRealtime(realtime, channel, onAcademyEvent);
+      if (cancelled) {
+        closeAppwriteRealtimeSubscription(sub);
+        return;
       }
+      subscription = sub;
     })();
 
     return () => {
       cancelled = true;
-      try {
-        if (subscription && typeof subscription.close === 'function') void subscription.close();
-      } catch {
-        void 0;
-      }
+      closeAppwriteRealtimeSubscription(subscription);
     };
   }, [academyId, options?.watchAcademyStatus, options?.statusPollWhileMounted, fetchWaInfo]);
 

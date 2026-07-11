@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createSessionJwt, realtime, DB_ID, CONVERSATIONS_COL, syncClientSessionJwt } from '../lib/appwrite';
+import { createSessionJwt, realtime, DB_ID, CONVERSATIONS_COL } from '../lib/appwrite';
+import {
+  closeAppwriteRealtimeSubscription,
+  subscribeAppwriteRealtime,
+} from '../lib/appwriteRealtime.js';
 import { fetchWithBillingGuard } from '../lib/billingBlockedFetch';
 import { friendlyError } from '../lib/errorMessages';
 import { inboxPhonesMatch, primaryInboxPhone } from '../lib/normalizeInboxPhone';
@@ -602,18 +606,17 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
     subscribeTimer = window.setTimeout(() => {
       if (cancelledRef.current) return;
       void (async () => {
-        try {
-          await syncClientSessionJwt();
-          const sub = await realtime.subscribe(channel, onRealtimeEvent);
-          if (cancelledRef.current) {
-            void sub?.close?.();
-            return;
-          }
-          subscription = sub;
-          setRealtimeOn(true);
-        } catch {
-          if (!cancelledRef.current) setRealtimeOn(false);
+        const sub = await subscribeAppwriteRealtime(realtime, channel, onRealtimeEvent);
+        if (cancelledRef.current) {
+          closeAppwriteRealtimeSubscription(sub);
+          return;
         }
+        if (!sub) {
+          if (!cancelledRef.current) setRealtimeOn(false);
+          return;
+        }
+        subscription = sub;
+        setRealtimeOn(true);
       })();
     }, REALTIME_SUBSCRIBE_DELAY_MS);
 
@@ -621,11 +624,7 @@ export function useInboxConversation({ phone: rawPhone, academyId, leadId: rawLe
       cancelledRef.current = true;
       if (subscribeTimer) clearTimeout(subscribeTimer);
       if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-      try {
-        if (subscription && typeof subscription.close === 'function') void subscription.close();
-      } catch {
-        void 0;
-      }
+      closeAppwriteRealtimeSubscription(subscription);
       setRealtimeOn(false);
     };
   }, [isActive, phone, academyIdStr]);

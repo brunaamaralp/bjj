@@ -1405,7 +1405,7 @@ const Dashboard = () => {
                 onChange={handleRecepcaoHubTabChange}
                 ariaLabel="Recepção"
                 fullWidth
-                className="mb-3"
+                className="mb-3 reception-hub-tabs"
             />
 
             {hubTab === RECEPCAO_TAB_CATRACA ? (

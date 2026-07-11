@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Loader2, MessageCircle, MoreHorizontal, UserX } from 'lucide-react';
+import { Check, Loader2, MessageCircle, MoreHorizontal, UserCheck, UserX } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuPanel,
@@ -33,11 +33,35 @@ function WhatsAppActionButton({ row, waLoading, waSent, rowBusy, onWhatsApp }) {
   );
 }
 
+function CheckinActionButton({ row, checkinLoading, rowBusy, onCheckin }) {
+  return (
+    <button
+      type="button"
+      className={`attendance-at-risk-actions__btn attendance-at-risk-actions__btn--checkin${
+        checkinLoading ? ' attendance-at-risk-actions__btn--loading' : ''
+      }`}
+      disabled={checkinLoading || rowBusy}
+      title={checkinLoading ? 'Registrando…' : 'Registrar presença'}
+      aria-label={checkinLoading ? 'Registrando presença' : 'Registrar presença'}
+      onClick={() => void onCheckin(row)}
+    >
+      {checkinLoading ? (
+        <Loader2 size={16} className="attendance-at-risk-spin" aria-hidden />
+      ) : (
+        <UserCheck size={16} aria-hidden />
+      )}
+    </button>
+  );
+}
+
 /**
  * Ações por linha — WhatsApp primário + menu ⋯ (desktop e mobile).
  */
 export default function AttendanceAtRiskRowActions({
   row,
+  showCheckin = false,
+  checkinLoading = false,
+  onCheckin,
   waLoading,
   waSent,
   rowBusy,
@@ -56,6 +80,14 @@ export default function AttendanceAtRiskRowActions({
 
   return (
     <div className="attendance-at-risk-actions" data-no-dnd="true">
+      {showCheckin ? (
+        <CheckinActionButton
+          row={row}
+          checkinLoading={checkinLoading}
+          rowBusy={rowBusy}
+          onCheckin={onCheckin}
+        />
+      ) : null}
       <WhatsAppActionButton
         row={row}
         waLoading={waLoading}

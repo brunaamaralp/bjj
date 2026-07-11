@@ -285,7 +285,7 @@
 
 .attendance-at-risk-table-wrap .report-data-table th:last-child,
 .attendance-at-risk-table-wrap .report-data-table td:last-child {
-  width: 120px;
+  width: 156px;
   white-space: nowrap;
 }
 
@@ -360,6 +360,34 @@
   min-width: 36px;
   min-height: 36px;
   justify-content: center;
+}
+
+.attendance-at-risk-actions__btn--checkin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-accent-surface, #e1f5ee);
+  color: var(--color-accent-dark, #085041);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.attendance-at-risk-actions__btn--checkin:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent, #0d9488) 18%, var(--color-accent-surface, #e1f5ee));
+}
+
+.attendance-at-risk-actions__btn--checkin:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.attendance-at-risk-actions__btn--checkin.attendance-at-risk-actions__btn--loading {
+  opacity: 0.85;
 }
 
 .attendance-at-risk-no-phone {
@@ -500,7 +528,8 @@
   }
 
   .attendance-at-risk-actions .wa-btn,
-  .attendance-at-risk-actions__btn--icon {
+  .attendance-at-risk-actions__btn--icon,
+  .attendance-at-risk-actions__btn--checkin {
     min-height: 44px;
     min-width: 44px;
   }
