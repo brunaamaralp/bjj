@@ -6,7 +6,7 @@ import {
   currentMonthRange,
   previousMonthRange,
 } from '../lib/dashboardManagerMetrics.js';
-import { fetchStudentMetricsForRange } from '../lib/reportsStudentMetricsApi.js';
+import { fetchStudentMetricsForRange, fetchConvertedListForRange } from '../lib/reportsStudentMetricsApi.js';
 import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
 
 function monthYmdBounds(range) {
@@ -25,6 +25,7 @@ export function useDashboardMonthEnrollmentMetrics(students) {
   const academyId = useLeadStore((s) => s.academyId);
   const leads = useLeadStore((s) => s.leads);
   const [serverMetrics, setServerMetrics] = useState(null);
+  const [serverEnrollmentList, setServerEnrollmentList] = useState(null);
 
   const monthRange = useMemo(() => currentMonthRange(), []);
   const prevRange = useMemo(() => previousMonthRange(), []);
@@ -35,12 +36,21 @@ export function useDashboardMonthEnrollmentMetrics(students) {
     let cancelled = false;
     const { from, to } = monthYmdBounds(monthRange);
 
-    fetchStudentMetricsForRange({ academyId, from, to })
-      .then((sm) => {
-        if (!cancelled) setServerMetrics(sm);
+    Promise.all([
+      fetchStudentMetricsForRange({ academyId, from, to }),
+      fetchConvertedListForRange({ academyId, from, to }),
+    ])
+      .then(([sm, list]) => {
+        if (!cancelled) {
+          setServerMetrics(sm);
+          setServerEnrollmentList(list);
+        }
       })
       .catch(() => {
-        if (!cancelled) setServerMetrics(null);
+        if (!cancelled) {
+          setServerMetrics(null);
+          setServerEnrollmentList(null);
+        }
       });
 
     return () => {
@@ -80,6 +90,6 @@ export function useDashboardMonthEnrollmentMetrics(students) {
       subTone = 'neutral';
     }
 
-    return { enrolledInMonth, sub, subTone };
-  }, [academyId, serverMetrics, clientMetrics]);
+    return { enrolledInMonth, sub, subTone, enrollmentList: serverEnrollmentList };
+  }, [academyId, serverMetrics, serverEnrollmentList, clientMetrics]);
 }

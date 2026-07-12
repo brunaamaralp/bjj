@@ -11,6 +11,7 @@ export const KIMONO_LOAN_STATUS = {
 export const KIMONO_BORROWER_TYPES = {
   LEAD: 'lead',
   STUDENT: 'student',
+  CLIENT: 'client',
 };
 
 /** Produto elegível para pool de aluguel (kimono / both / rental). */
@@ -56,6 +57,8 @@ export function mapKimonoLoanDoc(doc, { overdueHours = 4, now = new Date() } = {
   if (!doc) return null;
   const lentAt = String(doc.lent_at || doc.$createdAt || '').trim();
   const overdue = doc.status === KIMONO_LOAN_STATUS.OUT && isKimonoLoanOverdue(lentAt, overdueHours, now);
+  const notes = String(doc.notes || '');
+  const sourceMatch = notes.match(/origem:([a-z_]+)/i);
   return {
     id: doc.$id,
     academy_id: doc.academy_id,
@@ -73,5 +76,6 @@ export function mapKimonoLoanDoc(doc, { overdueHours = 4, now = new Date() } = {
     stock_move_in_id: doc.stock_move_in_id || '',
     overdue,
     elapsed_label: formatKimonoLoanElapsed(lentAt, now),
+    source: sourceMatch ? sourceMatch[1] : '',
   };
 }

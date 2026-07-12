@@ -99,6 +99,36 @@ export function filterEnrollmentsInMonth(leads, students, range = currentMonthRa
   });
 }
 
+/**
+ * Lista do modal de matrículas: prioriza ids do servidor (KPI canônico)
+ * e enriquece com dados locais quando disponíveis.
+ */
+export function mergeEnrollmentModalItems(serverList, leads, students, range = currentMonthRange()) {
+  const localItems = filterEnrollmentsInMonth(leads, students, range);
+  if (!Array.isArray(serverList) || serverList.length === 0) return localItems;
+
+  const byId = new Map();
+  for (const contact of localItems) {
+    const id = String(contact?.id || contact?.$id || '').trim();
+    if (id) byId.set(id, contact);
+  }
+  for (const s of students || []) {
+    const id = String(s?.id || s?.$id || '').trim();
+    if (id && !byId.has(id)) byId.set(id, { ...s, _isStudent: true });
+  }
+  for (const l of leads || []) {
+    const id = String(l?.id || l?.$id || '').trim();
+    if (id && !byId.has(id)) byId.set(id, l);
+  }
+
+  return serverList.map((item) => {
+    const id = String(item?.id || '').trim();
+    const local = id ? byId.get(id) : null;
+    if (local) return local;
+    return { id, name: item.name, phone: item.phone, type: item.type };
+  });
+}
+
 export function conversionRatePercent(leadsInMonth, enrolledInMonth) {
   if (!leadsInMonth) return 0;
   return Math.round((enrolledInMonth / leadsInMonth) * 100);

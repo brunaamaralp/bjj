@@ -86,6 +86,43 @@ export async function fetchStudentMetricsForRange({ academyId, from, to }) {
   return data.studentMetrics || null;
 }
 
+async function fetchFunnelReportForRange({ academyId, from, to }) {
+  const fromDay = parseYmd(from);
+  const toDay = parseYmd(to);
+  const toEnd = new Date(toDay);
+  toEnd.setHours(23, 59, 59, 999);
+  const prevFrom = new Date(fromDay.getFullYear(), fromDay.getMonth() - 1, 1);
+  const prevTo = monthEnd(prevFrom);
+
+  const jwt = await account.createJWT();
+  const res = await fetch('/api/reports', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwt.jwt}`,
+      'x-academy-id': String(academyId || ''),
+    },
+    body: JSON.stringify({
+      academyId,
+      from: fromDay.toISOString(),
+      to: toEnd.toISOString(),
+      prevFrom: prevFrom.toISOString(),
+      prevTo: prevTo.toISOString(),
+      filters: { origin: 'all', type: 'all' },
+      chartMode: 'monthly',
+      refresh: false,
+    }),
+  });
+  if (!res.ok) throw new Error('funnel_report_failed');
+  return res.json();
+}
+
+/** Lista canônica de novos alunos no período (mesma fonte do KPI de relatórios). */
+export async function fetchConvertedListForRange({ academyId, from, to }) {
+  const data = await fetchFunnelReportForRange({ academyId, from, to });
+  return Array.isArray(data?.metrics?.converted?.list) ? data.metrics.converted.list : [];
+}
+
 export function studentMetricsToChartPoint(label, sm) {
   if (!sm) {
     return { label, ativos: 0, novos: 0, cancelamentos: 0 };

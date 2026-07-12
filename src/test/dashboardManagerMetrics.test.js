@@ -6,6 +6,7 @@ import {
   countPendingTasksToday,
   currentMonthRange,
   filterEnrollmentsInMonth,
+  mergeEnrollmentModalItems,
   filterPendingTasksForDate,
   isTimestampInRange,
 } from '../lib/dashboardManagerMetrics.js';
@@ -133,6 +134,37 @@ describe('filterEnrollmentsInMonth', () => {
     ];
     expect(filterEnrollmentsInMonth(leads, students, range)).toHaveLength(1);
     expect(filterEnrollmentsInMonth(leads, students, range)[0].name).toBe('Carla');
+  });
+});
+
+describe('mergeEnrollmentModalItems', () => {
+  const range = {
+    from: new Date(2026, 5, 1, 0, 0, 0, 0),
+    to: new Date(2026, 5, 30, 23, 59, 59, 999),
+    ym: '2026-06',
+  };
+
+  it('prioriza lista do servidor e enriquece com dados locais', () => {
+    const serverList = [
+      { id: 's1', name: 'Ana' },
+      { id: 's2', name: 'Bruno' },
+      { id: 's3', name: 'Carla' },
+    ];
+    const students = [
+      { id: 's1', name: 'Ana Local', enrollmentDate: '2026-06-05', plan: 'Mensal' },
+      { id: 's2', name: 'Bruno Local', enrollmentDate: '2026-06-10' },
+    ];
+    const items = mergeEnrollmentModalItems(serverList, [], students, range);
+    expect(items).toHaveLength(3);
+    expect(items[0].plan).toBe('Mensal');
+    expect(items[2].name).toBe('Carla');
+  });
+
+  it('cai no filtro local quando servidor não retornou lista', () => {
+    const students = [{ id: 's1', name: 'Ana', enrollmentDate: '2026-06-05' }];
+    const items = mergeEnrollmentModalItems(null, [], students, range);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('s1');
   });
 });
 

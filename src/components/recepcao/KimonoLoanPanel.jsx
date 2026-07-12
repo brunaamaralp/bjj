@@ -31,7 +31,18 @@ function borrowerProfileHref(loan) {
   if (loan.borrower_type === KIMONO_BORROWER_TYPES.STUDENT) {
     return `/student/${loan.borrower_id}`;
   }
-  return `/lead/${loan.borrower_id}`;
+  if (loan.borrower_type === KIMONO_BORROWER_TYPES.LEAD) {
+    return `/lead/${loan.borrower_id}`;
+  }
+  return null;
+}
+
+function loanSourceLabel(source) {
+  const s = String(source || '').toLowerCase();
+  if (s === 'sale') return 'PDV';
+  if (s === 'reception') return 'Recepção';
+  if (s === 'inventory') return 'Estoque';
+  return '';
 }
 
 function KimonoLoanLendModal({ open, onClose, variants, onSubmit, submitting }) {
@@ -346,11 +357,6 @@ export default function KimonoLoanPanel({ academyId, modules }) {
     [inventory]
   );
 
-  const outInventory = useMemo(
-    () => inventory.filter((item) => item.rental_out > 0),
-    [inventory]
-  );
-
   if (!enabled) return null;
 
   return (
@@ -382,7 +388,7 @@ export default function KimonoLoanPanel({ academyId, modules }) {
           ·
         </span>
         <span className="kimono-loan-panel__summary-stat">
-          <strong>{loans.length || totals.out}</strong> emprestado{(loans.length || totals.out) === 1 ? '' : 's'}
+          <strong>{loans.length}</strong> emprestado{loans.length === 1 ? '' : 's'}
         </span>
       </div>
 
@@ -415,12 +421,6 @@ export default function KimonoLoanPanel({ academyId, modules }) {
             {loans.length === 0 ? (
               <p className="text-muted text-small kimono-loan-panel__empty">
                 Nenhum kimono emprestado no momento.
-                {outInventory.length > 0 ? (
-                  <>
-                    {' '}
-                    Há {totals.out} peça{totals.out === 1 ? '' : 's'} fora pelo estoque, sem registro de empréstimo.
-                  </>
-                ) : null}
               </p>
             ) : (
               <ul className="kimono-loan-list">
@@ -430,12 +430,17 @@ export default function KimonoLoanPanel({ academyId, modules }) {
                     className={`kimono-loan-list__item${loan.overdue ? ' kimono-loan-list__item--overdue' : ''}`}
                   >
                     <div className="kimono-loan-list__main">
-                      <Link to={borrowerProfileHref(loan)} className="kimono-loan-list__name">
-                        {loan.borrower_name}
-                      </Link>
+                      {borrowerProfileHref(loan) ? (
+                        <Link to={borrowerProfileHref(loan)} className="kimono-loan-list__name">
+                          {loan.borrower_name}
+                        </Link>
+                      ) : (
+                        <span className="kimono-loan-list__name">{loan.borrower_name}</span>
+                      )}
                       <span className="kimono-loan-list__meta text-small text-muted">
-                        {loan.item_label || loan.size_label} · saiu às {formatLentTime(loan.lent_at)} ·{' '}
-                        {loan.elapsed_label}
+                        {loan.item_label || loan.size_label}
+                        {loanSourceLabel(loan.source) ? ` · ${loanSourceLabel(loan.source)}` : ''} · saiu às{' '}
+                        {formatLentTime(loan.lent_at)} · {loan.elapsed_label}
                       </span>
                       {loan.overdue ? (
                         <span className="kimono-loan-list__alert text-small">

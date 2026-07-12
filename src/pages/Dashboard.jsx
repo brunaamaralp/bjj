@@ -49,7 +49,7 @@ import {
 } from '../lib/dashboardDayBriefing.js';
 import {
     currentMonthRange,
-    filterEnrollmentsInMonth,
+    mergeEnrollmentModalItems,
 } from '../lib/dashboardManagerMetrics.js';
 import { enrollmentDateYmd } from '../lib/studentEnrollmentDate.js';
 import {
@@ -729,9 +729,14 @@ const Dashboard = () => {
     const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
     const monthRange = useMemo(() => currentMonthRange(), []);
-    const monthEnrollments = useMemo(
-        () => filterEnrollmentsInMonth(leads, students, monthRange),
-        [leads, students, monthRange]
+        () =>
+            mergeEnrollmentModalItems(
+                monthEnrollmentMetrics.enrollmentList,
+                leads,
+                students,
+                monthRange
+            ),
+        [monthEnrollmentMetrics.enrollmentList, leads, students, monthRange]
     );
     const monthEnrollmentsTitle = useMemo(() => {
         const label = new Date(`${monthRange.ym}-01T12:00:00`).toLocaleDateString('pt-BR', {
@@ -887,7 +892,7 @@ const Dashboard = () => {
             : listModalType === 'tasks'
               ? pendingTasksDueHub
               : listModalType === 'enrollments'
-                ? monthEnrollments
+                ? monthEnrollmentModalItems
                 : [];
 
     const modalTitle =
