@@ -106,7 +106,6 @@ import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
 import FollowupOutcomeDialog from '../components/followup/FollowupOutcomeDialog.jsx';
 import FollowupCopilotButtons from '../components/followup/FollowupCopilotButtons.jsx';
-import FollowupHealthPanel from '../components/dashboard/FollowupHealthPanel.jsx';
 import DashboardAgendaWeekPanel from '../components/dashboard/DashboardAgendaWeekPanel.jsx';
 import { useFollowupOutcome } from '../hooks/useFollowupOutcome.js';
 import { useFollowupEventsByLead } from '../hooks/useFollowupEventsByLead.js';
@@ -506,8 +505,6 @@ const Dashboard = () => {
         followUpsKanbanOnlyCount,
         followupTemperatureCounts,
         followUpGroups,
-        followupHealthSummary,
-        showFollowupHealthPanel,
     } = useDashboardFollowupLeads(followupEventsCtx);
 
     const todayBirthdays = useMemo(() => {
@@ -1676,14 +1673,6 @@ const Dashboard = () => {
                 )}
                 </div>
             </section>
-
-            {!loading && !isZeroState && showFollowupHealthPanel ? (
-                <FollowupHealthPanel
-                    summary={followupHealthSummary}
-                    showLeadList={followUps.length === 0}
-                    className="agenda-bottom-row__health"
-                />
-            ) : null}
             </div>
             </div>
 

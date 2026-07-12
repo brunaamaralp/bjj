@@ -1,6 +1,6 @@
 import '../../styles/recepcao-kimono-loans.css';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Loader2, Plus, Shirt, Undo2 } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Plus, Settings2, Shirt, Undo2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
@@ -248,6 +248,8 @@ export default function KimonoLoanPanel({ academyId, modules }) {
   const [error, setError] = useState('');
   const [loans, setLoans] = useState([]);
   const [variants, setVariants] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [totals, setTotals] = useState({ available: 0, out: 0 });
   const [overdueHours, setOverdueHours] = useState(DEFAULT_KIMONO_LOAN_OVERDUE_HOURS);
   const [overdueCount, setOverdueCount] = useState(0);
   const [lendOpen, setLendOpen] = useState(false);
@@ -267,6 +269,8 @@ export default function KimonoLoanPanel({ academyId, modules }) {
       const data = await fetchKimonoLoanBoard();
       setLoans(data.loans || []);
       setVariants(data.variants || []);
+      setInventory(data.inventory || data.variants || []);
+      setTotals(data.totals || { available: 0, out: 0 });
       setOverdueHours(data.settings?.overdueHours ?? DEFAULT_KIMONO_LOAN_OVERDUE_HOURS);
       setSettingsDraft(String(data.settings?.overdueHours ?? DEFAULT_KIMONO_LOAN_OVERDUE_HOURS));
       setOverdueCount(Number(data.overdueCount) || 0);
@@ -337,6 +341,16 @@ export default function KimonoLoanPanel({ academyId, modules }) {
     }
   };
 
+  const availableInventory = useMemo(
+    () => inventory.filter((item) => item.rental_available > 0),
+    [inventory]
+  );
+
+  const outInventory = useMemo(
+    () => inventory.filter((item) => item.rental_out > 0),
+    [inventory]
+  );
+
   if (!enabled) return null;
 
   return (
@@ -345,7 +359,7 @@ export default function KimonoLoanPanel({ academyId, modules }) {
         <div className="kimono-loan-panel__title-wrap">
           <h2 id="kimono-loan-heading" className="reception-section-heading">
             <Shirt size={18} aria-hidden />
-            Kimonos emprestados
+            Kimonos
           </h2>
           {overdueCount > 0 ? (
             <span className="kimono-loan-panel__overdue-badge" role="status">
@@ -360,74 +374,125 @@ export default function KimonoLoanPanel({ academyId, modules }) {
         </button>
       </div>
 
-      <div className="kimono-loan-panel__settings">
-        <label className="text-small" htmlFor="kimono-overdue-hours">
-          Alerta após (horas)
-        </label>
-        <input
-          id="kimono-overdue-hours"
-          type="number"
-          min={1}
-          max={72}
-          className="form-input kimono-loan-panel__hours-input"
-          value={settingsDraft}
-          onChange={(e) => setSettingsDraft(e.target.value)}
-        />
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          disabled={savingSettings || String(overdueHours) === settingsDraft.trim()}
-          onClick={() => void handleSaveSettings()}
-        >
-          {savingSettings ? 'Salvando…' : 'Salvar'}
-        </button>
-        <span className="text-small text-muted">Padrão: {overdueHours}h</span>
+      <div className="kimono-loan-panel__summary" role="status">
+        <span className="kimono-loan-panel__summary-stat">
+          <strong>{totals.available}</strong> disponíve{totals.available === 1 ? 'l' : 'is'}
+        </span>
+        <span className="kimono-loan-panel__summary-dot" aria-hidden>
+          ·
+        </span>
+        <span className="kimono-loan-panel__summary-stat">
+          <strong>{loans.length || totals.out}</strong> emprestado{(loans.length || totals.out) === 1 ? '' : 's'}
+        </span>
       </div>
 
       {error ? <StatusBanner variant="error" title={error} className="kimono-loan-panel__error" /> : null}
 
       {loading ? (
-        <p className="text-muted text-small kimono-loan-panel__loading">Carregando empréstimos…</p>
-      ) : loans.length === 0 ? (
-        <p className="text-muted text-small">Nenhum kimono emprestado no momento.</p>
+        <p className="text-muted text-small kimono-loan-panel__loading">Carregando kimonos…</p>
       ) : (
-        <ul className="kimono-loan-list">
-          {loans.map((loan) => (
-            <li
-              key={loan.id}
-              className={`kimono-loan-list__item${loan.overdue ? ' kimono-loan-list__item--overdue' : ''}`}
-            >
-              <div className="kimono-loan-list__main">
-                <Link to={borrowerProfileHref(loan)} className="kimono-loan-list__name">
-                  {loan.borrower_name}
-                </Link>
-                <span className="kimono-loan-list__meta text-small text-muted">
-                  {loan.item_label || loan.size_label} · saiu às {formatLentTime(loan.lent_at)} ·{' '}
-                  {loan.elapsed_label}
-                </span>
-                {loan.overdue ? (
-                  <span className="kimono-loan-list__alert text-small">
-                    <AlertTriangle size={12} aria-hidden /> Passou de {overdueHours}h sem devolução
-                  </span>
+        <>
+          <div className="kimono-loan-panel__block">
+            <h3 className="kimono-loan-panel__subheading">Disponíveis para empréstimo</h3>
+            {availableInventory.length === 0 ? (
+              <p className="text-muted text-small kimono-loan-panel__empty">
+                Nenhum kimono disponível no armário.
+              </p>
+            ) : (
+              <ul className="kimono-loan-inventory" aria-label="Kimonos disponíveis">
+                {availableInventory.map((item) => (
+                  <li key={item.id} className="kimono-loan-inventory__chip kimono-loan-inventory__chip--available">
+                    <span className="kimono-loan-inventory__label">{item.label}</span>
+                    <span className="kimono-loan-inventory__count">{item.rental_available}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="kimono-loan-panel__block">
+            <h3 className="kimono-loan-panel__subheading">Emprestados agora</h3>
+            {loans.length === 0 ? (
+              <p className="text-muted text-small kimono-loan-panel__empty">
+                Nenhum kimono emprestado no momento.
+                {outInventory.length > 0 ? (
+                  <>
+                    {' '}
+                    Há {totals.out} peça{totals.out === 1 ? '' : 's'} fora pelo estoque, sem registro de empréstimo.
+                  </>
                 ) : null}
-              </div>
-              <button
-                type="button"
-                className="btn-secondary kimono-loan-list__return-btn"
-                disabled={returningId === loan.id}
-                onClick={() => void handleReturn(loan.id)}
-              >
-                {returningId === loan.id ? (
-                  <Loader2 size={14} className="spin-refresh" aria-hidden />
-                ) : (
-                  <Undo2 size={14} aria-hidden />
-                )}
-                Devolver
-              </button>
-            </li>
-          ))}
-        </ul>
+              </p>
+            ) : (
+              <ul className="kimono-loan-list">
+                {loans.map((loan) => (
+                  <li
+                    key={loan.id}
+                    className={`kimono-loan-list__item${loan.overdue ? ' kimono-loan-list__item--overdue' : ''}`}
+                  >
+                    <div className="kimono-loan-list__main">
+                      <Link to={borrowerProfileHref(loan)} className="kimono-loan-list__name">
+                        {loan.borrower_name}
+                      </Link>
+                      <span className="kimono-loan-list__meta text-small text-muted">
+                        {loan.item_label || loan.size_label} · saiu às {formatLentTime(loan.lent_at)} ·{' '}
+                        {loan.elapsed_label}
+                      </span>
+                      {loan.overdue ? (
+                        <span className="kimono-loan-list__alert text-small">
+                          <AlertTriangle size={12} aria-hidden /> Passou de {overdueHours}h sem devolução
+                        </span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary kimono-loan-list__return-btn"
+                      disabled={returningId === loan.id}
+                      onClick={() => void handleReturn(loan.id)}
+                    >
+                      {returningId === loan.id ? (
+                        <Loader2 size={14} className="spin-refresh" aria-hidden />
+                      ) : (
+                        <Undo2 size={14} aria-hidden />
+                      )}
+                      Devolver
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
+
+      <details className="kimono-loan-panel__settings-details">
+        <summary className="kimono-loan-panel__settings-summary">
+          <Settings2 size={14} aria-hidden />
+          Alerta de atraso
+        </summary>
+        <div className="kimono-loan-panel__settings">
+          <label className="text-small" htmlFor="kimono-overdue-hours">
+            Alertar após (horas)
+          </label>
+          <input
+            id="kimono-overdue-hours"
+            type="number"
+            min={1}
+            max={72}
+            className="form-input kimono-loan-panel__hours-input"
+            value={settingsDraft}
+            onChange={(e) => setSettingsDraft(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            disabled={savingSettings || String(overdueHours) === settingsDraft.trim()}
+            onClick={() => void handleSaveSettings()}
+          >
+            {savingSettings ? 'Salvando…' : 'Salvar'}
+          </button>
+          <span className="text-small text-muted">Atual: {overdueHours}h</span>
+        </div>
+      </details>
 
       <KimonoLoanLendModal
         open={lendOpen}

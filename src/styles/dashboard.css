@@ -1824,13 +1824,12 @@
         }
         .agenda-bottom-row {
           display: grid;
-          grid-template-columns: minmax(320px, 1.45fr) minmax(220px, 0.55fr);
+          grid-template-columns: 1fr;
           gap: 20px;
           align-items: start;
           width: 100%;
         }
-        .agenda-bottom-row > .agenda-followups-section,
-        .agenda-bottom-row > .followup-health-panel {
+        .agenda-bottom-row > .agenda-followups-section {
           width: 100%;
           max-width: 100%;
           position: static;

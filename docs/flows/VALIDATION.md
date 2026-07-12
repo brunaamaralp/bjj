@@ -45,7 +45,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | 7 | WhatsApp follow-up | ✅ Código | `handleFollowUpWhatsApp` |
 | 8 | Navegação lead + voltar Recepção | ✅ Código | `LEAD_PROFILE_FROM_DASHBOARD` |
 | 9 | Agenda da semana | ✅ Código | `DashboardAgendaWeekPanel`, `FOLLOWUP_AGENDA_MAX_DAYS` |
-| 10 | Saúde dos follow-ups | ✅ Código | `FollowupHealthPanel`, `showFollowupHealthPanel` |
+| 10 | Saúde dos follow-ups | ⛔ Removido da recepção (2026-07-12) | `FollowupHealthPanel` mantido no código, não renderizado em `Dashboard.jsx` |
 | 11 | Tarefas do dia | ⚠️ **Parcial** | KPI navega para `/tarefas?…` — não conclui inline |
 | 12 | Aniversários | ✅ Código | `DashboardBirthdayBanner`, `DashboardBirthdayModal` |
 | 13 | Aba Catraca + redirects | ✅ Código | `RecepcaoCatracaTab`, `Recepcao.jsx`, `Attendance.jsx` |

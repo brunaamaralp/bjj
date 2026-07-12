@@ -7,14 +7,13 @@ import {
   groupFollowUpsByTemperature,
   countFollowupsByTemperature,
 } from '../lib/followupState.js';
-import { computeFollowupHealthSummary } from '../lib/followupManagerHealth.js';
 
 function excludeImportedOrigin(l) {
   return String(l?.origin || '').trim() !== 'Planilha';
 }
 
 /**
- * Retornos pendentes e saúde do follow-up — subscribe isolado em `leads[]`.
+ * Retornos pendentes — subscribe isolado em `leads[]`.
  * @param {object} followupEventsCtx
  */
 export function useDashboardFollowupLeads(followupEventsCtx) {
@@ -49,32 +48,11 @@ export function useDashboardFollowupLeads(followupEventsCtx) {
 
   const followUpGroups = useMemo(() => groupFollowUpsByTemperature(followUps), [followUps]);
 
-  const followupHealthSummary = useMemo(
-    () =>
-      computeFollowupHealthSummary(followUpsAll, {
-        followupDoneByLead: followupEventsCtx.followupDoneByLead,
-        followupContactByLead: followupEventsCtx.followupContactByLead,
-        inboundAfterByLead: followupEventsCtx.inboundAfterByLead,
-        inboundAfterByPhone: followupEventsCtx.inboundAfterByPhone,
-      }),
-    [followUpsAll, followupEventsCtx]
-  );
-
-  const showFollowupHealthPanel = useMemo(() => {
-    if (!followupHealthSummary) return false;
-    const { on_track, cooling, critical, d1RatePercent, attendedInWeek } = followupHealthSummary;
-    const hasTemperatureActivity = on_track + cooling + critical > 0;
-    const hasD1Metric = attendedInWeek > 0 && d1RatePercent !== null;
-    return hasTemperatureActivity || hasD1Metric;
-  }, [followupHealthSummary]);
-
   return {
     followUpsAll,
     followUps,
     followUpsKanbanOnlyCount,
     followupTemperatureCounts,
     followUpGroups,
-    followupHealthSummary,
-    showFollowupHealthPanel,
   };
 }

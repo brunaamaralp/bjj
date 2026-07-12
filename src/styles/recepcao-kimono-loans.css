@@ -41,7 +41,117 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 0 0 12px;
+  margin: 8px 0 0;
+}
+
+.kimono-loan-panel__settings-details {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 10px;
+}
+
+.kimono-loan-panel__settings-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-muted, #667085);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.kimono-loan-panel__settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.kimono-loan-panel__settings-summary::after {
+  content: '▾';
+  font-size: 12px;
+  margin-left: 2px;
+  transition: transform 0.15s ease;
+}
+
+.kimono-loan-panel__settings-details[open] .kimono-loan-panel__settings-summary::after {
+  transform: rotate(180deg);
+}
+
+.kimono-loan-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  font-size: var(--font-sm);
+  color: var(--text-muted, #667085);
+}
+
+.kimono-loan-panel__summary-stat strong {
+  color: var(--text-primary, #101828);
+  font-weight: 700;
+}
+
+.kimono-loan-panel__summary-dot {
+  opacity: 0.5;
+}
+
+.kimono-loan-panel__block {
+  margin-bottom: 16px;
+}
+
+.kimono-loan-panel__subheading {
+  margin: 0 0 8px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-primary, #101828);
+}
+
+.kimono-loan-panel__empty {
+  margin: 0;
+}
+
+.kimono-loan-inventory {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kimono-loan-inventory__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--paper, #fff);
+  font-size: var(--font-sm);
+}
+
+.kimono-loan-inventory__chip--available {
+  border-color: rgba(34, 139, 87, 0.25);
+  background: rgba(34, 139, 87, 0.06);
+}
+
+.kimono-loan-inventory__label {
+  font-weight: 600;
+}
+
+.kimono-loan-inventory__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: #166534;
+  background: rgba(34, 139, 87, 0.14);
 }
 
 .kimono-loan-panel__hours-input {
