@@ -94,10 +94,16 @@
 .reports-finance-drill-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 0 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .reports-finance-drill-row {
@@ -1639,6 +1645,29 @@
   position: relative;
   overflow: hidden;
   max-height: min(72vh, 540px);
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-drill-modal > .navi-modal-shell__header {
+  flex-shrink: 0;
+}
+
+.reports-drill-modal > .navi-modal-shell__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: var(--space-2, 8px);
+}
+
+.reports-drill-modal > .navi-modal-shell__footer {
+  flex-shrink: 0;
+  margin-top: var(--space-3, 12px);
+}
+
+.reports-drill-modal .reports-panel-note {
+  flex-shrink: 0;
+  margin: 0 0 8px;
 }
 
 .reports-drill-modal::before {
