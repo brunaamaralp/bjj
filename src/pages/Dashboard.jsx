@@ -729,6 +729,7 @@ const Dashboard = () => {
     const monthEnrollmentMetrics = useDashboardMonthEnrollmentMetrics(students);
 
     const monthRange = useMemo(() => currentMonthRange(), []);
+    const monthEnrollmentModalItems = useMemo(
         () =>
             mergeEnrollmentModalItems(
                 monthEnrollmentMetrics.enrollmentList,
