@@ -583,7 +583,7 @@ export default function VisaoGeralTab({
           <div className="financeiro-overview-reports-card__body">
             <p className="financeiro-overview-reports-card__title">Relatórios financeiros</p>
             <p className="text-small text-muted financeiro-overview-reports-card__desc">
-              DRE, receita por período e breakdown por forma de pagamento
+              Resumo de caixa por período e breakdown por forma de pagamento
             </p>
           </div>
           <ArrowRight size={18} className="financeiro-overview-reports-card__arrow" aria-hidden />

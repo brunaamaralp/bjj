@@ -8,12 +8,12 @@
 | **rotas** | `/reports`, `/reports?tab=funil\|alunos\|financeiro\|loja\|estoque` |
 | **pré-requisitos** | Academia com dados no período; abas financeiro/loja/estoque exigem módulos ativos |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-07-12 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:** —
 
-**Harness relacionado:** `npm test -- reports.test reportsExport reportsFinanceParity reportsPeople`
+**Harness relacionado:** `npm test -- reportsFinancePanel reportsFinanceDrill financeTxQueryOperational reportsFinanceParity reportsPeople`
 
 **Arquivos-chave:** `src/pages/Reports.jsx`, `src/lib/reportsPageConfig.js`, `src/components/reports/ReportsTabPanels.jsx`, `api/reports.js`, `lib/server/reportsLightHandler.js`
 
@@ -55,10 +55,10 @@ flowchart TD
 | 6 | Funil | Exportar | Menu export | CSV; contato só para owner |
 | 7 | Funil | Filtro perfil | `profileFilter` | Recarrega relatório |
 | 8 | Alunos | `ReportsStudentsPanel` | Métricas matrícula/churn/ticket médio | `useStudentMetricsReport` |
-| 9 | Financeiro | `ReportsFinancePanel` | KPIs caixa | Requer `modules.finance` |
+| 9 | Financeiro | `ReportsFinancePanel` | KPIs caixa liquidado + a receber (snapshot mês de `to`) | Gestores: regime, breakdown %, export, atalhos, trend, drill, MDR, gráfico semanal, metas RAG em Recebido/Despesas/Saldo, refresh; membros: `scope: basic` + banner |
 | 10 | Loja | `ReportsLojaPanel` | Vendas no período | Requer `modules.sales`; filtro operador |
 | 11 | Estoque | `ReportsEstoquePanel` | Movimentações/resumo | Requer `modules.inventory` |
-| 12 | Header | Atualizar | Refresh manual | `fetchReport(true)` / cache indicator |
+| 12 | Header | Atualizar | Refresh manual | Funil/alunos: `fetchReport(true)`; financeiro: `financeRefreshNonce` |
 | 13 | Erro | `ErrorBanner` | Tentar novamente | Retry fetch |
 
 ### Abas e visibilidade por módulo
@@ -108,7 +108,8 @@ flowchart TD
 2. [ ] Aba financeiro ausente se módulo desligado
 3. [ ] `?tab=loja` carrega equipe para filtro operador (`fetchTeamMemberships`)
 4. [ ] `?tab=estoque` só com inventory
-5. [ ] Tab inválida → redirect para default permitido
+5. [ ] `?tab=financeiro` — gestor: trend, drill, MDR, gráfico semanal, metas RAG; membro: banner basic
+6. [ ] Tab inválida → redirect para default permitido
 
 ### Estados de erro conhecidos
 
@@ -172,3 +173,5 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação inicial |
+| 2026-07-12 | — | Aba Financeiro Fase 3: gráfico semanal, metas Recebido/Despesas (spec 2026-07-12) |
+| 2026-07-12 | — | Aba Financeiro Fase 2: trend, drill, MDR, refresh header, export expandido (spec 2026-07-12) |

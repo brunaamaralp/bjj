@@ -131,6 +131,16 @@ describe('financeiroHubTabs', () => {
     );
   });
 
+  it('buildFinanceLancamentosPath — deep link com período explícito', () => {
+    expect(
+      buildFinanceLancamentosPath({
+        from: '2026-07-01',
+        to: '2026-07-12',
+        regime: FINANCE_REGIME.CASH,
+      })
+    ).toBe('/financeiro?tab=movimentacoes&from=2026-07-01&to=2026-07-12&regime=cash');
+  });
+
   it('FINANCE_STATEMENT_VIEWS expõe dre, dfc e cascade', () => {
     expect(FINANCE_STATEMENT_VIEWS.DRE).toBe('dre');
     expect(FINANCE_STATEMENT_VIEWS.DFC).toBe('dfc');

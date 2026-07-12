@@ -506,8 +506,14 @@ Nota UX: links de config apontam para `/integracoes?tab=catraca`. Spec: [catraca
 | 11 | Filtro operador loja | ✅ Código | `fetchTeamMemberships` em `Reports.jsx` |
 | 12 | Multi-tenant API | ✅ Código | `bodyAcademyId` vs token — 403 |
 | 13 | Menu sidebar | ✅ Código | `buildRelatoriosNavItem` |
+| 14 | Financeiro Fase 2 — trend, drill, MDR | ✅ Código + teste | `ReportsFinancePanel`, `ReportsFinanceDrillDialog`, `reportsFinancePanel.test.jsx` |
+| 15 | Financeiro refresh header | ✅ Código | `financeRefreshNonce` em `Reports.jsx` |
+| 16 | `revenueBreakdown` reports-light | ✅ Código | `financeSummary` em `reportsLightHandler.js` |
+| 17 | Filtro drill `direction`/`status` | ✅ Código + teste | `filterOperationalReportTxs`, `financeTxQueryOperational.test.js` |
+| 18 | Financeiro Fase 3 — gráfico semanal | ✅ Código + teste | `weeklySeries`, `aggregateOperationalWeeklySeries`, `reportsFinancePanel.test.jsx` |
+| 19 | Metas KPI Recebido/Despesas | ✅ Código | `reportsKpiGoals.js`, `ReportsKpiGoalsSection` |
 
-Harness: `reports.test.js`, `reportsExport.test.js`, `reportsFinanceParity.test.js`, `reportsPeople.test.js`.
+Harness: `reports.test.js`, `reportsExport.test.js`, `reportsFinancePanel.test.jsx`, `reportsFinanceDrill.test.jsx`, `reportsFinanceParity.test.js`, `financeTxQueryOperational.test.js`, `financeTxAggregate.test.js`, `reportsPeople.test.js`.
 
 ---
 

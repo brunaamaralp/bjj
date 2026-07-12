@@ -247,11 +247,15 @@ describe('reportsKpiGoals', () => {
       reportsKpiGoals: {
         conversionRate: { target: 30, direction: 'higher' },
         churnRate: { target: 4, direction: 'lower' },
+        financeReceived: { target: 12000, direction: 'higher' },
+        financeExpenses: { target: 4000, direction: 'lower' },
       },
     });
     const goals = parseReportsKpiGoals(settings);
     expect(goals.conversionRate.target).toBe(30);
     expect(goals.churnRate.target).toBe(4);
+    expect(goals.financeReceived.target).toBe(12000);
+    expect(goals.financeExpenses.target).toBe(4000);
   });
 });
 

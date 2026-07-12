@@ -52,6 +52,8 @@ export default function ReportsTabPanels({
   isOwner = false,
   operatorTeam = [],
   onOperatorFilterChange,
+  financeRefreshNonce = 0,
+  onFinanceLoadingChange,
 }) {
   return (
     <>
@@ -116,8 +118,11 @@ export default function ReportsTabPanels({
             academyId={academyId}
             from={range.from}
             to={range.to}
+            preset={preset}
             hasFinance={hasFinance}
             kpiGoals={kpiGoals}
+            refreshNonce={financeRefreshNonce}
+            onLoadingChange={onFinanceLoadingChange}
           />
         </Suspense>
       ) : null}

@@ -11,13 +11,15 @@ async function financeHeaders(academyId) {
   };
 }
 
-export async function listFinanceTx({ academyId, from, to, cursor, regime, limit }) {
+export async function listFinanceTx({ academyId, from, to, cursor, regime, limit, direction, status }) {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (cursor) params.set('cursor', cursor);
   if (regime) params.set('regime', regime);
   if (limit != null && Number.isFinite(Number(limit))) params.set('limit', String(Math.floor(Number(limit))));
+  if (direction) params.set('direction', direction);
+  if (status) params.set('status', status);
   const res = await authedFetch(`/api/finance-tx?${params}`, {
     headers: await financeHeaders(academyId),
   });

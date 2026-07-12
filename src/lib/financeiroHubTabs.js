@@ -256,12 +256,19 @@ export function buildFinanceiroHubTabItems({ navRole, financeModule, isOwner, ta
   });
 }
 
-/** Deep link para Lançamentos a partir de DRE/DFC (categoria + mês + regime). */
-export function buildFinanceLancamentosPath({ month, category, regime } = {}) {
+/** Deep link para Lançamentos (período explícito, mês de referência ou categoria + regime). */
+export function buildFinanceLancamentosPath({ month, from, to, category, regime } = {}) {
   const params = new URLSearchParams();
   params.set('tab', 'movimentacoes');
-  const ym = String(month || '').trim();
-  if (/^\d{4}-\d{2}$/.test(ym)) params.set('month', ym);
+  const fromYmd = String(from || '').trim().slice(0, 10);
+  const toYmd = String(to || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fromYmd) && /^\d{4}-\d{2}-\d{2}$/.test(toYmd)) {
+    params.set('from', fromYmd);
+    params.set('to', toYmd);
+  } else {
+    const ym = String(month || '').trim();
+    if (/^\d{4}-\d{2}$/.test(ym)) params.set('month', ym);
+  }
   const cat = String(category || '').trim();
   if (cat) params.set('q', cat);
   const r = String(regime || '').trim().toLowerCase();

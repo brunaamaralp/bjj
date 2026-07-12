@@ -110,6 +110,8 @@ export default function Reports() {
     const [operatorFilter, setOperatorFilter] = useState('');
     const [salesTeam, setSalesTeam] = useState([]);
     const salesTeamCacheRef = useRef({ academyId: null, data: [] });
+    const [financeRefreshNonce, setFinanceRefreshNonce] = useState(0);
+    const [financeRefreshing, setFinanceRefreshing] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [drillKey, setDrillKey] = useState(null);
     const [heatmapTableView, setHeatmapTableView] = useState(false);
@@ -197,7 +199,8 @@ export default function Reports() {
     const handleRefresh = useCallback(() => {
         if (needsFunnelReport) void fetchReport(true);
         if (needsStudentMetrics) void fetchStudentReport(true);
-    }, [needsFunnelReport, needsStudentMetrics, fetchReport, fetchStudentReport]);
+        if (activeTab === 'financeiro' && hasFinance) setFinanceRefreshNonce((n) => n + 1);
+    }, [needsFunnelReport, needsStudentMetrics, fetchReport, fetchStudentReport, activeTab, hasFinance]);
     const handleRetry = useCallback(() => {
         if (needsFunnelReport) void fetchReport(false);
         if (needsStudentMetrics) void fetchStudentReport(false);
@@ -261,6 +264,9 @@ export default function Reports() {
         isLeadReportTab && !error && !showInitialLoad && !showNoLeadsEmpty && !reportHasActivity;
     const showLeadFunnelContent =
         isLeadReportTab && !error && !showInitialLoad && !showNoLeadsEmpty && !showNoActivityEmpty && reportData?.metrics;
+    const showFunnelRefresh =
+        (needsFunnelReport || needsStudentMetrics) && activeSnapshotData?.snapshotUpdatedAt;
+    const showFinanceRefresh = activeTab === 'financeiro' && hasFinance;
     const drillList = reportData && drillKey ? reportData.metrics[drillKey]?.list || [] : [];
     const showFunilChartSkeleton = activeTab === 'funil' && !error && (showInitialLoad || loading);
 
@@ -273,7 +279,7 @@ export default function Reports() {
                     subtitle="Analise indicadores por período."
                     meta={<span>Período · {prettyRange}</span>}
                     actions={
-                        (needsFunnelReport || needsStudentMetrics) && activeSnapshotData?.snapshotUpdatedAt ? (
+                        showFunnelRefresh ? (
                             <button
                                 type="button"
                                 className="reports-meta-refresh"
@@ -295,6 +301,22 @@ export default function Reports() {
                                     size={14}
                                     strokeWidth={2}
                                     className={`reports-meta-refresh__icon${loading || studentLoading ? ' reports-spin' : ''}`}
+                                    aria-hidden
+                                />
+                                <span>Atualizar</span>
+                            </button>
+                        ) : showFinanceRefresh ? (
+                            <button
+                                type="button"
+                                className="reports-meta-refresh"
+                                onClick={handleRefresh}
+                                disabled={financeRefreshing}
+                                aria-label="Atualizar relatório financeiro"
+                            >
+                                <RefreshCw
+                                    size={14}
+                                    strokeWidth={2}
+                                    className={`reports-meta-refresh__icon${financeRefreshing ? ' reports-spin' : ''}`}
                                     aria-hidden
                                 />
                                 <span>Atualizar</span>
@@ -398,6 +420,8 @@ export default function Reports() {
                     isOwner={isOwner}
                     operatorTeam={effectiveSalesTeam}
                     onDrill={setDrillKey}
+                    financeRefreshNonce={financeRefreshNonce}
+                    onFinanceLoadingChange={setFinanceRefreshing}
                         />
                     </ReportsExportSlotProvider>
                 ) : null}
