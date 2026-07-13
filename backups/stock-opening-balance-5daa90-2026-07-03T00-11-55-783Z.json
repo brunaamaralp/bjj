@@ -1,0 +1,91 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:11:55.798Z",
+  "script": "backfill-stock-opening-balance",
+  "created_moves": [
+    {
+      "move_id": "6a46fe4b0031f41a159e",
+      "item_id": "6a31e22100290c766c87",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a31e22100290c766c87"
+    },
+    {
+      "move_id": "6a46fe4c0003b1d3ecd0",
+      "item_id": "6a327a6300079c4cdf9f",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a327a6300079c4cdf9f"
+    },
+    {
+      "move_id": "6a46fe4c0013b52a9098",
+      "item_id": "6a327a6300132912e81e",
+      "quantidade": 2,
+      "referencia_id": "audit_backfill:opening:6a327a6300132912e81e"
+    },
+    {
+      "move_id": "6a46fe4c002411b1726b",
+      "item_id": "6a327a6300204deb2e0b",
+      "quantidade": 2,
+      "referencia_id": "audit_backfill:opening:6a327a6300204deb2e0b"
+    },
+    {
+      "move_id": "6a46fe4c003428b84a1e",
+      "item_id": "6a327a630033829798e9",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a327a630033829798e9"
+    },
+    {
+      "move_id": "6a46fe4d0005bd12d1de",
+      "item_id": "6a327a6400007b7ac99c",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a327a6400007b7ac99c"
+    },
+    {
+      "move_id": "6a46fe4d0015a3d3d63a",
+      "item_id": "6a32825c002cf6d95897",
+      "quantidade": 2,
+      "referencia_id": "audit_backfill:opening:6a32825c002cf6d95897"
+    },
+    {
+      "move_id": "6a46fe4d0025bf1f7444",
+      "item_id": "6a32825d00065075ca09",
+      "quantidade": 2,
+      "referencia_id": "audit_backfill:opening:6a32825d00065075ca09"
+    },
+    {
+      "move_id": "6a46fe4d0035a222da20",
+      "item_id": "6a32825d00125ba7a38e",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a32825d00125ba7a38e"
+    },
+    {
+      "move_id": "6a46fe4e001e560ed182",
+      "item_id": "6a333515000e25afa971",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a333515000e25afa971"
+    },
+    {
+      "move_id": "6a46fe4e002eb82c3d4d",
+      "item_id": "6a3335b4002261d8ad6b",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a3335b4002261d8ad6b"
+    },
+    {
+      "move_id": "6a46fe4f0018297ff57f",
+      "item_id": "6a3d059a001b64ce84eb",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a3d059a001b64ce84eb"
+    },
+    {
+      "move_id": "6a46fe4f00285959aeae",
+      "item_id": "6a46e4720037acb58d99",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a46e4720037acb58d99"
+    },
+    {
+      "move_id": "6a46fe4f0037fd0c34cb",
+      "item_id": "6a46e825000a1299a02d",
+      "quantidade": 1,
+      "referencia_id": "audit_backfill:opening:6a46e825000a1299a02d"
+    }
+  ]
+}

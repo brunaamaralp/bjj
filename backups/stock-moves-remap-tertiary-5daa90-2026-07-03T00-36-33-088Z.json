@@ -1,0 +1,200 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:36:33.101Z",
+  "script": "backfill-stock-moves-remap-tertiary",
+  "patches": [],
+  "archives": [
+    {
+      "move_id": "6a0e478b001d1f3f7540",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a0e478b000b77312803"
+      }
+    },
+    {
+      "move_id": "6a0e478d00020f5c4026",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a0e478c00270b204c99"
+      }
+    },
+    {
+      "move_id": "6a0e479b0030f1473b7e",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a0e479b001d6c963c44"
+      }
+    },
+    {
+      "move_id": "6a178486002e89028ade",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria: ajuste de estoque",
+        "item_estoque_id": "6a162beb002f89ce2be6"
+      }
+    },
+    {
+      "move_id": "6a17849500254396240e",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bec000c3aa42d94"
+      }
+    },
+    {
+      "move_id": "6a1e4eb9003468d4bd67",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "",
+        "item_estoque_id": "6a162bf200038646da57"
+      }
+    },
+    {
+      "move_id": "6a1eba35001c46c9c235",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a1eba350003116adf2b"
+      }
+    },
+    {
+      "move_id": "6a1eba3600272e64ef0d",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a1eba36000d54b07d31"
+      }
+    },
+    {
+      "move_id": "6a1f059d000ab8391f9d",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Erro de contagem",
+        "item_estoque_id": "6a1f0543000e9217a0c2"
+      }
+    },
+    {
+      "move_id": "6a1f507c0033df50af67",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a1f507c0011f6e467b5"
+      }
+    },
+    {
+      "move_id": "6a1f50fe002c4bf10fb6",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a1f507c0011f6e467b5"
+      }
+    },
+    {
+      "move_id": "6a2004ea0013d9a122b8",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162beb002f89ce2be6"
+      }
+    },
+    {
+      "move_id": "6a2016040014ebe26b58",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a201603003bc538fa9c"
+      }
+    },
+    {
+      "move_id": "6a20179b0008e3c5f56e",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a20179a002f8b5c45bd"
+      }
+    },
+    {
+      "move_id": "6a2019b50036564216d1",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bdc000f9829cb69"
+      }
+    },
+    {
+      "move_id": "6a2019ff002c2c7d58a6",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a2019ff001417c8bc1b"
+      }
+    },
+    {
+      "move_id": "6a22f30400262d37bbfd",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a22f304000c15882b7c"
+      }
+    },
+    {
+      "move_id": "6a26ed890039aa3ae10e",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bd6002ad4bbd069"
+      }
+    },
+    {
+      "move_id": "6a26ee490037d4ccd9ff",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bd80000fa3cf822"
+      }
+    },
+    {
+      "move_id": "6a26ee5f0027b942a7b0",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bda003b56695fcf"
+      }
+    },
+    {
+      "move_id": "6a26ef300031e76303cb",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bdc00323c3d495f"
+      }
+    },
+    {
+      "move_id": "6a26ef830005e6f601af",
+      "before": {
+        "tipo": "ajuste",
+        "motivo": "Avaria",
+        "item_estoque_id": "6a162bd50007b54401ed"
+      }
+    },
+    {
+      "move_id": "6a288a8c00395071ac5d",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a288a8c001f7e30e985"
+      }
+    },
+    {
+      "move_id": "6a308e30002ea97c0a4b",
+      "before": {
+        "tipo": "entrada",
+        "motivo": "cadastro_inicial",
+        "item_estoque_id": "6a308e30000e658da222"
+      }
+    }
+  ]
+}

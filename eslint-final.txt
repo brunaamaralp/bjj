@@ -1,0 +1,75 @@
+﻿
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\components\account\billing\InvoiceHistoryTable.jsx
+  38:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  36 |   useEffect(() => {
+  37 |     let cancelled = false;
+> 38 |     setError('');
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  39 |     fetchBillingPayments(storeId)
+  40 |       .then((d) => {
+  41 |         if (!cancelled) setPayments(Array.isArray(d.payments) ? d.payments : []);  react-hooks/set-state-in-effect
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\components\finance\BankReconTour.jsx
+  13:59  error  'hasConfirmAll' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             no-unused-vars
+  30:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  28 |   useLayoutEffect(() => {
+  29 |     if (!step) {
+> 30 |       setRect(null);
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  31 |       return undefined;
+  32 |     }
+  33 |     const frameId = requestAnimationFrame(() => {  react-hooks/set-state-in-effect
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\components\finance\FinanceTxAnticipationDialog.jsx
+  17:42  error  'financeConfig' is defined but never used  no-unused-vars
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\components\finance\JournalTab.jsx
+  57:3  error  'useEffect' is not defined  no-undef
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\components\inventory\StockEntryCorrectionWizard.jsx
+  1:30  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\hooks\useInboxUrlState.js
+  48:34  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  46 |
+  47 |   const urlFilter = inboxFilterFromUrlParam(searchParams.get('filter'));
+> 48 |   if (urlFilter && urlFilter !== listFilterRef.current) {
+     |                                  ^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  49 |     const normalized = urlFilter === 'my_queue' ? 'needs_me' : urlFilter;
+  50 |     if (normalized !== listFilter) {
+  51 |       setListFilterInternal(normalized);  react-hooks/refs
+
+C:\Users\Usuario\Desktop\JIU JITSU\.publish-main-tmp\src\pages\Sales.jsx
+  42:8  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  40 |   const [historyPeriodFromNav, setHistoryPeriodFromNav] = useState(null);
+  41 |
+> 42 |   if (!navStateConsumedRef.current) {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  43 |     const st = location.state;
+  44 |     if (st?.dateFrom && st?.dateTo) {
+  45 |       navStateConsumedRef.current = true;
+
+To initialize a ref only once, check that the ref is null with the pattern `if (ref.current == null) { ref.current = ... }`  react-hooks/refs
+
+Ô£û 8 problems (8 errors, 0 warnings)
+

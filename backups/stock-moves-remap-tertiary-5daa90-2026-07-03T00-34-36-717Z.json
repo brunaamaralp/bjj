@@ -1,0 +1,288 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:34:36.730Z",
+  "script": "backfill-stock-moves-remap-tertiary",
+  "patches": [
+    {
+      "move_id": "6a0e478900234715d6f0",
+      "match_method": "stock_item_fuzzy_prefix",
+      "before": {
+        "item_estoque_id": "6a0e4789000e0a038ac1"
+      },
+      "after": {
+        "item_estoque_id": "6a31e228000c2f922c24"
+      }
+    },
+    {
+      "move_id": "6a0e478b000b315e7e09",
+      "match_method": "stock_item_fuzzy_prefix",
+      "before": {
+        "item_estoque_id": "6a0e478a0036facbdbab"
+      },
+      "after": {
+        "item_estoque_id": "6a31e21e003c03f9b662"
+      }
+    },
+    {
+      "move_id": "6a0e478c003a71c25b59",
+      "match_method": "stock_item_fuzzy_prefix",
+      "before": {
+        "item_estoque_id": "6a0e478c00268f742911"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2220033940bcc3b"
+      }
+    },
+    {
+      "move_id": "6a0e478e0021ab26f0fe",
+      "match_method": "stock_item_fuzzy_prefix",
+      "before": {
+        "item_estoque_id": "6a0e478e000e63db6e04"
+      },
+      "after": {
+        "item_estoque_id": "6a31e22100290c766c87"
+      }
+    },
+    {
+      "move_id": "6a0e478e0022a58cf53e",
+      "match_method": "stock_item_fuzzy_prefix",
+      "before": {
+        "item_estoque_id": "6a0e478e001089233d97"
+      },
+      "after": {
+        "item_estoque_id": "6a31e226000b8de917e4"
+      }
+    },
+    {
+      "move_id": "6a1e2c98001dd3ea0345",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c98000252c6c414"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2270026a93adb79"
+      }
+    },
+    {
+      "move_id": "6a1f061e00280154b3d3",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1f060500307ae4aa0c"
+      },
+      "after": {
+        "item_estoque_id": "6a46d6c40001436ef207"
+      }
+    },
+    {
+      "move_id": "6a1f64bb0009f6bf5ed7",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1f64ba002e399055ef"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2200009c80ca78c"
+      }
+    },
+    {
+      "move_id": "6a20059800023f6fee7f",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2005970020f62e579c"
+      },
+      "after": {
+        "item_estoque_id": "6a31e255000ddebfcf48"
+      }
+    },
+    {
+      "move_id": "6a2005c60032b44e7c2c",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2005c6001258921b7a"
+      },
+      "after": {
+        "item_estoque_id": "6a31e25600172cdc2b22"
+      }
+    },
+    {
+      "move_id": "6a20066000147446b169",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2005970020f62e579c"
+      },
+      "after": {
+        "item_estoque_id": "6a31e255000ddebfcf48"
+      }
+    },
+    {
+      "move_id": "6a200672002cb319abc4",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2005c6001258921b7a"
+      },
+      "after": {
+        "item_estoque_id": "6a31e25600172cdc2b22"
+      }
+    },
+    {
+      "move_id": "6a20078800167711103e",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a200787003bd7cd13d7"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2480020cccdc83f"
+      }
+    },
+    {
+      "move_id": "6a200a5000288546b3ce",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c970023f3c70dff"
+      },
+      "after": {
+        "item_estoque_id": "6a31e228000c2f922c24"
+      }
+    },
+    {
+      "move_id": "6a200a680024b4903c92",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c970033a6eb43d6"
+      },
+      "after": {
+        "item_estoque_id": "6a31e22700039e188a9a"
+      }
+    },
+    {
+      "move_id": "6a200a7f00035a958d2f",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c990012f9df36cf"
+      },
+      "after": {
+        "item_estoque_id": "6a31e229001570079db2"
+      }
+    },
+    {
+      "move_id": "6a200a8f001ba4cb8d64",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c98000252c6c414"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2270026a93adb79"
+      }
+    },
+    {
+      "move_id": "6a200aa6001200751f81",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a1e2c99002069d1f5cc"
+      },
+      "after": {
+        "item_estoque_id": "6a31e228002fd8d07ac5"
+      }
+    },
+    {
+      "move_id": "6a201ae500214e873f38",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a201ae4003e31c47476"
+      },
+      "after": {
+        "item_estoque_id": "6a31e21f0022601597a2"
+      }
+    },
+    {
+      "move_id": "6a205317003910886e54",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a205317001f7eb07e06"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2320026888f09bb"
+      }
+    },
+    {
+      "move_id": "6a2053190006354910ae",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a205318002b8a2fa95f"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2340021d5ed1b1c"
+      }
+    },
+    {
+      "move_id": "6a20531a00118e8e5bbf",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2053190036962d9b42"
+      },
+      "after": {
+        "item_estoque_id": "6a31e231001ca3dc5d11"
+      }
+    },
+    {
+      "move_id": "6a20531b002715aa4633",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a20531b000ddddefe85"
+      },
+      "after": {
+        "item_estoque_id": "6a31e232000218703387"
+      }
+    },
+    {
+      "move_id": "6a20531c0030b1a2ae2e",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a20531c001713ce2248"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2300037e0cdc57f"
+      }
+    },
+    {
+      "move_id": "6a205354002174002de5",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2051dc0039779d89e7"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2320026888f09bb"
+      }
+    },
+    {
+      "move_id": "6a205366000218574372",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2051dd00082b220273"
+      },
+      "after": {
+        "item_estoque_id": "6a31e2340021d5ed1b1c"
+      }
+    },
+    {
+      "move_id": "6a20537500316d4cadb3",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2051dd0015281ab241"
+      },
+      "after": {
+        "item_estoque_id": "6a31e231001ca3dc5d11"
+      }
+    },
+    {
+      "move_id": "6a20538f0009932b8351",
+      "match_method": "old_product_size_set",
+      "before": {
+        "item_estoque_id": "6a2051dd00226bd56818"
+      },
+      "after": {
+        "item_estoque_id": "6a31e232000218703387"
+      }
+    }
+  ],
+  "archives": []
+}

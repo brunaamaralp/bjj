@@ -1,0 +1,15 @@
+item_id,item_label,academy_id,tipo,quantidade,motivo,referencia_id,quantity_before
+6a31e22100290c766c87,CAMISA GBLP V1 MASC PRETA · M,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a31e22100290c766c87,0
+6a327a6300079c4cdf9f,KIMONO GBK  LITE RIPSOT  BRA - ROSA · M0 · Rosa,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a327a6300079c4cdf9f,0
+6a327a6300132912e81e,KIMONO GBK  LITE RIPSOT  BRA - ROSA · M1 · Rosa,699f21b70006985daa90,entrada,2,saldo_inicial_audit_backfill,audit_backfill:opening:6a327a6300132912e81e,0
+6a327a6300204deb2e0b,KIMONO GBK  LITE RIPSOT  BRA - ROSA · M2 · Rosa,699f21b70006985daa90,entrada,2,saldo_inicial_audit_backfill,audit_backfill:opening:6a327a6300204deb2e0b,0
+6a327a630033829798e9,KIMONO GBK  LITE RIPSOT  BRA - ROSA · M3 · Rosa,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a327a630033829798e9,0
+6a327a6400007b7ac99c,KIMONO GBK  LITE RIPSOT  BRA - ROSA · M4 · Rosa,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a327a6400007b7ac99c,0
+6a32825c002cf6d95897,KIMONO AZUL · M0 · AZUL,699f21b70006985daa90,entrada,2,saldo_inicial_audit_backfill,audit_backfill:opening:6a32825c002cf6d95897,0
+6a32825d00065075ca09,KIMONO AZUL · M2 · AZUL,699f21b70006985daa90,entrada,2,saldo_inicial_audit_backfill,audit_backfill:opening:6a32825d00065075ca09,0
+6a32825d00125ba7a38e,KIMONO AZUL · M3 · AZUL,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a32825d00125ba7a38e,0
+6a333515000e25afa971,RASHGUARD RANQUEADA M/L PRETA · M,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a333515000e25afa971,0
+6a3335b4002261d8ad6b,RASGUARDE RANQUEADA M/L LUDADOR BRANCA · GG,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a3335b4002261d8ad6b,0
+6a3d059a001b64ce84eb,CAMISETA LEGADO  BRA V3 - CINZA · P inf,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a3d059a001b64ce84eb,0
+6a46e4720037acb58d99,Rashguard Ranqueada GB Essentials- Preta · G,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a46e4720037acb58d99,0
+6a46e825000a1299a02d,CAMISA GBLP V1 FEM PRETA · GG,699f21b70006985daa90,entrada,1,saldo_inicial_audit_backfill,audit_backfill:opening:6a46e825000a1299a02d,0

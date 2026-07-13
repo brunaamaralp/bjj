@@ -1,0 +1,287 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:17:29.466Z",
+  "script": "backfill-stock-sales-moves",
+  "created_moves": [
+    {
+      "move_id": "6a46ff99001d3a6153d4",
+      "sale_id": "6a1e01f9002908013fdb",
+      "sale_item_id": "6a1e01f900300c2d5a80",
+      "item_estoque_id": "6a31e24f003d632a9955",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff99003dcf96bdce",
+      "sale_id": "6a1e01f9002908013fdb",
+      "sale_item_id": "6a1e01fa0033af81efc3",
+      "item_estoque_id": "6a31e257003033d0bac9",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9a001fd398aead",
+      "sale_id": "6a1e01f9002908013fdb",
+      "sale_item_id": "6a1e01fc001117c29fc6",
+      "item_estoque_id": "6a31e24700290d01dc48",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9b0007884e76d7",
+      "sale_id": "6a288dc7002aaa5d4e1f",
+      "sale_item_id": "6a288dc7003922b634cf",
+      "item_estoque_id": "6a31e22c0015b923d944",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9b00275b2828be",
+      "sale_id": "6a308ec0000f5180b6ec",
+      "sale_item_id": "6a308ec000371cee9905",
+      "item_estoque_id": "6a31e231001ca3dc5d11",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9c001d91423854",
+      "sale_id": "6a308ec0000f5180b6ec",
+      "sale_item_id": "6a308ec2000476a61f35",
+      "item_estoque_id": "6a31e25600172cdc2b22",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9c003cbdfb64f8",
+      "sale_id": "6a308ec0000f5180b6ec",
+      "sale_item_id": "6a308ec3000a5a79e582",
+      "item_estoque_id": "6a31e22a00341112d884",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9d001d75824d08",
+      "sale_id": "6a327ee700297582d879",
+      "sale_item_id": "6a327ee7002f955cc8e3",
+      "item_estoque_id": "6a327a630033829798e9",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9e00028f91df02",
+      "sale_id": "6a327ee700297582d879",
+      "sale_item_id": "6a327ee80011da9d9f7d",
+      "item_estoque_id": "6a31e25600172cdc2b22",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9e00276511dfad",
+      "sale_id": "6a327ee700297582d879",
+      "sale_item_id": "6a327ee900148ce8e50d",
+      "item_estoque_id": "6a31e22a000d617abdcd",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9f0008646a3571",
+      "sale_id": "6a327ee700297582d879",
+      "sale_item_id": "6a327eea001e1641918c",
+      "item_estoque_id": "6a327e250036c26bb815",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ff9f002751ac458f",
+      "sale_id": "6a331d3f000a3870b068",
+      "sale_item_id": "6a331d3f0010d61eb415",
+      "item_estoque_id": "6a32825c0038e6dff8d6",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa00007bacb4741",
+      "sale_id": "6a331d3f000a3870b068",
+      "sale_item_id": "6a331d3f002b3df76bed",
+      "item_estoque_id": "6a31e25600172cdc2b22",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa00027d0da45db",
+      "sale_id": "6a331d3f000a3870b068",
+      "sale_item_id": "6a331d400026a3888768",
+      "item_estoque_id": "6a31e22a000d617abdcd",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa100081964747e",
+      "sale_id": "6a331d3f000a3870b068",
+      "sale_item_id": "6a331d41002ba5e1454d",
+      "item_estoque_id": "6a327e250036c26bb815",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa1002733933db9",
+      "sale_id": "6a333c2a003c587a4736",
+      "sale_item_id": "6a333c2b0004473cd35f",
+      "item_estoque_id": "6a333515001ad88ed6c2",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa20007c046d2e4",
+      "sale_id": "6a3693bb00190457f2df",
+      "sale_item_id": "6a3693bb001f22becdb2",
+      "item_estoque_id": "6a31e24700057a23265b",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa200273264d07b",
+      "sale_id": "6a36ab67002b656a0acc",
+      "sale_item_id": "6a36ab6700318f6cf3ae",
+      "item_estoque_id": "6a31e260000e3877ffc5",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa300074ada84d2",
+      "sale_id": "6a39a33d000119be633b",
+      "sale_item_id": "6a39a33d0007e2a6e8ac",
+      "item_estoque_id": "6a31e242001374c18c8a",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa300284d7705ea",
+      "sale_id": "6a3b2f97002d70cbdbb9",
+      "sale_item_id": "6a3b2f9700340d629ccf",
+      "item_estoque_id": "6a31e24e003350cebf3f",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa40008b772bcfc",
+      "sale_id": "6a3b2f97002d70cbdbb9",
+      "sale_item_id": "6a3b2f98001d67e0f35d",
+      "item_estoque_id": "6a31e253000c2ca8494c",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa40028440f78bc",
+      "sale_id": "6a3bf89d0002a8c326fd",
+      "sale_item_id": "6a3bf89d000998f27cf2",
+      "item_estoque_id": "6a31e24e003350cebf3f",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa5000a0b6938a4",
+      "sale_id": "6a3bf89d0002a8c326fd",
+      "sale_item_id": "6a3bf89d0029c3b453a4",
+      "item_estoque_id": "6a31e256003a0b21d4a6",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa60038d6e17fc2",
+      "sale_id": "6a3daa300036343c57da",
+      "sale_item_id": "6a3daa30003cabc79022",
+      "item_estoque_id": "6a31e232000218703387",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa7001cbc944342",
+      "sale_id": "6a3daa300036343c57da",
+      "sale_item_id": "6a3daa31001dbbb39c40",
+      "item_estoque_id": "6a31e22a00341112d884",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa7003bc32fd28e",
+      "sale_id": "6a3daa300036343c57da",
+      "sale_item_id": "6a3daa31003ccf7ca093",
+      "item_estoque_id": "6a31e25600172cdc2b22",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa8001c8b585989",
+      "sale_id": "6a3daa300036343c57da",
+      "sale_item_id": "6a3daa32001fe8267a2f",
+      "item_estoque_id": "6a327e250036c26bb815",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa8003b6dca7556",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23c001ecb4d9b99",
+      "item_estoque_id": "6a31e2320026888f09bb",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffa9001b69aabb8a",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23d0000ec86b83e",
+      "item_estoque_id": "6a327a6300204deb2e0b",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffaa0000cb5a48db",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23d00199d60aff5",
+      "item_estoque_id": "6a327e250036c26bb815",
+      "quantidade": 2
+    },
+    {
+      "move_id": "6a46ffaa0020f85778c2",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23d003adb859072",
+      "item_estoque_id": "6a31e25600172cdc2b22",
+      "quantidade": 2
+    },
+    {
+      "move_id": "6a46ffab000162bbb380",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23e001c3226e80a",
+      "item_estoque_id": "6a31e22a00341112d884",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffab002ccc4cc79e",
+      "sale_id": "6a3ee23c0015d9d4bfd6",
+      "sale_item_id": "6a3ee23e003d64934094",
+      "item_estoque_id": "6a31e22a000d617abdcd",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffac000d9bb8606d",
+      "sale_id": "6a3efad700091c8e0069",
+      "sale_item_id": "6a3efad7000f88e00d23",
+      "item_estoque_id": "6a31e2480020cccdc83f",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffac002d02603fd6",
+      "sale_id": "6a458f6b000380b04882",
+      "sale_item_id": "6a458f6b000a60fb880b",
+      "item_estoque_id": "6a31e24f00197e3db553",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffad001486f9135e",
+      "sale_id": "6a458f6b000380b04882",
+      "sale_item_id": "6a458f6b002ac68350be",
+      "item_estoque_id": "6a31e257003033d0bac9",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffad0036e10e9c4b",
+      "sale_id": "6a458f6b000380b04882",
+      "sale_item_id": "6a458f6c000d1f44f620",
+      "item_estoque_id": "6a31e24600200f298545",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffae00179297feb5",
+      "sale_id": "6a4592200034fb6c9af3",
+      "sale_item_id": "6a459220003b5ba9301d",
+      "item_estoque_id": "6a31e24f003d632a9955",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffae00390c58b547",
+      "sale_id": "6a4592200034fb6c9af3",
+      "sale_item_id": "6a4592210024a978e7e6",
+      "item_estoque_id": "6a31e255000ddebfcf48",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a46ffaf001bbe2a12c3",
+      "sale_id": "6a4592200034fb6c9af3",
+      "sale_item_id": "6a459222000fffdc2991",
+      "item_estoque_id": "6a31e245001554345810",
+      "quantidade": 1
+    }
+  ]
+}

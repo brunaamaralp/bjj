@@ -1,0 +1,63 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:38:06.980Z",
+  "script": "backfill-stock-reconcile-delta",
+  "created_moves": [
+    {
+      "move_id": "6a47046e003d5bfac95a",
+      "item_id": "6a31e21f0022601597a2",
+      "tipo": "saida",
+      "quantidade": 2,
+      "delta": -2
+    },
+    {
+      "move_id": "6a47046f001076cd11a1",
+      "item_id": "6a31e22100290c766c87",
+      "tipo": "saida",
+      "quantidade": 1,
+      "delta": -1
+    },
+    {
+      "move_id": "6a47046f0021fb878e4d",
+      "item_id": "6a31e22700039e188a9a",
+      "tipo": "saida",
+      "quantidade": 2,
+      "delta": -2
+    },
+    {
+      "move_id": "6a47046f003316f60a22",
+      "item_id": "6a31e228002fd8d07ac5",
+      "tipo": "saida",
+      "quantidade": 1,
+      "delta": -1
+    },
+    {
+      "move_id": "6a47047000055386a4f8",
+      "item_id": "6a31e229001570079db2",
+      "tipo": "saida",
+      "quantidade": 1,
+      "delta": -1
+    },
+    {
+      "move_id": "6a470470001e9f6de7e0",
+      "item_id": "6a31e232000218703387",
+      "tipo": "saida",
+      "quantidade": 3,
+      "delta": -3
+    },
+    {
+      "move_id": "6a47047000308514c16e",
+      "item_id": "6a31e255000ddebfcf48",
+      "tipo": "saida",
+      "quantidade": 2,
+      "delta": -2
+    },
+    {
+      "move_id": "6a470471000329d4c1e2",
+      "item_id": "6a31e25600172cdc2b22",
+      "tipo": "saida",
+      "quantidade": 4,
+      "delta": -4
+    }
+  ]
+}

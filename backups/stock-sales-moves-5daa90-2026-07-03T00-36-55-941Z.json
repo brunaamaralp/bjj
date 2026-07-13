@@ -1,0 +1,28 @@
+{
+  "academy_id": "699f21b70006985daa90",
+  "applied_at": "2026-07-03T00:36:55.943Z",
+  "script": "backfill-stock-sales-moves",
+  "created_moves": [
+    {
+      "move_id": "6a470427003afb7e2b99",
+      "sale_id": "6a1e2cd7003952e2b4d5",
+      "sale_item_id": "6a1e2cd80001b39a7967",
+      "item_estoque_id": "6a31e2270026a93adb79",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a470428001e64446e39",
+      "sale_id": "6a1f6540001bd5db4f6d",
+      "sale_item_id": "6a1f6540002341ee8485",
+      "item_estoque_id": "6a31e2200009c80ca78c",
+      "quantidade": 1
+    },
+    {
+      "move_id": "6a4704290000b75152e6",
+      "sale_id": "6a30606e0031bec3eb03",
+      "sale_item_id": "6a30606e003878e7adf1",
+      "item_estoque_id": "6a31e2270026a93adb79",
+      "quantidade": 1
+    }
+  ]
+}

@@ -1,0 +1,775 @@
+{
+  "createdAt": "2026-07-02T21:44:54.043Z",
+  "academyId": "699f21b70006985daa90",
+  "referenceTemplateId": "6a344949002a3b99eca5",
+  "referenceSource": "template_cancelled_fallback",
+  "desettlePatchTemplate": {
+    "status": "pending",
+    "settledAt": "",
+    "is_recurrence_template": true
+  },
+  "documents": {
+    "6a34494a00386087ea6e": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Netwise",
+      "gross": 99,
+      "fee": 0,
+      "net": 99,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:24:15.545Z",
+      "lead_id": null,
+      "note": "@cat:Telefone e internet",
+      "recurrence_type": null,
+      "recurrence_day": null,
+      "recurrence_end": null,
+      "recurrence_origin_id": "6a344949002a3b99eca5",
+      "is_recurrence_template": null,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Telefone e internet",
+      "competence_month": "2026-07",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "recurrence",
+      "origin_id": "6a344949002a3b99eca5",
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-07-15",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a34494a00386087ea6e"
+    },
+    "6a3449a4002bff3601df": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Salários",
+      "gross": 7100,
+      "fee": 0,
+      "net": 7100,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:24:11.159Z",
+      "lead_id": null,
+      "note": "@cat:Salários e encargos\nAtualizar com o valor devidamente pago",
+      "recurrence_type": null,
+      "recurrence_day": null,
+      "recurrence_end": null,
+      "recurrence_origin_id": "6a3449a300308a6c2861",
+      "is_recurrence_template": null,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Salários e encargos",
+      "competence_month": "2026-07",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "recurrence",
+      "origin_id": "6a3449a300308a6c2861",
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-07-05",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a3449a4002bff3601df"
+    },
+    "6a34471700311c60987c": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Contador",
+      "gross": 400,
+      "fee": 0,
+      "net": 400,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:24:16.662Z",
+      "lead_id": null,
+      "note": "@cat:Outras despesas",
+      "recurrence_type": "monthly",
+      "recurrence_day": 5,
+      "recurrence_end": null,
+      "recurrence_origin_id": null,
+      "is_recurrence_template": true,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Outras despesas",
+      "competence_month": "2026-06",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "manual",
+      "origin_id": null,
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-06-05",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a34471700311c60987c"
+    },
+    "6a3f06ee002506fbba3e": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Franquia Gracie Barra",
+      "gross": 657,
+      "fee": 0,
+      "net": 657,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:23:21.565Z",
+      "lead_id": null,
+      "note": "@cat:Outras despesas",
+      "recurrence_type": "monthly",
+      "recurrence_day": 5,
+      "recurrence_end": null,
+      "recurrence_origin_id": null,
+      "is_recurrence_template": true,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Outras despesas",
+      "competence_month": "2026-06",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "manual",
+      "origin_id": null,
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-06-05",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a3f06ee002506fbba3e"
+    },
+    "6a3449a300308a6c2861": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Salários",
+      "gross": 7100,
+      "fee": 0,
+      "net": 7100,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:24:12.586Z",
+      "lead_id": null,
+      "note": "@cat:Salários e encargos\nAtualizar com o valor devidamente pago",
+      "recurrence_type": "monthly",
+      "recurrence_day": 5,
+      "recurrence_end": null,
+      "recurrence_origin_id": null,
+      "is_recurrence_template": true,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Salários e encargos",
+      "competence_month": "2026-07",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "manual",
+      "origin_id": null,
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-07-05",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a3449a300308a6c2861"
+    },
+    "6a344974001abf964573": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Simples Nacional",
+      "gross": 1009.06,
+      "fee": 0,
+      "net": 1009.06,
+      "status": "settled",
+      "settledAt": "2026-06-29T21:24:13.861Z",
+      "lead_id": null,
+      "note": "Atualizar com o valor pago",
+      "recurrence_type": "monthly",
+      "recurrence_day": 20,
+      "recurrence_end": null,
+      "recurrence_origin_id": null,
+      "is_recurrence_template": true,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Impostos e taxas",
+      "competence_month": "2026-06",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "manual",
+      "origin_id": null,
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": "Sicoob",
+      "due_date": "2026-06-20",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a344974001abf964573"
+    },
+    "6a3449750027d12f15cb": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Simples Nacional",
+      "gross": 100906,
+      "fee": 0,
+      "net": 1009.06,
+      "status": "settled",
+      "settledAt": "2026-06-19T15:00:00.000Z",
+      "lead_id": null,
+      "note": "@bank:Pagbank",
+      "recurrence_type": null,
+      "recurrence_day": null,
+      "recurrence_end": null,
+      "recurrence_origin_id": "6a344974001abf964573",
+      "is_recurrence_template": null,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Impostos e taxas",
+      "competence_month": "2026-06",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "recurrence",
+      "origin_id": "6a344974001abf964573",
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": "Pagbank",
+      "due_date": "2026-06-20",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a3449750027d12f15cb"
+    },
+    "6a344949002a3b99eca5": {
+      "academyId": "699f21b70006985daa90",
+      "saleId": null,
+      "method": "pix",
+      "installments": 1,
+      "type": "exp_operational",
+      "planName": "Netwise",
+      "gross": 99,
+      "fee": 0,
+      "net": 99,
+      "status": "cancelled",
+      "settledAt": null,
+      "lead_id": null,
+      "note": "@cat:Telefone e internet",
+      "recurrence_type": "monthly",
+      "recurrence_day": 15,
+      "recurrence_end": null,
+      "recurrence_origin_id": null,
+      "is_recurrence_template": true,
+      "reconciled": null,
+      "reconciled_at": null,
+      "reconciled_by": null,
+      "bank_statement_id": null,
+      "category": "Telefone e internet",
+      "competence_month": "2026-07",
+      "direction": "out",
+      "origin": null,
+      "origin_detail": null,
+      "origin_type": "manual",
+      "origin_id": null,
+      "created_by": null,
+      "updated_by": null,
+      "updated_at": null,
+      "bank_account": null,
+      "due_date": "2026-07-15",
+      "expected_settlement_at": null,
+      "ledger_regime": null,
+      "$id": "6a344949002a3b99eca5"
+    }
+  },
+  "plannedActions": [
+    {
+      "type": "UPDATE",
+      "id": "6a3449750027d12f15cb",
+      "label": "Simples real (instância 19/06) — gross",
+      "patch": {
+        "gross": 1009.06,
+        "net": -1009.06
+      },
+      "fieldsRestored": {
+        "gross": 100906,
+        "net": 1009.06
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a344949002a3b99eca5",
+      "label": "Netwise template — gross",
+      "patch": {
+        "gross": 102.04,
+        "net": -102.04
+      },
+      "fieldsRestored": {
+        "gross": 99,
+        "net": 99
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a3449a300308a6c2861",
+      "label": "note cleanup",
+      "patch": {
+        "note": "@cat:Salários e encargos"
+      },
+      "fieldsRestored": {
+        "note": "@cat:Salários e encargos\nAtualizar com o valor devidamente pago"
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a344974001abf964573",
+      "label": "note cleanup",
+      "patch": {
+        "note": ""
+      },
+      "fieldsRestored": {
+        "note": "Atualizar com o valor pago"
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a34471700311c60987c",
+      "label": "Contador template R$ 400",
+      "patch": {
+        "status": "pending",
+        "settledAt": "",
+        "is_recurrence_template": true
+      },
+      "fieldsRestored": {
+        "status": "settled",
+        "settledAt": "2026-06-29T21:24:16.662Z"
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a3f06ee002506fbba3e",
+      "label": "Franquia template R$ 657",
+      "patch": {
+        "status": "pending",
+        "settledAt": "",
+        "is_recurrence_template": true
+      },
+      "fieldsRestored": {
+        "status": "settled",
+        "settledAt": "2026-06-29T21:23:21.565Z"
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a3449a300308a6c2861",
+      "label": "Salários template R$ 7.100",
+      "patch": {
+        "status": "pending",
+        "settledAt": "",
+        "is_recurrence_template": true,
+        "note": "@cat:Salários e encargos"
+      },
+      "fieldsRestored": {
+        "status": "settled",
+        "settledAt": "2026-06-29T21:24:12.586Z",
+        "note": "@cat:Salários e encargos\nAtualizar com o valor devidamente pago"
+      }
+    },
+    {
+      "type": "UPDATE",
+      "id": "6a344974001abf964573",
+      "label": "Simples template R$ 1.009,06",
+      "patch": {
+        "status": "pending",
+        "settledAt": "",
+        "is_recurrence_template": true,
+        "note": ""
+      },
+      "fieldsRestored": {
+        "status": "settled",
+        "settledAt": "2026-06-29T21:24:13.861Z",
+        "note": "Atualizar com o valor pago"
+      }
+    },
+    {
+      "type": "DELETE",
+      "id": "6a34494a00386087ea6e",
+      "label": "Netwise instância R$ 99"
+    },
+    {
+      "type": "DELETE",
+      "id": "6a3449a4002bff3601df",
+      "label": "Salários instância R$ 7.100"
+    }
+  ],
+  "outflowBefore": {
+    "total": 130619.98,
+    "count": 54,
+    "ids": [
+      {
+        "id": "6a34441900206c1e7b45",
+        "gross": 325.9,
+        "planName": "ISSQN",
+        "settledAt": "2026-06-18T19:16:46.452Z"
+      },
+      {
+        "id": "6a34471700311c60987c",
+        "gross": 400,
+        "planName": "Contador",
+        "settledAt": "2026-06-29T21:24:16.662Z"
+      },
+      {
+        "id": "6a3447180022e5310345",
+        "gross": 400,
+        "planName": "Contador",
+        "settledAt": "2026-06-02T15:00:00.000Z"
+      },
+      {
+        "id": "6a34494a00386087ea6e",
+        "gross": 99,
+        "planName": "Netwise",
+        "settledAt": "2026-06-29T21:24:15.545Z"
+      },
+      {
+        "id": "6a344974001abf964573",
+        "gross": 1009.06,
+        "planName": "Simples Nacional",
+        "settledAt": "2026-06-29T21:24:13.861Z"
+      },
+      {
+        "id": "6a3449750027d12f15cb",
+        "gross": 100906,
+        "planName": "Simples Nacional",
+        "settledAt": "2026-06-19T15:00:00.000Z"
+      },
+      {
+        "id": "6a3449a300308a6c2861",
+        "gross": 7100,
+        "planName": "Salários",
+        "settledAt": "2026-06-29T21:24:12.586Z"
+      },
+      {
+        "id": "6a3449a4002bff3601df",
+        "gross": 7100,
+        "planName": "Salários",
+        "settledAt": "2026-06-29T21:24:11.159Z"
+      },
+      {
+        "id": "6a352807001159a6e767",
+        "gross": 320.59,
+        "planName": "Pedro Melo Rosa — Mensal Infantil",
+        "settledAt": "2026-06-19T11:29:11.275Z"
+      },
+      {
+        "id": "6a35b06e000cb8d3ca34",
+        "gross": 62.91,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-22T10:23:48.620Z"
+      },
+      {
+        "id": "6a3693bb0031f3743a8a",
+        "gross": 107.93,
+        "planName": "CMV — CAMISETA TRAINING GB ESSENTIALS · P",
+        "settledAt": "2026-06-20T13:20:59.700Z"
+      },
+      {
+        "id": "6a36ab68000dd1ca04ff",
+        "gross": 179.93,
+        "planName": "CMV — BERMUDA NO GI SEM VELCRO GB ESSENTIALS · 44",
+        "settledAt": "2026-06-20T15:01:59.990Z"
+      },
+      {
+        "id": "6a39a33d0022fa18234c",
+        "gross": 165.53,
+        "planName": "CMV — RASHGUARD RANQUEADA GB ESSENTIALS- BRANCA · EG",
+        "settledAt": "2026-06-22T21:03:57.451Z"
+      },
+      {
+        "id": "6a3aae6800032e2ae0bd",
+        "gross": 32.58,
+        "planName": "Cafe e fruta",
+        "settledAt": "2026-06-23T16:03:51.186Z"
+      },
+      {
+        "id": "6a3b1b60001cf8c8eca8",
+        "gross": 424.73,
+        "planName": "CMV — KIMONO GB1 V2 · A5",
+        "settledAt": "2026-06-23T23:48:48.360Z"
+      },
+      {
+        "id": "6a3b2f98000983298708",
+        "gross": 424.73,
+        "planName": "CMV — KIMONO GB1 V2 · A0",
+        "settledAt": "2026-06-24T01:15:04.038Z"
+      },
+      {
+        "id": "6a3b2f9800340b40d609",
+        "gross": 61.13,
+        "planName": "CMV — FAIXA GB EDITION ADULTO V2 · A1",
+        "settledAt": "2026-06-24T01:15:04.724Z"
+      },
+      {
+        "id": "6a3bbfe30035093203f1",
+        "gross": 116.67,
+        "planName": "Água  e Esgoto ",
+        "settledAt": "2026-06-24T11:30:43.871Z"
+      },
+      {
+        "id": "6a3bf830002c51e41855",
+        "gross": 734.8,
+        "planName": "KIMONO GB1 V2 · A0, FAIXA GB EDITION ADULTO V2 · A1",
+        "settledAt": "2026-06-24T15:30:56.708Z"
+      },
+      {
+        "id": "6a3bf89d001d04382429",
+        "gross": 424.73,
+        "planName": "CMV — KIMONO GB1 V2 · A0",
+        "settledAt": "2026-06-24T15:32:45.362Z"
+      },
+      {
+        "id": "6a3bf89d003cd965575c",
+        "gross": 57.53,
+        "planName": "CMV — FAIXA GB EDITION V2 · A1",
+        "settledAt": "2026-06-24T15:32:45.871Z"
+      },
+      {
+        "id": "6a3c4a9c003032b10574",
+        "gross": 2500,
+        "planName": "Aluguel do espaço",
+        "settledAt": "2026-06-26T15:00:00.000Z"
+      },
+      {
+        "id": "6a3d05fe0011b345dc53",
+        "gross": 129.9,
+        "planName": "CMV — Camiseta Casual brasil · G",
+        "settledAt": "2026-06-25T10:42:06.183Z"
+      },
+      {
+        "id": "6a3d46c700296eb783f1",
+        "gross": 280.4,
+        "planName": "Heitor C. Lopes dos Santos Fogo — Recorrente Infantil",
+        "settledAt": "2026-06-25T15:18:31.661Z"
+      },
+      {
+        "id": "6a3da4300003ebfddf64",
+        "gross": 309.53,
+        "planName": "CMV — KIMONO GBK LITE RIPSTOP BRA · M2",
+        "settledAt": "2026-06-25T21:57:03.839Z"
+      },
+      {
+        "id": "6a3da430002587643b12",
+        "gross": 57.53,
+        "planName": "CMV — FAIXA GB EDITION V2 · M3",
+        "settledAt": "2026-06-25T21:57:04.497Z"
+      },
+      {
+        "id": "6a3da431000a57f51210",
+        "gross": 93.53,
+        "planName": "CMV — CAMISETA TRAINING INFANTIL GB ESSENTIALS · M",
+        "settledAt": "2026-06-25T21:57:04.997Z"
+      },
+      {
+        "id": "6a3da431002a97c05368",
+        "gross": 49.9,
+        "planName": "CMV — Agenda GBKids · Único",
+        "settledAt": "2026-06-25T21:57:05.579Z"
+      },
+      {
+        "id": "6a3daa310011b4089748",
+        "gross": 309.53,
+        "planName": "CMV — KIMONO GBK LITE RIPSTOP BRA · M3",
+        "settledAt": "2026-06-25T22:22:41.183Z"
+      },
+      {
+        "id": "6a3daa3100310dde72c4",
+        "gross": 93.53,
+        "planName": "CMV — CAMISETA TRAINING INFANTIL GB ESSENTIALS · P",
+        "settledAt": "2026-06-25T22:22:41.680Z"
+      },
+      {
+        "id": "6a3daa320013a9e45c19",
+        "gross": 57.53,
+        "planName": "CMV — FAIXA GB EDITION V2 · M3",
+        "settledAt": "2026-06-25T22:22:42.208Z"
+      },
+      {
+        "id": "6a3daa320034aa4788d8",
+        "gross": 49.9,
+        "planName": "CMV — Agenda GBKids · Único",
+        "settledAt": "2026-06-25T22:22:42.735Z"
+      },
+      {
+        "id": "6a3e5a0f0037646bd19b",
+        "gross": 70.97,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-26T10:53:03.468Z"
+      },
+      {
+        "id": "6a3ee23c0031ef0bc086",
+        "gross": 309.53,
+        "planName": "CMV — KIMONO GBK LITE RIPSTOP BRA · M0",
+        "settledAt": "2026-06-26T20:34:04.689Z"
+      },
+      {
+        "id": "6a3ee23d002de3894e47",
+        "gross": 99.8,
+        "planName": "CMV — Agenda GBK · Único",
+        "settledAt": "2026-06-26T20:34:05.624Z"
+      },
+      {
+        "id": "6a3ee23e00101884d4cc",
+        "gross": 115.06,
+        "planName": "CMV — FAIXA GB EDITION V2 · M3",
+        "settledAt": "2026-06-26T20:34:06.147Z"
+      },
+      {
+        "id": "6a3ee23e0030c6201f01",
+        "gross": 93.53,
+        "planName": "CMV — CAMISETA TRAINING INFANTIL GB ESSENTIALS · P",
+        "settledAt": "2026-06-26T20:34:06.677Z"
+      },
+      {
+        "id": "6a3ee23f0011d252cfe7",
+        "gross": 93.53,
+        "planName": "CMV — CAMISETA TRAINING INFANTIL GB ESSENTIALS · M",
+        "settledAt": "2026-06-26T20:34:07.181Z"
+      },
+      {
+        "id": "6a3ef17500274533af87",
+        "gross": 424.73,
+        "planName": "CMV — KIMONO GB1 V2 · A0",
+        "settledAt": "2026-06-26T21:39:01.487Z"
+      },
+      {
+        "id": "6a3efad70022ee7fff5f",
+        "gross": 547.13,
+        "planName": "CMV — KIMONO ATLETA GB V4 · A3",
+        "settledAt": "2026-06-26T22:19:03.450Z"
+      },
+      {
+        "id": "6a3f034d00307d3cb18a",
+        "gross": 450,
+        "planName": "Café",
+        "settledAt": "2026-06-26T22:55:10.886Z"
+      },
+      {
+        "id": "6a3f06ee002506fbba3e",
+        "gross": 657,
+        "planName": "Franquia Gracie Barra",
+        "settledAt": "2026-06-29T21:23:21.565Z"
+      },
+      {
+        "id": "6a3f06ef0018b33d0fc3",
+        "gross": 657,
+        "planName": "Franquia Gracie Barra",
+        "settledAt": "2026-06-05T15:00:00.000Z"
+      },
+      {
+        "id": "6a428f580030a7607089",
+        "gross": 16.36,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-29T21:23:16.049Z"
+      },
+      {
+        "id": "6a42d8e600361bd25f4b",
+        "gross": 1520,
+        "planName": "Compra de agendas",
+        "settledAt": "2026-06-29T21:23:09.839Z"
+      },
+      {
+        "id": "6a42dffc0011008af21f",
+        "gross": 68.81,
+        "planName": "SAAE",
+        "settledAt": "2026-06-29T21:23:06.193Z"
+      },
+      {
+        "id": "6a42e231003a42bddf16",
+        "gross": 151.99,
+        "planName": "Frete Giro Certo",
+        "settledAt": "2026-06-29T21:22:56.360Z"
+      },
+      {
+        "id": "6a42e2dd003044d381e9",
+        "gross": 150,
+        "planName": "Pagamento Leó",
+        "settledAt": "2026-06-29T21:25:49.238Z"
+      },
+      {
+        "id": "6a42e425003b964c135c",
+        "gross": 39.66,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-29T21:31:17.450Z"
+      },
+      {
+        "id": "6a42e482003b1f2cd72a",
+        "gross": 55,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-29T21:32:50.417Z"
+      },
+      {
+        "id": "6a42e504000c509b434b",
+        "gross": 26.99,
+        "planName": "Compra de frutas/copos",
+        "settledAt": "2026-06-29T21:34:59.544Z"
+      },
+      {
+        "id": "6a442a97003579db601c",
+        "gross": 194.33,
+        "planName": "CMV — SHORT DE  TREINO SAKURA V3 - PRETO · G",
+        "settledAt": "2026-06-30T20:44:07.663Z"
+      },
+      {
+        "id": "6a442ac2000ba318ce51",
+        "gross": 93.53,
+        "planName": "CMV — CAMISETA  TACTICAL PRETA · P",
+        "settledAt": "2026-06-30T20:44:50.079Z"
+      },
+      {
+        "id": "6a444013002a7315a1d5",
+        "gross": 400,
+        "planName": "Contador",
+        "settledAt": "2026-06-30T22:15:46.317Z"
+      }
+    ]
+  }
+}
