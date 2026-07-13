@@ -229,7 +229,7 @@ const SALE_ERROR_CODES = {
   same_item: 'Selecione um produto diferente do atual.',
   invalid_price: 'Preço inválido para o novo produto.',
   forbidden: 'Sem permissão para alterar esta venda.',
-  forbidden_role: 'Apenas titular ou administrador pode trocar produtos na venda.',
+  forbidden_role: 'Apenas titular ou administrador pode cancelar ou trocar produtos na venda.',
   cancel_in_progress: 'Cancelamento em andamento. Aguarde e atualize a página.',
   stock_revert_failed: 'Não foi possível devolver o estoque. Verifique o inventário.',
   academy_missing: 'Venda sem academia vinculada. Fale com o suporte.',
