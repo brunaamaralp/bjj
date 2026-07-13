@@ -1,4 +1,4 @@
-import { canonicalPaymentMethodKeyFromInput } from '../../src/lib/paymentMethods.js';
+import { canonicalPaymentMethodKeyFromInput } from '../src/lib/paymentMethods.js';
 
 const FORMA_ALIASES = {
   credito: 'cartao_credito',
