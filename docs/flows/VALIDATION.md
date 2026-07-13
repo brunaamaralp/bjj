@@ -512,8 +512,11 @@ Nota UX: links de config apontam para `/integracoes?tab=catraca`. Spec: [catraca
 | 17 | Filtro drill `direction`/`status` | ✅ Código + teste | `filterOperationalReportTxs`, `financeTxQueryOperational.test.js` |
 | 18 | Financeiro Fase 3 — gráfico semanal | ✅ Código + teste | `weeklySeries`, `aggregateOperationalWeeklySeries`, `reportsFinancePanel.test.jsx` |
 | 19 | Metas KPI Recebido/Despesas | ✅ Código | `reportsKpiGoals.js`, `ReportsKpiGoalsSection` |
+| 20 | Financeiro layout P0 (tooltip regime, footer, gap) | ✅ Código + teste | `ReportsFinancePanel`, `reportsFinancePanel.test.jsx` |
+| 21 | Financeiro layout P1 (trend semântico, footnote, label) | ✅ Código + teste | `ReportKpiCard`, `reportsFinancePanel.test.jsx`, `reportKpiCard.test.jsx` |
+| 22 | Financeiro layout P2 (grid 900px, tipo KPI) | ✅ Código + teste | `reports.css`, `ReportsFinancePanel` |
 
-Harness: `reports.test.js`, `reportsExport.test.js`, `reportsFinancePanel.test.jsx`, `reportsFinanceDrill.test.jsx`, `reportsFinanceParity.test.js`, `financeTxQueryOperational.test.js`, `financeTxAggregate.test.js`, `reportsPeople.test.js`.
+Harness: `reports.test.js`, `reportsExport.test.js`, `reportsFinancePanel.test.jsx`, `reportKpiCard.test.jsx`, `reportsFinanceDrill.test.jsx`, `reportsFinanceParity.test.js`, `financeTxQueryOperational.test.js`, `financeTxAggregate.test.js`, `reportsPeople.test.js`.
 
 ---
 

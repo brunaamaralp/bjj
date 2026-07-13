@@ -124,6 +124,9 @@ describe('ReportsFinancePanel', () => {
     await waitFor(() => {
       expect(screen.getByText(/A receber \(jul/i)).toBeInTheDocument();
     });
+
+    const receivablesLabel = screen.getByText(/A receber \(jul/i);
+    expect(receivablesLabel).toHaveClass('report-kpi-card__label--sentence');
   });
 
   it('empty state oferece CTA para Lançamentos', async () => {
@@ -186,6 +189,8 @@ describe('ReportsFinancePanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('navigation', { name: /Atalhos financeiros/i })).toBeInTheDocument();
     });
+    const footer = screen.getByRole('navigation', { name: /Atalhos financeiros/i });
+    expect(footer).toHaveClass('reports-section-footer-links-row');
     expect(screen.getByRole('link', { name: 'Lançamentos' })).toHaveAttribute(
       'href',
       '/financeiro?tab=movimentacoes&from=2026-07-01&to=2026-07-12'
@@ -229,7 +234,7 @@ describe('ReportsFinancePanel', () => {
     expect(screen.getByText('Taxas (MDR)')).toBeInTheDocument();
   });
 
-  it('mostra tendência vs período anterior', async () => {
+  it('mostra tendência vs período anterior em footnote única', async () => {
     fetchReportsFinanceLightResult
       .mockResolvedValueOnce({
         ok: true,
@@ -256,7 +261,7 @@ describe('ReportsFinancePanel', () => {
         },
       });
 
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ReportsFinancePanel
           academyId="acad-1"
@@ -269,9 +274,60 @@ describe('ReportsFinancePanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByText(/vs\. período anterior/i).length).toBeGreaterThan(0);
+      expect(screen.getByText('+100%')).toBeInTheDocument();
     });
-    expect(screen.getByText('+100%')).toBeInTheDocument();
+
+    expect(screen.getAllByText(/vs\. período anterior/i)).toHaveLength(1);
+    expect(container.querySelector('.reports-kpi-grid-footnote')).toBeTruthy();
+    expect(container.querySelectorAll('.report-kpi-card__trend-label')).toHaveLength(0);
+  });
+
+  it('despesas em queda exibem trend semântico positivo', async () => {
+    fetchReportsFinanceLightResult
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          scope: 'full',
+          received: 200,
+          expenses: 40,
+          balance: 160,
+          receivedCount: 2,
+          expenseCount: 1,
+          byMethod: [],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          scope: 'full',
+          received: 200,
+          expenses: 80,
+          balance: 120,
+          receivedCount: 2,
+          expenseCount: 2,
+          byMethod: [],
+        },
+      });
+
+    const { container } = render(
+      <MemoryRouter>
+        <ReportsFinancePanel
+          academyId="acad-1"
+          from="2026-07-01"
+          to="2026-07-12"
+          preset="month"
+          hasFinance
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Despesas')).toBeInTheDocument();
+    });
+
+    const expenseCard = screen.getByText('Despesas').closest('.report-kpi-card');
+    expect(expenseCard?.querySelector('.report-kpi-card__trend.is-good')).toBeTruthy();
+    expect(container.querySelectorAll('.report-kpi-card__trend-label')).toHaveLength(0);
   });
 
   it('abre drill ao clicar em Recebido', async () => {
@@ -331,6 +387,43 @@ describe('ReportsFinancePanel', () => {
     expect(listFinanceTx).toHaveBeenCalledWith(
       expect.objectContaining({ direction: 'in', status: 'settled' })
     );
+  });
+
+  it('gestor usa regime em tooltip sem nota duplicada de regime', async () => {
+    fetchReportsFinanceLightResult.mockResolvedValue({
+      ok: true,
+      data: {
+        scope: 'full',
+        received: 200,
+        expenses: 50,
+        balance: 150,
+        receivedCount: 2,
+        expenseCount: 1,
+        byMethod: [{ method: 'pix', total: 200 }],
+      },
+    });
+
+    const { container } = render(
+      <MemoryRouter>
+        <ReportsFinancePanel
+          academyId="acad-1"
+          from="2026-07-01"
+          to="2026-07-12"
+          preset="month"
+          hasFinance
+        />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Recebido')).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('.reports-finance-section-body')).toBeTruthy();
+    expect(container.querySelector('.reports-kpi-grid--finance')).toBeTruthy();
+    expect(container.querySelector('.finance-regime-toggle__hint')).toBeNull();
+    expect(container.querySelector('.finance-regime-toggle__hint-icon')).toBeTruthy();
+    expect(screen.queryByText(/regime caixa/i)).not.toBeInTheDocument();
   });
 
   it('exibe gráfico semanal quando há weeklySeries', async () => {

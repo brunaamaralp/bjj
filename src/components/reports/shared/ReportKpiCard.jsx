@@ -37,6 +37,8 @@ export default function ReportKpiCard({
   goalTarget = null,
   className = '',
   variant = 'default',
+  labelVariant = 'caps',
+  trendDirection = null,
   funnelBarPct = null,
   funnelBarColor = null,
 }) {
@@ -46,7 +48,20 @@ export default function ReportKpiCard({
 
   const clickable = typeof onClick === 'function';
   const hasTrend = typeof trend === 'number' && !Number.isNaN(trend);
-  const isUp = hasTrend ? trend >= 0 : true;
+  const trendIncreased = hasTrend && trend > 0;
+  const trendDecreased = hasTrend && trend < 0;
+  const trendNeutral = hasTrend && trend === 0;
+  const usesSemanticTrend = trendDirection === 'higher' || trendDirection === 'lower';
+  const trendClass = (() => {
+    if (!hasTrend) return '';
+    if (usesSemanticTrend) {
+      if (trendNeutral) return 'is-neutral';
+      const good = trendDirection === 'lower' ? trendDecreased : trendIncreased;
+      return good ? 'is-good' : 'is-bad';
+    }
+    return trendIncreased || trendNeutral ? 'is-up' : 'is-down';
+  })();
+  const showUpIcon = !trendDecreased;
   const highlightClass = HIGHLIGHT_CLASS[highlight] || HIGHLIGHT_CLASS.default;
   const ragClass = rag ? RAG_CLASS[rag] || '' : '';
   const isFunnelStage = variant === 'funnel-stage';
@@ -94,7 +109,14 @@ export default function ReportKpiCard({
       ) : null}
 
       <div className="report-kpi-card__head">
-        <span className="report-kpi-card__label">
+        <span
+          className={[
+            'report-kpi-card__label',
+            labelVariant === 'sentence' ? 'report-kpi-card__label--sentence' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {label}
           {tooltip ? (
             <button
@@ -128,14 +150,14 @@ export default function ReportKpiCard({
           {value}
         </span>
         {hasTrend ? (
-          <span className={`report-kpi-card__trend ${isUp ? 'is-up' : 'is-down'}`}>
-            {isUp ? (
+          <span className={`report-kpi-card__trend ${trendClass}`.trim()}>
+            {showUpIcon ? (
               <TrendingUp size={14} strokeWidth={2.25} aria-hidden />
             ) : (
               <TrendingDown size={14} strokeWidth={2.25} aria-hidden />
             )}
             <span>
-              {isUp && trend > 0 ? '+' : ''}
+              {trendIncreased ? '+' : ''}
               {trend}%
             </span>
           </span>

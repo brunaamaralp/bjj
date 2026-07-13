@@ -48,7 +48,7 @@ function FinanceReportLinks({ from, to }) {
     : '/financeiro?tab=a-receber';
 
   return (
-    <nav className="reports-finance-links" aria-label="Atalhos financeiros">
+    <nav className="reports-section-footer-links-row" aria-label="Atalhos financeiros">
       <Link to={lancamentosPath} className="reports-inline-link">
         Lançamentos
       </Link>
@@ -217,6 +217,16 @@ function OperationalFinanceReport({
   const expensesTrend = financeTrend(Number(totals.expenses), prevExpenses, hasPrev);
   const balanceTrend = financeTrend(Number(totals.balance), prevBalance, hasPrev);
 
+  const prevRange = useMemo(
+    () => (from && to ? previousPeriodRange(preset, { from, to }) : null),
+    [preset, from, to]
+  );
+
+  const showComparisonFootnote =
+    !isLimited &&
+    hasPrev &&
+    (receivedTrend != null || expensesTrend != null || balanceTrend != null);
+
   const balanceHighlight =
     Number(totals.balance) > 0 ? 'success' : Number(totals.balance) < 0 ? 'danger' : 'default';
 
@@ -269,7 +279,7 @@ function OperationalFinanceReport({
   if (loading) {
     return (
       <ReportsPanelSection aria-busy="true">
-        <div className="reports-kpi-grid">
+        <div className="reports-kpi-grid reports-kpi-grid--finance">
           {[1, 2, 3, 4].map((i) => (
             <ReportKpiCardSkeleton key={i} />
           ))}
@@ -324,71 +334,86 @@ function OperationalFinanceReport({
         title="Resumo financeiro"
         subtitle={`Movimentações liquidadas · ${from} — ${to}`}
       >
-        {isLimited ? (
-          <StatusBanner variant="info" className="mb-2">
-            Resumo básico — detalhes, exportação e breakdown disponíveis para gestores da academia.
-          </StatusBanner>
-        ) : null}
+        <div className="reports-finance-section-body">
+          {isLimited ? (
+            <StatusBanner variant="info">
+              Resumo básico — detalhes, exportação e breakdown disponíveis para gestores da academia.
+            </StatusBanner>
+          ) : null}
 
-        {!isLimited && academyId ? (
-          <FinanceRegimeToggle academyId={academyId} value={regime} onChange={setRegime} className="mb-2" />
-        ) : null}
+          {isLimited ? (
+            <p className="reports-panel-note" role="status">
+              Resumo operacional do período (valores liquidados no Caixa).
+            </p>
+          ) : null}
 
-        <p className="reports-panel-note" role="status">
-          {isLimited
-            ? 'Resumo operacional do período (valores liquidados no Caixa).'
-            : `Movimentações liquidadas · regime ${financeRegimeLabel(regime).toLowerCase()}`}
-        </p>
+          {!isLimited && academyId ? (
+            <FinanceRegimeToggle
+              academyId={academyId}
+              value={regime}
+              onChange={setRegime}
+              hintStyle="tooltip"
+              className="reports-finance-regime"
+            />
+          ) : null}
 
-        {!isLimited && totals.truncated ? (
-          <StatusBanner variant="warning" className="mb-0">
-            Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de
-            datas.
-          </StatusBanner>
-        ) : null}
+          {!isLimited && totals.truncated ? (
+            <StatusBanner variant="warning">
+              Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de
+              datas.
+            </StatusBanner>
+          ) : null}
 
-        <div className="reports-kpi-grid">
-          <ReportKpiCard
-            label="Recebido"
-            value={fmt(totals.received)}
-            sublabel={`${totals.receivedCount} lançamento${totals.receivedCount === 1 ? '' : 's'}`}
-            icon={<Wallet2 size={20} strokeWidth={2.25} />}
-            tooltip={reportKpiTooltip('financeReceived', { preset })}
-            trend={receivedTrend}
-            trendLabel={receivedTrend != null ? 'vs. período anterior' : null}
-            onClick={!isLimited ? () => setDrillKey('received') : null}
-            {...kpiRagProps('financeReceived', Number(totals.received), kpiGoals)}
-          />
-          <ReportKpiCard
-            label="Despesas"
-            value={fmt(totals.expenses)}
-            sublabel={`${totals.expenseCount} lançamento${totals.expenseCount === 1 ? '' : 's'}`}
-            icon={<TrendingDown size={20} strokeWidth={2.25} />}
-            tooltip={reportKpiTooltip('financeExpenses', { preset })}
-            trend={expensesTrend}
-            trendLabel={expensesTrend != null ? 'vs. período anterior' : null}
-            onClick={!isLimited ? () => setDrillKey('expenses') : null}
-            {...kpiRagProps('financeExpenses', Number(totals.expenses), kpiGoals)}
-          />
-          <ReportKpiCard
-            label="Saldo do período"
-            value={fmt(totals.balance)}
-            icon={<Scale size={20} strokeWidth={2.25} />}
-            highlight={balanceHighlight}
-            tooltip={reportKpiTooltip('financeBalance', { preset })}
-            trend={balanceTrend}
-            trendLabel={balanceTrend != null ? 'vs. período anterior' : null}
-            {...kpiRagProps('financeBalance', Number(totals.balance), kpiGoals)}
-          />
-          <ReportKpiCard
-            label={receivablesMonthLabel(to)}
-            value={receivablesTotal != null ? fmt(receivablesTotal) : '—'}
-            icon={<Clock size={20} strokeWidth={2.25} />}
-            tooltip={reportKpiTooltip('financeReceivablesSnapshot', { preset })}
-          />
+          <div className="reports-kpi-grid reports-kpi-grid--finance">
+            <ReportKpiCard
+              label="Recebido"
+              value={fmt(totals.received)}
+              sublabel={`${totals.receivedCount} lançamento${totals.receivedCount === 1 ? '' : 's'}`}
+              icon={<Wallet2 size={20} strokeWidth={2.25} />}
+              tooltip={reportKpiTooltip('financeReceived', { preset })}
+              trend={receivedTrend}
+              trendDirection="higher"
+              onClick={!isLimited ? () => setDrillKey('received') : null}
+              {...kpiRagProps('financeReceived', Number(totals.received), kpiGoals)}
+            />
+            <ReportKpiCard
+              label="Despesas"
+              value={fmt(totals.expenses)}
+              sublabel={`${totals.expenseCount} lançamento${totals.expenseCount === 1 ? '' : 's'}`}
+              icon={<TrendingDown size={20} strokeWidth={2.25} />}
+              tooltip={reportKpiTooltip('financeExpenses', { preset })}
+              trend={expensesTrend}
+              trendDirection="lower"
+              onClick={!isLimited ? () => setDrillKey('expenses') : null}
+              {...kpiRagProps('financeExpenses', Number(totals.expenses), kpiGoals)}
+            />
+            <ReportKpiCard
+              label="Saldo do período"
+              value={fmt(totals.balance)}
+              icon={<Scale size={20} strokeWidth={2.25} />}
+              highlight={balanceHighlight}
+              tooltip={reportKpiTooltip('financeBalance', { preset })}
+              trend={balanceTrend}
+              trendDirection="higher"
+              {...kpiRagProps('financeBalance', Number(totals.balance), kpiGoals)}
+            />
+            <ReportKpiCard
+              label={receivablesMonthLabel(to)}
+              labelVariant="sentence"
+              value={receivablesTotal != null ? fmt(receivablesTotal) : '—'}
+              icon={<Clock size={20} strokeWidth={2.25} />}
+              tooltip={reportKpiTooltip('financeReceivablesSnapshot', { preset })}
+            />
+          </div>
+
+          {showComparisonFootnote && prevRange ? (
+            <p className="reports-kpi-grid-footnote" role="note">
+              Variação percentual vs. período anterior ({prevRange.from} — {prevRange.to}).
+            </p>
+          ) : null}
+
+          <FinanceReportLinks from={from} to={to} />
         </div>
-
-        <FinanceReportLinks from={from} to={to} />
       </ReportsPanelSection>
 
       {hasWeeklyChart ? (
