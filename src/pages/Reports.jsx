@@ -34,6 +34,7 @@ function ReportsPeriodToolbarBridge({
     isLeadReportTab,
     activeTab,
     hasSales,
+    periodLabel,
     exportOpen,
     onExportOpenChange,
     leadExportDisabled,
@@ -60,6 +61,7 @@ function ReportsPeriodToolbarBridge({
     return (
         <ReportsPeriodToolbar
             {...toolbarProps}
+            periodLabel={periodLabel}
             showLeadFilters={isLeadReportTab}
             showSalesOperatorFilters={activeTab === 'loja' && hasSales}
             operatorFilter={operatorFilter}
@@ -277,7 +279,6 @@ export default function Reports() {
                     className="navi-page-header--flush"
                     title="Relatórios"
                     subtitle="Analise indicadores por período."
-                    meta={<span>Período · {prettyRange}</span>}
                     actions={
                         showFunnelRefresh ? (
                             <button
@@ -324,13 +325,16 @@ export default function Reports() {
                         ) : null
                     }
                 />
-                <HubTabBar
-                    tabs={reportTabItems}
-                    activeId={activeTab}
-                    onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
-                    ariaLabel="Relatórios"
-                    fullWidth
-                />
+                <nav className="reports-hub-nav" aria-label="Seções do relatório">
+                    <HubTabBar
+                        tabs={reportTabItems}
+                        activeId={activeTab}
+                        onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
+                        ariaLabel="Relatórios"
+                        fullWidth
+                        className="reports-hub-tabs"
+                    />
+                </nav>
             </div>
 
             <div className="navi-hub-page__body">
@@ -356,6 +360,7 @@ export default function Reports() {
                             onFromChange={setFrom}
                             onToChange={setTo}
                             dateError={dateError}
+                            periodLabel={prettyRange}
                             isLeadReportTab={isLeadReportTab}
                             activeTab={activeTab}
                             hasSales={hasSales}

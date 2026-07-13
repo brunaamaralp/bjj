@@ -36,13 +36,14 @@ async function waitForStudentFetchIdle(signal) {
  * Usado em telas que precisam da base inteira (ex.: grade de Mensalidades).
  */
 export async function ensureAllStudentsLoaded(opts = {}) {
-  const { signal, maxPages = DEFAULT_MAX_PAGES } = opts;
+  const { signal, maxPages = DEFAULT_MAX_PAGES, refresh = false } = opts;
 
   await waitForStudentFetchIdle(signal);
   if (signal?.aborted) return useStudentStore.getState().students;
 
   const store = useStudentStore.getState();
-  const needsFullReload = !store.students.length || didLastFetchUseSubsetFilters(store.lastFetchOpts);
+  const needsFullReload =
+    refresh || !store.students.length || didLastFetchUseSubsetFilters(store.lastFetchOpts);
 
   if (needsFullReload) {
     await store.fetchStudents({ reset: true });

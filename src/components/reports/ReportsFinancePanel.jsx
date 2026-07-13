@@ -333,6 +333,17 @@ function OperationalFinanceReport({
       <ReportsPanelSection
         title="Resumo financeiro"
         subtitle={`Movimentações liquidadas · ${from} — ${to}`}
+        action={
+          !isLimited && academyId ? (
+            <FinanceRegimeToggle
+              academyId={academyId}
+              value={regime}
+              onChange={setRegime}
+              hintStyle="tooltip"
+              className="reports-finance-regime"
+            />
+          ) : null
+        }
       >
         <div className="reports-finance-section-body">
           {isLimited ? (
@@ -345,16 +356,6 @@ function OperationalFinanceReport({
             <p className="reports-panel-note" role="status">
               Resumo operacional do período (valores liquidados no Caixa).
             </p>
-          ) : null}
-
-          {!isLimited && academyId ? (
-            <FinanceRegimeToggle
-              academyId={academyId}
-              value={regime}
-              onChange={setRegime}
-              hintStyle="tooltip"
-              className="reports-finance-regime"
-            />
           ) : null}
 
           {!isLimited && totals.truncated ? (

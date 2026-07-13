@@ -5,6 +5,7 @@ import {
   markFinanceTxImportDuplicates,
   collectExistingFinanceTxDedupKeys,
   monthsInDateRange,
+  rowToFinanceTxData,
 } from '../lib/financeTxImport.js';
 
 describe('financeTxDedupKey', () => {
@@ -94,5 +95,34 @@ describe('collectExistingFinanceTxDedupKeys', () => {
 describe('monthsInDateRange', () => {
   it('lists months spanned by range', () => {
     expect(monthsInDateRange('2025-01-28', '2025-03-02')).toEqual(['2025-01', '2025-02', '2025-03']);
+  });
+});
+
+describe('parseMethodCell via rowToFinanceTxData', () => {
+  const columnToField = { Forma: 'method', Data: 'date', Valor: 'amount' };
+
+  it('reconhece cartão de crédito em variantes comuns', () => {
+    const cases = [
+      'Cartão de crédito',
+      'Maquininha',
+      'Parcelado 3x',
+      'VISA crédito',
+      'cartão_crédito',
+    ];
+    for (const forma of cases) {
+      const data = rowToFinanceTxData(
+        { Forma: forma, Data: '15/05/2025', Valor: '100' },
+        columnToField
+      );
+      expect(data.method, forma).toBe('cartao_credito');
+    }
+  });
+
+  it('não classifica PIX como outro', () => {
+    const data = rowToFinanceTxData(
+      { Forma: 'PIX', Data: '15/05/2025', Valor: '100' },
+      columnToField
+    );
+    expect(data.method).toBe('pix');
   });
 });

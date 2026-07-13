@@ -65,4 +65,13 @@ describe('storage dialect UI helpers', () => {
     expect(normalizeToStorageDialect('cartao_credito')).toBe(STORAGE_CREDIT_METHOD);
     expect(normalizeToStorageDialect('cartão_crédito')).toBe(STORAGE_CREDIT_METHOD);
   });
+
+  it('normalizeFinanceTxMethodForStorage normaliza variantes de cartão', async () => {
+    const { normalizeFinanceTxMethodForStorage, STORAGE_CREDIT_METHOD } = await import(
+      '../../../src/lib/paymentMethods.js'
+    );
+    expect(normalizeFinanceTxMethodForStorage('Cartão de crédito')).toBe(STORAGE_CREDIT_METHOD);
+    expect(normalizeFinanceTxMethodForStorage('maquininha')).toBe(STORAGE_CREDIT_METHOD);
+    expect(normalizeFinanceTxMethodForStorage('')).toBe('pix');
+  });
 });

@@ -306,7 +306,7 @@ export default function MensalidadesPanel({
     setStudentsBootstrapDone(false);
     (async () => {
       try {
-        await ensureAllStudentsLoaded({ signal: controller.signal });
+        await ensureAllStudentsLoaded({ signal: controller.signal, refresh: true });
       } catch (err) {
         console.warn('[MensalidadesPanel] ensureAllStudentsLoaded:', err?.message || err);
       } finally {
@@ -737,6 +737,16 @@ export default function MensalidadesPanel({
     const paidAtMs = new Date(String(payForm.paid_at || '').trim()).getTime();
     const dueDayNum = Number(String(payForm.due_day || '').replace(/[^\d]/g, ''));
     const dueDayValid = Number.isFinite(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
+    const paymentDueDateYmd = (() => {
+      const fromForm = String(payForm.due_date || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fromForm)) return fromForm;
+      const day = dueDayValid ? dueDayNum : studentDueDay(selectedStudent);
+      if (!day) return null;
+      const ym =
+        isBundle && /^\d{4}-\d{2}$/.test(coverageStart) ? coverageStart : currentMonth;
+      const d = dueDateInMonth(ym, day);
+      return d ? d.toISOString().slice(0, 10) : null;
+    })();
 
     const paidAtYmd = String(payForm.paid_at || '').trim();
     if (!skipFuturePaidDateRef.current && isPaymentDateInFuture(paidAtYmd)) {
@@ -789,6 +799,7 @@ export default function MensalidadesPanel({
       bundle_months: isBundle ? bundleMonths : null,
       reference_month: refMonth,
       paid_at: paidAtIso,
+      due_date: paymentDueDateYmd,
       plan_name: payForm.plan_name || student.plan || '',
       note: payForm.note || '',
       registered_by: userId || '',
@@ -819,7 +830,7 @@ export default function MensalidadesPanel({
         ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
         status: launchStatus,
         paid_at: paidAtIso,
-        due_date: null,
+        due_date: paymentDueDateYmd,
         registered_by: userId || '',
         registered_by_name: sessionUserName,
         plan_name: payForm.plan_name || student.plan || '',
@@ -849,14 +860,16 @@ export default function MensalidadesPanel({
       }
       let studentPrefsWarning = '';
       try {
+        const studentPrefs = {};
         if (payForm.saveAsPreferred) {
-          await updateStudent(student.id, {
-            preferredPaymentMethod: payForm.method,
-            preferredPaymentAccount: paymentAccount,
-            ...(!isBundle ? { dueDay: dueDayValid ? dueDayNum : null } : {}),
-          });
-        } else if (!isBundle && (dueDayValid || String(student?.dueDay || '').trim())) {
-          await updateStudent(student.id, { dueDay: dueDayValid ? dueDayNum : null });
+          studentPrefs.preferredPaymentMethod = payForm.method;
+          studentPrefs.preferredPaymentAccount = paymentAccount;
+        }
+        if (!isBundle && dueDayValid) {
+          studentPrefs.dueDay = dueDayNum;
+        }
+        if (Object.keys(studentPrefs).length > 0) {
+          await updateStudent(student.id, studentPrefs);
         }
       } catch (prefErr) {
         console.warn('[Mensalidades] updateStudent após pagamento:', prefErr);

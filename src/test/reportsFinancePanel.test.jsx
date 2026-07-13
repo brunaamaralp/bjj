@@ -420,6 +420,7 @@ describe('ReportsFinancePanel', () => {
     });
 
     expect(container.querySelector('.reports-finance-section-body')).toBeTruthy();
+    expect(container.querySelector('.report-section-heading__action .reports-finance-regime')).toBeTruthy();
     expect(container.querySelector('.reports-kpi-grid--finance')).toBeTruthy();
     expect(container.querySelector('.finance-regime-toggle__hint')).toBeNull();
     expect(container.querySelector('.finance-regime-toggle__hint-icon')).toBeTruthy();

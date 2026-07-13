@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ChevronDown, Loader2 } from 'lucide-react';
+import { Download, ChevronDown, Loader2, CalendarRange } from 'lucide-react';
 import FilterBar from '../shared/FilterBar.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import { DateInputField } from '../DateInput';
@@ -21,6 +21,7 @@ export default function ReportsPeriodToolbar({
   onFromChange,
   onToChange,
   dateError,
+  periodLabel,
   showLeadFilters,
   profileFilter,
   onProfileFilterChange,
@@ -48,6 +49,15 @@ export default function ReportsPeriodToolbar({
     <div className="page-header-card reports-period-toolbar">
       <div className="page-header-row navi-toolbar reports-filters-row reports-filters-row--split">
         <FilterBar className="reports-period-block">
+          {periodLabel ? (
+            <>
+              <p className="reports-period-summary" aria-live="polite">
+                <CalendarRange size={15} strokeWidth={2} aria-hidden />
+                <span>{periodLabel}</span>
+              </p>
+              <span className="reports-filters-divider reports-filters-divider--inline" aria-hidden />
+            </>
+          ) : null}
           {presets.map((p) => (
             <button
               key={p.key}

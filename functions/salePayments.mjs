@@ -1,9 +1,14 @@
+import { canonicalPaymentMethodKeyFromInput } from '../../src/lib/paymentMethods.js';
+
 const FORMA_ALIASES = {
   credito: 'cartao_credito',
   debito: 'cartao_debito',
 };
 
+/** @deprecated Prefer canonicalPaymentMethodKeyFromInput — mantido para imports legados. */
 export function normalizePaymentForma(raw) {
+  const key = canonicalPaymentMethodKeyFromInput(raw);
+  if (key) return key;
   const k = String(raw || '')
     .trim()
     .toLowerCase()

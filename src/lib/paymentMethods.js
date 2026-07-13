@@ -15,11 +15,20 @@ export const PAYMENT_METHOD_ALIASES = {
   'cartão_crédito': 'cartao_credito',
   'cartão crédito': 'cartao_credito',
   'cartao crédito': 'cartao_credito',
+  'cartão de crédito': 'cartao_credito',
+  'cartao de credito': 'cartao_credito',
+  'cartão_de_crédito': 'cartao_credito',
+  'cartao_de_credito': 'cartao_credito',
   'cartão credito': 'cartao_credito',
   'cartao credito': 'cartao_credito',
   credito: 'cartao_credito',
   credito_avista: 'cartao_credito',
   credit: 'cartao_credito',
+  credit_card: 'cartao_credito',
+  'cartao_de_credito': 'cartao_credito',
+  'cartao_de_debito': 'cartao_debito',
+  maquininha: 'cartao_credito',
+  parcelado: 'cartao_credito',
   'cartão_débito': 'cartao_debito',
   'cartão débito': 'cartao_debito',
   'cartao débito': 'cartao_debito',
@@ -208,4 +217,21 @@ export function usesInstallmentCardFee(canonical, installments) {
 export function paymentMethodLabel(value) {
   const key = canonicalPaymentMethodKey(value);
   return LABEL_BY_VALUE[key] || null;
+}
+
+/**
+ * Normaliza forma de pagamento para persistência em FINANCIAL_TX / espelhos.
+ * Usa dialect acentuado quando há mapeamento canônico; preserva gateways (pagbank, etc.).
+ * @param {string|null|undefined} method
+ * @param {string} [fallback='pix']
+ */
+export function normalizeFinanceTxMethodForStorage(method, fallback = 'pix') {
+  const raw = String(method || '').trim();
+  if (!raw) return fallback;
+  const key = canonicalPaymentMethodKeyFromInput(raw) || canonicalPaymentMethodKey(raw);
+  if (!key) return fallback;
+  if (CANONICAL_METHOD_VALUES.has(key)) {
+    return toStorageDialectMethod(key);
+  }
+  return key;
 }

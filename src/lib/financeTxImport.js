@@ -6,6 +6,10 @@ import {
 } from './financeCategories.js';
 import { competenceMonthFromIso, parseCompetenceMonth } from './financeCompetence.js';
 import { columnMappingFromAi, columnConfidenceFromAi, parseNumberCell } from './productImport.js';
+import {
+  canonicalPaymentMethodKeyFromInput,
+  paymentMethodLabel,
+} from './paymentMethods.js';
 
 export { columnMappingFromAi, columnConfidenceFromAi };
 export const MAX_FINANCE_TX_IMPORT_ROWS = 500;
@@ -227,12 +231,30 @@ function parseDirectionCell(raw, amount) {
 }
 
 function parseMethodCell(raw) {
+  const key = canonicalPaymentMethodKeyFromInput(raw);
+  if (key && paymentMethodLabel(key)) return key;
+
   const s = normalizeHeader(raw);
   if (!s) return 'pix';
   if (s.includes('pix')) return 'pix';
   if (s.includes('dinheiro') || s.includes('cash') || s.includes('especie')) return 'dinheiro';
-  if (s.includes('debito') || s.includes('débito')) return 'cartao_debito';
-  if (s.includes('credito') || s.includes('crédito') || s.includes('cartao')) return 'cartao_credito';
+  if (s.includes('debito')) return 'cartao_debito';
+  if (
+    s.includes('credito') ||
+    s.includes('cartao') ||
+    s.includes('maquin') ||
+    s.includes('parcel') ||
+    s.includes('visa') ||
+    s.includes('master') ||
+    s.includes('elo') ||
+    s.includes('amex') ||
+    s.includes('hiper') ||
+    s === 'cc' ||
+    s.includes('pos') ||
+    s.includes('tpv')
+  ) {
+    return 'cartao_credito';
+  }
   if (s.includes('transfer') || s.includes('ted') || s.includes('doc')) return 'transferencia';
   if (s.includes('boleto')) return 'boleto';
   if (s.includes('link')) return 'link_pagamento';

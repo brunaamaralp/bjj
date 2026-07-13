@@ -72,4 +72,12 @@ describe('ensureAllStudentsLoaded', () => {
     await ensureAllStudentsLoaded();
     expect(storeMocks.fetchStudents).toHaveBeenCalledWith({ reset: true });
   });
+
+  it('refetches when refresh=true even with cached full list', async () => {
+    storeMocks.students = [{ id: 's1' }];
+    storeMocks.studentsHasMore = false;
+    storeMocks.lastFetchOpts = {};
+    await ensureAllStudentsLoaded({ refresh: true });
+    expect(storeMocks.fetchStudents).toHaveBeenCalledWith({ reset: true });
+  });
 });

@@ -17,6 +17,17 @@
   flex-wrap: wrap;
 }
 
+.kimono-loan-panel .reception-section-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.kimono-loan-panel .reception-section-heading svg {
+  flex-shrink: 0;
+}
+
 .kimono-loan-panel__overdue-badge {
   display: inline-flex;
   align-items: center;
