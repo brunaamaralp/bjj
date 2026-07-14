@@ -292,6 +292,18 @@ export function saleAllowsCancelOrEdit(statusOrSale) {
   return false;
 }
 
+/**
+ * Venda já cancelada — permite re-chamar cancelar para estornar estoque
+ * se o cancelamento financeiro passou e o estoque falhou (ou ficou sem movimento).
+ */
+export function saleAllowsStockRepair(statusOrSale) {
+  const st =
+    statusOrSale != null && typeof statusOrSale === 'object'
+      ? String(statusOrSale.status || '').toLowerCase()
+      : String(statusOrSale || '').toLowerCase();
+  return st === 'cancelada';
+}
+
 /** Cancelamento interrompido — botão deve concluir em vez de iniciar de novo. */
 export function saleIsCancelInProgress(statusOrSale) {
   const st =

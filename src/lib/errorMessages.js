@@ -231,9 +231,11 @@ const SALE_ERROR_CODES = {
   forbidden: 'Sem permissão para alterar esta venda.',
   forbidden_role: 'Apenas titular ou administrador pode cancelar ou trocar produtos na venda.',
   stock_revert_failed:
-    'O caixa foi atualizado, mas o estoque não. Abra a venda de novo e use Concluir cancelamento.',
+    'O caixa foi atualizado, mas o estoque não. Abra a venda e use Concluir cancelamento — ou Restaurar estoque se já estiver cancelada.',
   stock_item_not_found: 'Produto da venda não foi encontrado no estoque. Verifique o catálogo.',
   cancel_in_progress: 'Cancelamento incompleto. Abra a venda e use Concluir cancelamento.',
+  no_sale_items:
+    'Não foram encontrados os itens desta venda para devolver o estoque. Fale com o suporte.',
   academy_missing: 'Venda sem academia vinculada. Fale com o suporte.',
   forbidden_sale_academy: 'Esta venda pertence a outra academia. Abra em Loja → Vendas.',
   invalid_status: 'Só é possível cancelar vendas concluídas, pendentes ou parciais.',

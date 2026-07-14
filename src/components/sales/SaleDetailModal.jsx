@@ -2,7 +2,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit, saleIsCancelInProgress, saleIsDraft } from '../../lib/salesHistory';
+import {
+  formatDateTimeBr,
+  SALE_STATUS_BADGE_MAP,
+  saleAllowsCancelOrEdit,
+  saleAllowsStockRepair,
+  saleIsCancelInProgress,
+  saleIsDraft,
+} from '../../lib/salesHistory';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import { financialTxCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
@@ -70,6 +77,7 @@ function SaleDetailModalContent({
   const canReceivePayment = isPendente || isParcial;
   const isDraft = saleIsDraft(sale);
   const canModifySale = saleAllowsCancelOrEdit(sale);
+  const canRepairStock = saleAllowsStockRepair(sale);
   const cancelInProgress = saleIsCancelInProgress(sale);
 
   const paymentValid = paymentsUiValid(payments, remainingCents, { allowPartial: true });
@@ -163,6 +171,20 @@ function SaleDetailModalContent({
                 Cancelamento incompleto — conclua para devolver o estoque.
               </p>
             ) : null}
+          </div>
+        ) : canRepairStock && canCancelSale ? (
+          <div className="sale-detail-modal__footer">
+            <button
+              type="button"
+              className="btn-outline sales-cancel-sale-btn"
+              onClick={onCancelClick}
+            >
+              <XCircle size={16} aria-hidden />
+              Restaurar estoque
+            </button>
+            <p className="sale-detail-modal__perm-hint text-small text-muted">
+              Se o cancelamento não devolveu o estoque, use este botão para estornar agora.
+            </p>
           </div>
         ) : null
       }

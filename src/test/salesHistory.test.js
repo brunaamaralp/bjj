@@ -8,6 +8,7 @@ import {
   buildCancelReceiptText,
   itemsSummaryFromSnapshot,
   saleAllowsCancelOrEdit,
+  saleAllowsStockRepair,
   saleIsDraft,
   saleAllowsDiscardDraft,
   saleIsPartiallyPaid,
@@ -34,6 +35,12 @@ describe('salesHistory', () => {
     expect(saleAllowsCancelOrEdit({ status: '', deferred: true })).toBe(true);
     expect(saleAllowsCancelOrEdit('cancelada')).toBe(false);
     expect(saleAllowsCancelOrEdit('rascunho')).toBe(false);
+  });
+
+  it('saleAllowsStockRepair', () => {
+    expect(saleAllowsStockRepair('cancelada')).toBe(true);
+    expect(saleAllowsStockRepair('concluida')).toBe(false);
+    expect(saleAllowsStockRepair('cancelling')).toBe(false);
   });
 
   it('filterSalesList by status and search', () => {

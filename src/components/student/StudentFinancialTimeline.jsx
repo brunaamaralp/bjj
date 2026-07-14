@@ -559,7 +559,15 @@ export default function StudentFinancialTimeline({
       });
       return;
     }
-    addToast({ type: 'success', message: 'Venda cancelada.' });
+    addToast({
+      type: 'success',
+      message:
+        result.stock_restored
+          ? 'Estoque restaurado.'
+          : String(detailSale?.status || '').toLowerCase() === 'cancelada'
+            ? 'Cancelamento conferido.'
+            : 'Venda cancelada.',
+    });
     setCancelOpen(false);
     setDetailOpen(false);
     setDetailSale(null);

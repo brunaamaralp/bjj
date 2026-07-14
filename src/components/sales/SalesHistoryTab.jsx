@@ -198,7 +198,16 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
       });
       return;
     }
-    addToast({ type: 'success', message: 'Venda cancelada' });
+    const stockMsg = result.stock_restored
+      ? 'Estoque restaurado.'
+      : result.stock_already_done
+        ? 'Cancelamento conferido — estoque já estava ok.'
+        : 'Venda cancelada.';
+    addToast({
+      type: 'success',
+      message:
+        String(detailSale?.status || '').toLowerCase() === 'cancelada' ? stockMsg : 'Venda cancelada.',
+    });
     setCancelOpen(false);
     setDetailOpen(false);
     const cancelDate = result.cancelada_em
