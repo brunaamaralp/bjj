@@ -41,10 +41,14 @@ export function getSaleFooterHint({
   paymentValid = true,
   deferredSale = false,
   receiveLater = false,
+  dueDateValid = true,
   busy = false,
 } = {}) {
   if (busy) return null;
   if (cartLength === 0) return 'Adicione pelo menos um item ao carrinho.';
+  if ((deferredSale || receiveLater) && !dueDateValid) {
+    return 'Informe a data de vencimento da venda a prazo.';
+  }
   if (!deferredSale && !receiveLater && !paymentValid) {
     return 'Ajuste os valores de pagamento para cobrir o total.';
   }

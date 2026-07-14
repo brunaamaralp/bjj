@@ -290,7 +290,7 @@ Harness: ver [finance-plano-contas.md](../../harness/finance-plano-contas.md).
 | 7 | Histórico + filtros | ✅ Código | `SalesHistoryTab` |
 | 8 | Cancelar owner/admin | ✅ Código | `canCancelSale` em `SalesHistoryTab` |
 | 9 | Legacy redirects | ✅ Código | `App.jsx` `/vendas` → Loja |
-| 10–14 | Pagamento, a prazo, multi-tenant | ✅ Código | `salePayments.js`, `academyId` |
+| 10–14 | Pagamento, a prazo, multi-tenant | ✅ Código | `salePayments.js`; due date `e.target.value` + toggle visível (`SalesNewSaleTab`, 2026-07-13) |
 
 Harness: `lojaSalesTabs` (7 testes), `nlAction` (`register_sale`).
 

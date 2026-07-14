@@ -19,6 +19,7 @@ import { readSalesSettings } from '../../lib/salesSettings';
 import { formatBRL, formatBRLFromCents, parseMaskToCents } from '../../lib/moneyBr';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite';
 import { DateInput } from '../DateInput';
+import { defaultDeferredDueYmd, isIsoDateYmd } from '../../lib/dateInputUtils.js';
 import SalesCatalogPicker from '../sales/SalesCatalogPicker';
 import SalesVariantPicker from '../sales/SalesVariantPicker';
 import SalesCart from '../sales/SalesCart';
@@ -225,7 +226,7 @@ export default function StudentProductSaleStep({
   useEffect(() => {
     if (!onSubmitStateChange) return;
     const canSubmit =
-      cart.length > 0 && !creating && (receiveLater || paymentValid.ok);
+      cart.length > 0 && !creating && (receiveLater ? isIsoDateYmd(dueDate) : paymentValid.ok);
     const footerError = localError ? friendlySaleError(localError) : null;
     onSubmitStateChange({
       canSubmit,
@@ -237,6 +238,7 @@ export default function StudentProductSaleStep({
             cartLength: cart.length,
             paymentValid: paymentValid.ok,
             receiveLater,
+            dueDateValid: !receiveLater || isIsoDateYmd(dueDate),
             busy: creating,
           }),
       footerError,
@@ -245,6 +247,7 @@ export default function StudentProductSaleStep({
     cart.length,
     creating,
     receiveLater,
+    dueDate,
     paymentValid.ok,
     localError,
     onSubmitStateChange,
@@ -472,7 +475,7 @@ export default function StudentProductSaleStep({
       return;
     }
     if (receiveLater) {
-      if (!String(dueDate || '').trim()) {
+      if (!isIsoDateYmd(dueDate)) {
         setLocalError('Informe a data de vencimento.');
         focusCartPanel();
         return;
@@ -653,7 +656,9 @@ export default function StudentProductSaleStep({
                   checked={receiveLater}
                   disabled={creating || cart.length === 0}
                   onChange={(e) => {
-                    setReceiveLater(e.target.checked);
+                    const on = e.target.checked;
+                    setReceiveLater(on);
+                    if (on) setDueDate((prev) => prev || defaultDeferredDueYmd());
                     setLocalError('');
                   }}
                 />
@@ -670,7 +675,7 @@ export default function StudentProductSaleStep({
                     type="date"
                     value={dueDate}
                     disabled={creating || cart.length === 0}
-                    onChange={(e) => setDueDate(e.target.value)}
+                    onChange={(e) => setDueDate(String(e.target.value || '').slice(0, 10))}
                     required
                   />
                 </div>
@@ -693,7 +698,7 @@ export default function StudentProductSaleStep({
                   disabled={
                     creating ||
                     cart.length === 0 ||
-                    (!receiveLater && !paymentValid.ok)
+                    (receiveLater ? !isIsoDateYmd(dueDate) : !paymentValid.ok)
                   }
                 >
                   {creating ? 'Registrando…' : 'Confirmar venda'}

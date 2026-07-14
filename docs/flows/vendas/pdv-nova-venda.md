@@ -8,7 +8,7 @@
 | **rotas** | `/loja?tab=vendas`, `/loja?tab=vendas&subtab=new`, `/loja?tab=vendas&subtab=history`, `/loja?tab=vendas&pdv=1` |
 | **pré-requisitos** | Módulo `sales` ativo; produtos cadastrados em `/loja?tab=produtos`; estoque quando item controla saldo |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-07-13 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -62,7 +62,7 @@ flowchart TD
 | 5 | Nova venda | Vincular aluno (opcional) | Busca typeahead | `searchStudentsForSale` |
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
 | 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; **Recebido via** em cartão (2+ meios) |
-| 8 | Checkout | Venda a prazo | Toggle + data vencimento | `deferred: true` |
+| 8 | Checkout | Venda a prazo | Toggle visível + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |
 | 10 | Toolbar | **Modo PDV** | `?pdv=1` | UI fullscreen; hotkeys F2–F4 |
 | 11 | PDV | Suspender carrinho | Pausar atendimento | `suspendCart` / retomar |
@@ -112,7 +112,8 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 3. [ ] Adicionar produto ao carrinho e concluir com PIX → venda `concluida`
 4. [ ] Produto sem estoque → erro `no_stock` / `stock_stale`; catálogo recarrega
 5. [ ] Variante obrigatória sem seleção → validação antes do submit
-6. [ ] Venda a prazo sem data → mensagem de erro no checkout
+6. [ ] Venda a prazo: toggle no checkout (não só em “Mais opções”); data com calendário/digitação; sem data → bloqueio; com data → `pendente`
+6b. [ ] Venda a prazo preenche vencimento padrão (+30 dias) ao marcar o toggle
 7. [ ] Split de pagamento com total divergente → bloqueio (`paymentsUiValid`)
 7b. [ ] Cartão com 2 meios de captura — **Recebido via** na linha de pagamento
 8. [ ] **Modo PDV** (`?pdv=1`) oculta tabs do hub; preferência em `localStorage` `sales:pdvMode:v1`

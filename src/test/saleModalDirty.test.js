@@ -56,4 +56,16 @@ describe('getSaleFooterHint', () => {
   it('returns null when payment is valid', () => {
     expect(getSaleFooterHint({ cartLength: 1, paymentValid: true })).toBe(null);
   });
+
+  it('asks for due date when deferred without valid date', () => {
+    expect(
+      getSaleFooterHint({ cartLength: 1, paymentValid: true, deferredSale: true, dueDateValid: false })
+    ).toMatch(/vencimento/i);
+  });
+
+  it('allows deferred with valid due date', () => {
+    expect(
+      getSaleFooterHint({ cartLength: 1, paymentValid: true, deferredSale: true, dueDateValid: true })
+    ).toBe(null);
+  });
 });

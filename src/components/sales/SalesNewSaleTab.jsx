@@ -32,6 +32,7 @@ import SalesPosHints from './SalesPosHints';
 import CashShiftBanner from './CashShiftBanner';
 import Hint from '../shared/Hint.jsx';
 import { DateInputField } from '../DateInput';
+import { defaultDeferredDueYmd, isIsoDateYmd } from '../../lib/dateInputUtils.js';
 import useSalesPosHotkeys from '../../hooks/useSalesPosHotkeys';
 import {
   createEmptyPaymentRow,
@@ -319,6 +320,9 @@ export default function SalesNewSaleTab({
 
   const shiftBlocksSale =
     salesSettings.requireCashShift && !openCashShift && !modalMode;
+  const dueDateValid = !deferredSale || isIsoDateYmd(dueDate);
+  const canCheckout =
+    cart.length > 0 && paymentValid.ok && dueDateValid && !creating && !shiftBlocksSale;
 
   const subtotalMasked = useMemo(() => {
     try {
@@ -365,10 +369,8 @@ export default function SalesNewSaleTab({
 
   useEffect(() => {
     if (!onSubmitStateChange) return;
-    const canSubmit = cart.length > 0 && paymentValid.ok && !creating && !shiftBlocksSale;
-    const footerError = localError || error ? friendlySaleError(localError || error) : null;
     onSubmitStateChange({
-      canSubmit,
+      canSubmit: canCheckout,
       busy: creating,
       label:
         creating
@@ -376,25 +378,27 @@ export default function SalesNewSaleTab({
           : cart.length === 0
             ? 'Concluir venda'
             : `Concluir venda — ${formatSaleTotalBRL(totalFinal)}`,
-      footerHint: canSubmit || footerError
+      footerHint: canCheckout || localError || error
         ? null
         : getSaleFooterHint({
             cartLength: cart.length,
             paymentValid: paymentValid.ok,
             deferredSale,
+            dueDateValid,
             busy: creating,
           }),
-      footerError,
+      footerError: localError || error ? friendlySaleError(localError || error) : null,
     });
   }, [
+    canCheckout,
     cart.length,
-    paymentValid.ok,
     creating,
-    shiftBlocksSale,
-    totalFinal,
     deferredSale,
+    dueDateValid,
+    paymentValid.ok,
     localError,
     error,
+    totalFinal,
     onSubmitStateChange,
   ]);
 
@@ -660,7 +664,7 @@ export default function SalesNewSaleTab({
     onEscape: () => {
       setVariantPickerParent(null);
     },
-    canSubmit: paymentValid.ok && cart.length > 0 && !creating && !shiftBlocksSale,
+    canSubmit: canCheckout,
   });
 
   const changeCartVariant = useCallback(
@@ -861,7 +865,7 @@ export default function SalesNewSaleTab({
       return;
     }
     if (deferredSale) {
-      if (!String(dueDate || '').trim()) {
+      if (!isIsoDateYmd(dueDate)) {
         setLocalError('Informe a data de vencimento da venda a prazo.');
         focusCheckoutPanel();
         return;
@@ -908,7 +912,7 @@ export default function SalesNewSaleTab({
       aluno_id: alunoId || null,
       pagamentos,
       deferred: deferredSale,
-      due_date: deferredSale ? dueDate : null,
+      due_date: deferredSale && isIsoDateYmd(dueDate) ? String(dueDate).slice(0, 10) : null,
       cliente_nome: !alunoId ? clienteNome.trim() || null : null,
       cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
       venda_colaborador: vendaColaborador,
@@ -1264,10 +1268,37 @@ export default function SalesNewSaleTab({
                 </>
               ) : (
                 <div className="form-group sales-checkout__field">
-                  <label>Vencimento</label>
-                  <DateInputField value={dueDate} onChange={setDueDate} />
+                  <label htmlFor="sales-deferred-due">
+                    Data de vencimento <span className="sales-field-required">*</span>
+                  </label>
+                  <DateInputField
+                    id="sales-deferred-due"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(String(e?.target?.value || '').slice(0, 10))}
+                    required
+                    disabled={creating || cart.length === 0}
+                    aria-label="Data de vencimento da venda a prazo"
+                  />
                 </div>
               )}
+
+              <label className="sales-collab-toggle__label sales-deferred-toggle">
+                <input
+                  type="checkbox"
+                  checked={deferredSale}
+                  disabled={creating || cart.length === 0}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setDeferredSale(on);
+                    if (on) {
+                      setManualPaymentOpen(false);
+                      setDueDate((prev) => prev || defaultDeferredDueYmd());
+                    }
+                    setLocalError('');
+                  }}
+                />
+                <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
+              </label>
 
               <details
                 className="sales-more-options"
@@ -1276,41 +1307,29 @@ export default function SalesNewSaleTab({
               >
                 <summary className="sales-more-options__summary">Mais opções</summary>
                 <div className="sales-more-options__body">
-                  <label className="sales-collab-toggle__label">
-                    <input
-                      type="checkbox"
-                      checked={deferredSale}
-                      onChange={(e) => {
-                        setDeferredSale(e.target.checked);
-                        if (e.target.checked) setManualPaymentOpen(false);
-                      }}
-                    />
-                    <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
-                  </label>
+                  <div className="sales-collab-toggle">
+                    <label className="sales-collab-toggle__label">
+                      <input
+                        type="checkbox"
+                        className="sales-collab-toggle__input"
+                        checked={vendaColaborador}
+                        onChange={(e) => setVendaColaborador(e.target.checked)}
+                      />
+                      <span className="sales-collab-toggle__track" aria-hidden />
+                      <span className="sales-collab-toggle__text">Aplicar preço de custo (colaborador)</span>
+                      <Hint
+                        text="Vendas internas: substitui o preço de venda pelo custo cadastrado do produto."
+                        position="top"
+                      />
+                    </label>
+                    {vendaColaborador ? (
+                      <p className="sales-collab-toggle__hint">
+                        Os preços serão substituídos pelo preço de custo cadastrado.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </details>
-
-              <div className="sales-collab-toggle">
-                <label className="sales-collab-toggle__label">
-                  <input
-                    type="checkbox"
-                    className="sales-collab-toggle__input"
-                    checked={vendaColaborador}
-                    onChange={(e) => setVendaColaborador(e.target.checked)}
-                  />
-                  <span className="sales-collab-toggle__track" aria-hidden />
-                  <span className="sales-collab-toggle__text">Aplicar preço de custo (colaborador)</span>
-                  <Hint
-                    text="Vendas internas: substitui o preço de venda pelo custo cadastrado do produto."
-                    position="top"
-                  />
-                </label>
-                {vendaColaborador ? (
-                  <p className="sales-collab-toggle__hint">
-                    Os preços serão substituídos pelo preço de custo cadastrado.
-                  </p>
-                ) : null}
-              </div>
 
               {!modalMode ? <SalesPosHints pdvMode={pdvMode} /> : null}
 
@@ -1326,7 +1345,7 @@ export default function SalesNewSaleTab({
                 <button
                   type="submit"
                   className="btn-primary sales-submit-btn"
-                  disabled={creating || cart.length === 0 || !paymentValid.ok || shiftBlocksSale}
+                  disabled={!canCheckout}
                 >
                   <ShoppingCart size={18} aria-hidden />
                   <span>

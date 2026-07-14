@@ -249,7 +249,10 @@ export default function PublicExperimentalBooking() {
 
                 <label className="form-group" style={{ marginBottom: 0 }}>
                   <span>Data de nascimento *</span>
-                  <DateInputField value={birthDate} onChange={setBirthDate} />
+                  <DateInputField
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(String(e?.target?.value || '').slice(0, 10))}
+                  />
                   {fieldErrors.birthDate ? <FieldError>{fieldErrors.birthDate}</FieldError> : null}
                   {profileType ? (
                     <p className="text-small text-muted" style={{ marginTop: 6 }}>

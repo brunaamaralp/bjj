@@ -23,6 +23,18 @@ export function isoDateToBr(iso) {
   return `${d}/${m}/${y}`;
 }
 
+/** Aceita string YYYY-MM-DD (com ou sem sufixo de hora). */
+export function isIsoDateYmd(value) {
+  return ISO_DATE_RE.test(String(value || '').trim().slice(0, 10));
+}
+
+/** Padrão: daqui a 30 dias (calendário local). */
+export function defaultDeferredDueYmd(from = new Date()) {
+  const base = from instanceof Date && !Number.isNaN(from.getTime()) ? from : new Date();
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 30);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 export function parseBrDateToIso(text) {
   const digits = String(text || '').replace(/\D/g, '');
   if (digits.length !== 8) return null;
