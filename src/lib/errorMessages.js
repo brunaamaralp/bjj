@@ -231,6 +231,7 @@ const SALE_ERROR_CODES = {
   forbidden: 'Sem permissão para alterar esta venda.',
   forbidden_role: 'Apenas titular ou administrador pode cancelar ou trocar produtos na venda.',
   cancel_in_progress: 'Cancelamento em andamento. Aguarde e atualize a página.',
+  stock_item_not_found: 'Produto da venda não foi encontrado no estoque. Verifique o catálogo.',
   stock_revert_failed: 'Não foi possível devolver o estoque. Verifique o inventário.',
   academy_missing: 'Venda sem academia vinculada. Fale com o suporte.',
   forbidden_sale_academy: 'Esta venda pertence a outra academia. Abra em Loja → Vendas.',
