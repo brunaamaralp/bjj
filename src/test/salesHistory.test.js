@@ -30,6 +30,7 @@ describe('salesHistory', () => {
     expect(saleAllowsCancelOrEdit('concluida')).toBe(true);
     expect(saleAllowsCancelOrEdit('pendente')).toBe(true);
     expect(saleAllowsCancelOrEdit('parcial')).toBe(true);
+    expect(saleAllowsCancelOrEdit('cancelling')).toBe(true);
     expect(saleAllowsCancelOrEdit({ status: '', deferred: true })).toBe(true);
     expect(saleAllowsCancelOrEdit('cancelada')).toBe(false);
     expect(saleAllowsCancelOrEdit('rascunho')).toBe(false);

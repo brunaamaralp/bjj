@@ -154,7 +154,7 @@ export function filterSalesList(sales, { status, canal, search }) {
     if (status === 'pendente' && st !== 'pendente') return false;
     if (status === 'parcial' && st !== 'parcial') return false;
     if (status === 'rascunho' && st !== 'rascunho') return false;
-    if (status === 'em_aberto' && st !== 'pendente' && st !== 'parcial') return false;
+    if (status === 'em_aberto' && st !== 'pendente' && st !== 'parcial' && st !== 'cancelling') return false;
     if (canal && canal !== 'all' && String(s.canal || 'presencial') !== canal) return false;
     if (q) {
       const hay = [
@@ -248,6 +248,7 @@ export function formatCancelMotivo(categoria, textoLivre) {
 export function saleStatusLabel(status) {
   const st = String(status || '').toLowerCase();
   if (st === 'cancelada') return 'Cancelada';
+  if (st === 'cancelling') return 'Cancelando…';
   if (st === 'concluida') return 'Concluída';
   if (st === 'parcial') return 'Parcial';
   if (st === 'pendente') return 'Pendente';
@@ -258,6 +259,7 @@ export function saleStatusLabel(status) {
 export const SALE_STATUS_BADGE_MAP = {
   concluida: { label: 'Concluída', tone: 'success' },
   cancelada: { label: 'Cancelada', tone: 'danger' },
+  cancelling: { label: 'Cancelando…', tone: 'warning' },
   pendente: { label: 'Pendente', tone: 'warning' },
   parcial: { label: 'Parcial', tone: 'warning' },
   rascunho: { label: 'Rascunho', tone: 'muted' },
@@ -284,9 +286,19 @@ export function saleAllowsCancelOrEdit(statusOrSale) {
       : { status: statusOrSale };
   const st = String(sale.status || '').toLowerCase();
   if (st === 'cancelada' || st === 'rascunho') return false;
-  if (st === 'concluida' || st === 'pendente' || st === 'parcial') return true;
+  // `cancelling` = falha parcial; permite retomar e devolver estoque.
+  if (st === 'concluida' || st === 'pendente' || st === 'parcial' || st === 'cancelling') return true;
   if (sale.deferred === true) return true;
   return false;
+}
+
+/** Cancelamento interrompido — botão deve concluir em vez de iniciar de novo. */
+export function saleIsCancelInProgress(statusOrSale) {
+  const st =
+    statusOrSale != null && typeof statusOrSale === 'object'
+      ? String(statusOrSale.status || '').toLowerCase()
+      : String(statusOrSale || '').toLowerCase();
+  return st === 'cancelling';
 }
 
 /** @deprecated Use StatusBadge + SALE_STATUS_BADGE_MAP */

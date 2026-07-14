@@ -230,9 +230,10 @@ const SALE_ERROR_CODES = {
   invalid_price: 'Preço inválido para o novo produto.',
   forbidden: 'Sem permissão para alterar esta venda.',
   forbidden_role: 'Apenas titular ou administrador pode cancelar ou trocar produtos na venda.',
-  cancel_in_progress: 'Cancelamento em andamento. Aguarde e atualize a página.',
+  stock_revert_failed:
+    'O caixa foi atualizado, mas o estoque não. Abra a venda de novo e use Concluir cancelamento.',
   stock_item_not_found: 'Produto da venda não foi encontrado no estoque. Verifique o catálogo.',
-  stock_revert_failed: 'Não foi possível devolver o estoque. Verifique o inventário.',
+  cancel_in_progress: 'Cancelamento incompleto. Abra a venda e use Concluir cancelamento.',
   academy_missing: 'Venda sem academia vinculada. Fale com o suporte.',
   forbidden_sale_academy: 'Esta venda pertence a outra academia. Abra em Loja → Vendas.',
   invalid_status: 'Só é possível cancelar vendas concluídas, pendentes ou parciais.',

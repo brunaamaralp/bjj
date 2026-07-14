@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XCircle, ExternalLink } from 'lucide-react';
 import { formatBRL } from '../../lib/moneyBr';
-import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit, saleIsDraft } from '../../lib/salesHistory';
+import { formatDateTimeBr, SALE_STATUS_BADGE_MAP, saleAllowsCancelOrEdit, saleIsCancelInProgress, saleIsDraft } from '../../lib/salesHistory';
 import StatusBadge from '../shared/StatusBadge.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import { financialTxCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
@@ -70,6 +70,7 @@ function SaleDetailModalContent({
   const canReceivePayment = isPendente || isParcial;
   const isDraft = saleIsDraft(sale);
   const canModifySale = saleAllowsCancelOrEdit(sale);
+  const cancelInProgress = saleIsCancelInProgress(sale);
 
   const paymentValid = paymentsUiValid(payments, remainingCents, { allowPartial: true });
 
@@ -150,13 +151,18 @@ function SaleDetailModalContent({
                 onClick={onCancelClick}
               >
                 <XCircle size={16} aria-hidden />
-                Cancelar venda
+                {cancelInProgress ? 'Concluir cancelamento' : 'Cancelar venda'}
               </button>
             ) : (
               <p className="sale-detail-modal__perm-hint text-small text-muted">
                 Cancelar ou trocar produto: titular ou administrador da academia.
               </p>
             )}
+            {cancelInProgress ? (
+              <p className="sale-detail-modal__perm-hint text-small text-muted">
+                Cancelamento incompleto — conclua para devolver o estoque.
+              </p>
+            ) : null}
           </div>
         ) : null
       }
