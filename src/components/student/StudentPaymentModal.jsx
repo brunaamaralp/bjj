@@ -128,7 +128,6 @@ export default function StudentPaymentModal({
   const navigate = useNavigate();
   const creatingSale = useSalesStore((s) => s.creating);
   const [productStep, setProductStep] = useState(false);
-  const [showProductDeferHint, setShowProductDeferHint] = useState(false);
   const [productDirty, setProductDirty] = useState(false);
   const [productVariantPickerOpen, setProductVariantPickerOpen] = useState(false);
   const [showDiscardProductDialog, setShowDiscardProductDialog] = useState(false);
@@ -164,7 +163,6 @@ export default function StudentPaymentModal({
 
   const handleClose = useCallback(() => {
     setProductStep(false);
-    setShowProductDeferHint(false);
     setProductDirty(false);
     onClose();
   }, [onClose]);
@@ -224,12 +222,12 @@ export default function StudentPaymentModal({
       open={open && Boolean(student)}
       title={modalTitle}
       onClose={requestClose}
-      closeOnOverlay={!isProduct && !saving}
-      closeOnEsc={!saving && !(isProduct && productVariantPickerOpen)}
+      closeOnOverlay={!saving && !creatingSale}
+      closeOnEsc={!saving && !creatingSale && !(isProduct && productVariantPickerOpen)}
       showCloseButton={!saving && !creatingSale}
-      maxWidth={isProduct ? 560 : 480}
+      maxWidth={isProduct ? 960 : 480}
       className="navi-modal-overlay--form"
-      dialogClassName="student-payment-modal"
+      dialogClassName={`student-payment-modal${isProduct ? ' student-payment-modal--product' : ''}`}
       ariaLabelledBy="student-payment-modal-title"
       footer={
         isProduct ? (
@@ -293,7 +291,7 @@ export default function StudentPaymentModal({
                 style={{ flex: 1 }}
                 aria-describedby={saveBlockedByBank ? 'student-pay-footer-hint' : undefined}
               >
-                {saving ? 'Salvando...' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
+                {saving ? 'Salvando…' : editingPaymentId ? 'Salvar alterações' : 'Registrar'}
               </button>
             </div>
           </div>
@@ -309,25 +307,7 @@ export default function StudentPaymentModal({
         ) : null}
 
         {isProduct ? (
-          <>
-            {showProductDeferHint ? (
-              <p
-                role="status"
-                style={{
-                  margin: '0 0 12px',
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  background: 'var(--surface-2, rgba(148,163,184,0.12))',
-                  color: 'var(--text-secondary)',
-                  fontSize: 13,
-                  lineHeight: 1.45,
-                }}
-              >
-                Para venda de produto com pagamento posterior, use &quot;Registrar venda&quot; e marque
-                &quot;Receber depois&quot;.
-              </p>
-            ) : null}
-            <StudentProductSaleStep
+          <StudentProductSaleStep
             student={student}
             hideSubmitButton
             onVariantPickerChange={setProductVariantPickerOpen}
@@ -336,7 +316,6 @@ export default function StudentPaymentModal({
             onNavigateAway={handleProductNavigateAway}
             onBack={() => {
               setProductStep(false);
-              setShowProductDeferHint(false);
               setPayForm((p) => ({ ...p, payment_type: PAYMENT_CATEGORY.PLAN }));
             }}
             onComplete={() => {
@@ -345,53 +324,56 @@ export default function StudentPaymentModal({
               handleClose();
             }}
           />
-          </>
         ) : (
           <>
             <div className="form-section">
-              <fieldset style={{ border: 'none', margin: 0, padding: 0 }} disabled={Boolean(editingPaymentId)}>
+              <fieldset
+                className="student-payment-modal__type-fieldset"
+                disabled={Boolean(editingPaymentId)}
+              >
                 <legend className="form-label">Tipo de pagamento</legend>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {typeOptions.map((opt) => (
-                    <label
-                      key={opt.value}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: 14,
-                        cursor: editingPaymentId ? 'default' : 'pointer',
-                        color: 'var(--text)',
-                        opacity: editingPaymentId && payForm.payment_type !== opt.value ? 0.45 : 1,
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="payment_type"
-                        value={opt.value}
-                        checked={payForm.payment_type === opt.value}
-                        disabled={Boolean(editingPaymentId)}
-                        onChange={() => {
-                          if (opt.value === PAYMENT_MODAL_PRODUCT) {
-                            setProductStep(true);
-                            setShowProductDeferHint(true);
-                            setPayForm((p) => ({ ...p, payment_type: PAYMENT_MODAL_PRODUCT }));
-                            return;
-                          }
-                          setShowProductDeferHint(false);
-                          setPayForm((p) => ({
-                            ...p,
-                            payment_type: opt.value,
-                            status:
-                              opt.value === PAYMENT_CATEGORY.FEE || opt.value === PAYMENT_CATEGORY.BUNDLE
-                                ? 'paid'
-                                : p.status,
-                          }));
-                        }}
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
+                <div className="student-payment-modal__type-list">
+                  {typeOptions.map((opt) => {
+                    const dimmed =
+                      Boolean(editingPaymentId) && payForm.payment_type !== opt.value;
+                    return (
+                      <label
+                        key={opt.value}
+                        className={[
+                          'student-payment-modal__type-option',
+                          editingPaymentId ? 'student-payment-modal__type-option--disabled' : '',
+                          dimmed ? 'student-payment-modal__type-option--dimmed' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <input
+                          type="radio"
+                          name="payment_type"
+                          value={opt.value}
+                          checked={payForm.payment_type === opt.value}
+                          disabled={Boolean(editingPaymentId)}
+                          onChange={() => {
+                            if (opt.value === PAYMENT_MODAL_PRODUCT) {
+                              setProductStep(true);
+                              setPayForm((p) => ({ ...p, payment_type: PAYMENT_MODAL_PRODUCT }));
+                              return;
+                            }
+                            setPayForm((p) => ({
+                              ...p,
+                              payment_type: opt.value,
+                              status:
+                                opt.value === PAYMENT_CATEGORY.FEE ||
+                                opt.value === PAYMENT_CATEGORY.BUNDLE
+                                  ? 'paid'
+                                  : p.status,
+                            }));
+                          }}
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
                 </div>
               </fieldset>
 
@@ -470,9 +452,7 @@ export default function StudentPaymentModal({
                     required={isFee}
                   />
                   <FieldError id="student-pay-note-error">{payFieldErrors.note}</FieldError>
-                  <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Não aparece na grade de Mensalidades.
-                  </p>
+                  <p className="form-hint">Não aparece na grade de Mensalidades.</p>
                 </div>
               ) : null}
 
@@ -671,8 +651,8 @@ export default function StudentPaymentModal({
                   <label className="form-label">Observação</label>
                   <textarea
                     rows={2}
-                    className="form-input"
-                    style={{ ...inputStyle, width: '100%', resize: 'vertical', minHeight: 64 }}
+                    className="form-input student-payment-modal__note"
+                    style={inputStyle}
                     value={payForm.note}
                     onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))}
                   />
@@ -686,7 +666,7 @@ export default function StudentPaymentModal({
     <ConfirmDialog
       open={showDiscardProductDialog}
       title="Descartar venda?"
-      description="Os produtos no carrinho serão perdidos."
+      description="Ao fechar, os produtos no carrinho serão perdidos."
       confirmLabel="Descartar"
       confirmVariant="danger"
       onConfirm={() => {

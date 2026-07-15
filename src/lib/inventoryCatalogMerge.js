@@ -181,3 +181,28 @@ export function parentSizeSummary(parent) {
   if (vars.length <= 1) return variantSizeLabel(vars[0]);
   return vars.map((v) => variantSizeLabel(v)).join(', ');
 }
+
+/** Conta variantes com status `critical` (saldo zerado). */
+export function countCriticalVariants(parent) {
+  const vars = (parent?.variants || []).filter((v) => v?.id);
+  const critical = vars.filter((v) => v.status === 'critical').length;
+  return { critical, total: vars.length };
+}
+
+/**
+ * Resumo para cabeçalho colapsado. Só preenche se houver ≥1 crítico.
+ * Ex.: "2 de 5 tamanhos críticos"
+ */
+export function formatCriticalSizesSummary(parent) {
+  const { critical, total } = countCriticalVariants(parent);
+  if (critical <= 0 || total <= 0) return '';
+  const unit = total === 1 ? 'tamanho crítico' : 'tamanhos críticos';
+  return `${critical} de ${total} ${unit}`;
+}
+
+/** Rótulo de mínimo sempre legível (sem traço ambíguo). */
+export function formatMinimumLabel(minimumLevel) {
+  const n = Number(minimumLevel);
+  if (Number.isFinite(n) && n > 0) return `mín. ${Math.trunc(n)}`;
+  return 'sem mínimo';
+}

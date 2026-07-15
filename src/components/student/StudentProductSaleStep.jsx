@@ -179,17 +179,21 @@ export default function StudentProductSaleStep({
     [totalCart, descGeralTipo, descGeralCents, descGeralPct]
   );
 
-  const effectivePayments = useMemo(
-    () => rebalancePaymentsForTotal(payments, totalFinalCents),
-    [payments, totalFinalCents]
-  );
+  // Rebalance só quando o total muda — se rodar a cada digito,
+  // pagamento parcial é forçado de volta ao total da venda.
+  useEffect(() => {
+    setPayments((prev) => rebalancePaymentsForTotal(prev, totalFinalCents));
+  }, [totalFinalCents]);
 
   const paymentValid = useMemo(
     () =>
       receiveLater
-        ? paymentsUiValid(effectivePayments, totalFinalCents, { deferred: true })
-        : paymentsUiValid(effectivePayments, totalFinalCents, { allowPartial: true }),
-    [effectivePayments, totalFinalCents, receiveLater]
+        ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
+        : paymentsUiValid(payments, totalFinalCents, {
+            financeConfig,
+            allowPartial: true,
+          }),
+    [payments, totalFinalCents, receiveLater, financeConfig]
   );
 
   const subtotalMasked = useMemo(() => formatBRL(roundSaleMoney(totalCart)), [totalCart]);
@@ -240,6 +244,7 @@ export default function StudentProductSaleStep({
             receiveLater,
             dueDateValid: !receiveLater || isIsoDateYmd(dueDate),
             busy: creating,
+            allowPartial: true,
           }),
       footerError,
     });
@@ -513,7 +518,7 @@ export default function StudentProductSaleStep({
         it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
     }));
 
-    const pagamentos = receiveLater ? [] : serializePagamentosForApi(effectivePayments);
+    const pagamentos = receiveLater ? [] : serializePagamentosForApi(payments);
 
     const salePayload = {
       aluno_id: studentId,
@@ -552,7 +557,11 @@ export default function StudentProductSaleStep({
 
     addToast({
       type: 'success',
-      message: receiveLater ? 'Venda registrada — pagamento pendente.' : 'Venda registrada.',
+      message: receiveLater
+        ? 'Venda registrada — pagamento pendente.'
+        : paymentValid.partial
+          ? 'Venda registrada — pagamento parcial; saldo em aberto.'
+          : 'Venda registrada.',
     });
     resetSaleSession();
     onComplete?.();
@@ -568,12 +577,14 @@ export default function StudentProductSaleStep({
 
   return (
     <div className="student-product-sale">
-      <button type="button" className="btn-ghost student-product-sale__back" onClick={requestBack}>
-        ← Voltar aos tipos
-      </button>
-      <p className="student-product-sale__context">
-        Venda para <strong>{studentName}</strong>
-      </p>
+      <div className="student-product-sale__toolbar">
+        <button type="button" className="btn-ghost student-product-sale__back" onClick={requestBack}>
+          ← Trocar tipo
+        </button>
+        <p className="student-product-sale__context">
+          Para <strong>{studentName}</strong>
+        </p>
+      </div>
 
       {localError ? (
         <StatusBanner variant="error" message={localError} className="student-product-sale__error" />
@@ -614,6 +625,7 @@ export default function StudentProductSaleStep({
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
               onNavigateAway={onNavigateAway}
+              autoFocusSearch
             />
           </div>
 
@@ -632,8 +644,10 @@ export default function StudentProductSaleStep({
                   onVariantChange={changeCartVariant}
                   onRemove={removeFromCart}
                   subtotalMasked={subtotalMasked}
+                  subtotalValue={totalCart}
                   descGeralMasked={descGeralMaskedOut}
                   totalMasked={totalMasked}
+                  totalValue={totalFinal}
                 />
               ) : (
                 <p className="text-small text-muted student-product-sale__empty-cart">
@@ -682,7 +696,7 @@ export default function StudentProductSaleStep({
               ) : (
                 <SalesPaymentBlock
                   totalCents={totalFinalCents}
-                  payments={effectivePayments}
+                  payments={payments}
                   onChange={setPayments}
                   disabled={creating || cart.length === 0}
                   inlineValidate
@@ -728,9 +742,9 @@ export default function StudentProductSaleStep({
 
       <ConfirmDialog
         open={showBackConfirm}
-        title="Descartar venda?"
-        description="Os produtos no carrinho serão perdidos."
-        confirmLabel="Descartar"
+        title="Voltar e descartar venda?"
+        description="Ao trocar o tipo, os produtos no carrinho serão perdidos."
+        confirmLabel="Descartar e voltar"
         confirmVariant="danger"
         onConfirm={() => {
           setShowBackConfirm(false);

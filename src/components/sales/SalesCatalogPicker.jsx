@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart } from 'lucide-react';
 import {
@@ -147,9 +147,22 @@ export default function SalesCatalogPicker({
   onPick,
   flashProductId,
   onNavigateAway,
+  autoFocusSearch = false,
 }) {
+  const searchInputRef = useRef(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+
+  useEffect(() => {
+    if (!autoFocusSearch || typeof window === 'undefined') return;
+    // Evita abrir teclado no mobile; só desktop com ponteiro fino.
+    const desktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    if (!desktop) return;
+    const id = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [autoFocusSearch]);
   const filterKey = `${search}|${category}|${products.length}`;
   const [limitState, setLimitState] = useState({ key: filterKey, limit: CATALOG_PAGE_SIZE });
   const visibleLimit = limitState.key === filterKey ? limitState.limit : CATALOG_PAGE_SIZE;
@@ -205,14 +218,18 @@ export default function SalesCatalogPicker({
     <section className="sales-catalog" aria-label="Catálogo de produtos">
       <div className="navi-filters-stack sales-catalog__filters">
         <div className="sales-catalog__search form-group">
-          <label>Busca rápida</label>
+          <label htmlFor="sales-catalog-search">Busca rápida</label>
           <div className="sales-catalog__search-wrap">
             <Search size={14} className="sales-catalog__search-icon" aria-hidden />
             <input
+              id="sales-catalog-search"
+              ref={searchInputRef}
               className="form-input"
               placeholder="Filtrar por nome, categoria ou variação…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
             />
           </div>
         </div>

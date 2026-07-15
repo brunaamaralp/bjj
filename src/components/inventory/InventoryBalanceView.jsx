@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PackagePlus,
-  ClipboardCheck,
   AlertTriangle,
   AlertCircle,
   ChevronRight,
   ChevronDown,
   MoreHorizontal,
-  Settings2,
 } from 'lucide-react';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
@@ -16,6 +14,8 @@ import {
   filterInventoryParents,
   parentSizeSummary,
   variantSizeLabel,
+  formatCriticalSizesSummary,
+  formatMinimumLabel,
 } from '../../lib/inventoryCatalogMerge.js';
 import ProductThumb from '../products/ProductThumb';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -65,7 +65,23 @@ function StockStatusBadge({ status, item, onRegisterEntry }) {
   );
 }
 
-function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust, onConfigure }) {
+function VariantActionsMenu({
+  variant,
+  isOpen,
+  onToggle,
+  onClose,
+  onAdjust,
+  onConfigure,
+  onRequestCheck,
+}) {
+  const run = (action) => {
+    onClose();
+    action?.(variant);
+  };
+
+  const hasItems = Boolean(onRequestCheck || onAdjust || onConfigure);
+  if (!hasItems) return null;
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={(next) => !next && onClose()}>
       <button
@@ -84,23 +100,16 @@ function VariantActionsMenu({ variant, isOpen, onToggle, onClose, onAdjust, onCo
       </button>
       {isOpen ? (
         <DropdownMenuPanel onClick={(e) => e.stopPropagation()}>
-          {onAdjust ? (
-            <DropdownMenuItem
-              onClick={() => {
-                onClose();
-                onAdjust(variant);
-              }}
-            >
-              Ajustar saldo
+          {onRequestCheck ? (
+            <DropdownMenuItem onClick={() => run(onRequestCheck)}>
+              Registrar conferência
             </DropdownMenuItem>
           ) : null}
+          {onAdjust ? (
+            <DropdownMenuItem onClick={() => run(onAdjust)}>Ajustar saldo</DropdownMenuItem>
+          ) : null}
           {onConfigure ? (
-            <DropdownMenuItem
-              onClick={() => {
-                onClose();
-                onConfigure(variant);
-              }}
-            >
+            <DropdownMenuItem onClick={() => run(onConfigure)}>
               Ajustar mínimo e unidade
             </DropdownMenuItem>
           ) : null}
@@ -154,6 +163,60 @@ function ParentActionsMenu({ parent, isOpen, onToggle, onClose, onConfigure, onA
         </DropdownMenuPanel>
       ) : null}
     </DropdownMenu>
+  );
+}
+
+function MinCell({ value, editable, onConfigure }) {
+  const label = formatMinimumLabel(value);
+  return (
+    <td
+      className={`inventory-table__col-min inventory-table__min text-small text-muted${editable ? ' inventory-table__min--editable' : ''}`}
+      onClick={
+        editable
+          ? (e) => {
+              e.stopPropagation();
+              onConfigure();
+            }
+          : undefined
+      }
+      title={editable ? 'Clique para ajustar o mínimo' : label}
+    >
+      {label}
+    </td>
+  );
+}
+
+function RowPrimaryActions({
+  variant,
+  menuOpen,
+  onMenuToggle,
+  onMenuClose,
+  onRegisterEntry,
+  onRequestCheck,
+  onAdjustItem,
+  onConfigureItem,
+}) {
+  return (
+    <div className="inventory-table__actions-inner">
+      <button
+        type="button"
+        className="inventory-icon-btn"
+        onClick={() => onRegisterEntry(variant)}
+        title="Registrar entrada"
+        aria-label="Registrar entrada"
+      >
+        <PackagePlus size={16} aria-hidden />
+      </button>
+      <VariantActionsMenu
+        variant={variant}
+        isOpen={menuOpen}
+        onToggle={onMenuToggle}
+        onClose={onMenuClose}
+        onRequestCheck={onRequestCheck}
+        onAdjust={onAdjustItem}
+        onConfigure={onConfigureItem}
+      />
+    </div>
   );
 }
 
@@ -217,10 +280,21 @@ export default function InventoryBalanceView({
     [filtered]
   );
 
+  /** Grupos multi-tamanho começam colapsados; destaque por deep-link abre o pai. */
   const autoExpandedIds = useMemo(() => {
     if (loading || !parentRows.length) return null;
-    return new Set(parentRows.filter((p) => (p.variants || []).length > 1).map((p) => p.id));
-  }, [loading, parentRows]);
+    const next = new Set();
+    if (highlightItemId) {
+      for (const p of parentRows) {
+        const vars = p.variants || [];
+        if (vars.length <= 1) continue;
+        if (p.id === highlightItemId || vars.some((v) => v.id === highlightItemId)) {
+          next.add(p.id);
+        }
+      }
+    }
+    return next;
+  }, [loading, parentRows, highlightItemId]);
 
   const expandedIds = manualExpandedIds ?? autoExpandedIds ?? EMPTY_EXPANDED_IDS;
 
@@ -231,13 +305,6 @@ export default function InventoryBalanceView({
       ),
     [filtered]
   );
-
-  const anyExpanded = useMemo(
-    () => filtered.some((row) => (row.variants || []).length > 1 && expandedIds.has(row.id)),
-    [filtered, expandedIds]
-  );
-
-  const showMinColumn = anyExpanded || filtered.some((row) => (row.variants || []).length <= 1);
 
   const toggleExpanded = (parentId) => {
     setManualExpandedIds((prev) => {
@@ -340,7 +407,7 @@ export default function InventoryBalanceView({
                   <col className="inventory-table__col-cat" />
                   {showUnitColumn ? <col className="inventory-table__col-unit" /> : null}
                   <col className="inventory-table__col-qty" />
-                  {showMinColumn ? <col className="inventory-table__col-min" /> : null}
+                  <col className="inventory-table__col-min" />
                   <col className="inventory-table__col-status" />
                   <col className="inventory-table__col-actions" />
                 </colgroup>
@@ -356,27 +423,15 @@ export default function InventoryBalanceView({
                     <th className="inventory-table__th inventory-table__col-cat">Categoria</th>
                     {showUnitColumn ? <th className="inventory-table__th">Unidade</th> : null}
                     <th className="inventory-table__th inventory-table__col-qty">Saldo</th>
-                    {showMinColumn ? (
-                      <th className="inventory-table__th inventory-table__col-min">
-                        {anyExpanded ? (
-                          <span className="inventory-th-with-hint">
-                            Mín.
-                            <Hint
-                              text="Quantidade mínima recomendada. Abaixo disso o status fica A repor; zerado fica Crítico."
-                              position="top"
-                            />
-                          </span>
-                        ) : (
-                          <span className="inventory-th-with-hint">
-                            Mín. ideal
-                            <Hint
-                              text="Quantidade mínima recomendada. Abaixo disso o status fica A repor; zerado fica Crítico."
-                              position="top"
-                            />
-                          </span>
-                        )}
-                      </th>
-                    ) : null}
+                    <th className="inventory-table__th inventory-table__col-min">
+                      <span className="inventory-th-with-hint">
+                        Mín.
+                        <Hint
+                          text="Quantidade mínima recomendada. Abaixo disso o status fica A repor; zerado fica Crítico."
+                          position="top"
+                        />
+                      </span>
+                    </th>
                     <th className="inventory-table__th inventory-table__col-status">
                       <span className="inventory-th-with-hint">
                         Status
@@ -397,6 +452,7 @@ export default function InventoryBalanceView({
                     const expanded = expandedIds.has(parent.id);
                     const solo = !hasVariants;
                     const soloVariant = variants[0];
+                    const criticalSummary = hasVariants ? formatCriticalSizesSummary(parent) : '';
                     const rowHighlight =
                       highlightItemId === parent.id ||
                       (parent.variants || []).some((v) => v.id === highlightItemId);
@@ -434,11 +490,16 @@ export default function InventoryBalanceView({
                               <ProductThumb imageUrl={parent.image_url} alt={parent.nome} size={32} />
                             </div>
                           </td>
-                          <td className="inventory-table__col-name products-table__col-product">
-                            <span className="inventory-table__name products-table__name">{parent.nome}</span>
-                            {hasVariants ? (
-                              <span className="inventory-table__variant-hint text-small text-muted">
-                                {variants.length} tamanhos
+                          <td className="inventory-table__col-name">
+                            <span className="inventory-table__name" title={parent.nome}>
+                              {parent.nome}
+                            </span>
+                            {criticalSummary ? (
+                              <span
+                                className="inventory-table__critical-summary"
+                                title={criticalSummary}
+                              >
+                                {criticalSummary}
                               </span>
                             ) : null}
                           </td>
@@ -462,22 +523,17 @@ export default function InventoryBalanceView({
                           <td className="inventory-table__col-qty inventory-table__qty">
                             {parent.total_quantity}
                           </td>
-                          {showMinColumn ? (
-                            <td
-                              className={`inventory-table__col-min inventory-table__min text-small text-muted${solo && onConfigureItem ? ' inventory-table__min--editable' : ''}`}
-                              onClick={
-                                solo && onConfigureItem
-                                  ? (e) => {
-                                      e.stopPropagation();
-                                      onConfigureItem(soloVariant);
-                                    }
-                                  : undefined
-                              }
-                              title={solo && onConfigureItem ? 'Clique para ajustar o mínimo' : undefined}
-                            >
-                              {solo && soloVariant?.minimum_level > 0 ? soloVariant.minimum_level : '—'}
+                          {solo ? (
+                            <MinCell
+                              value={soloVariant?.minimum_level}
+                              editable={Boolean(onConfigureItem)}
+                              onConfigure={() => onConfigureItem(soloVariant)}
+                            />
+                          ) : (
+                            <td className="inventory-table__col-min inventory-table__min text-small text-muted" aria-hidden>
+                              —
                             </td>
-                          ) : null}
+                          )}
                           <td className="inventory-table__col-status">
                             <StockStatusBadge
                               status={parent.status}
@@ -486,54 +542,23 @@ export default function InventoryBalanceView({
                             />
                           </td>
                           <td className="inventory-table__actions" onClick={(e) => e.stopPropagation()}>
-                            <div className="inventory-table__actions-inner">
-                              {solo ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="inventory-icon-btn"
-                                    onClick={() => onRegisterEntry(soloVariant)}
-                                    title="Registrar entrada"
-                                    aria-label="Registrar entrada"
-                                  >
-                                    <PackagePlus size={16} aria-hidden />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="inventory-icon-btn"
-                                    onClick={() => onRequestCheck(soloVariant)}
-                                    title="Registrar conferência"
-                                    aria-label="Registrar conferência"
-                                  >
-                                    <ClipboardCheck size={16} aria-hidden />
-                                  </button>
-                                  {onAdjustItem || onConfigureItem ? (
-                                    <VariantActionsMenu
-                                      variant={soloVariant}
-                                      isOpen={variantMenuId === soloVariant.id}
-                                      onToggle={() =>
-                                        setVariantMenuId((id) =>
-                                          id === soloVariant.id ? null : soloVariant.id
-                                        )
-                                      }
-                                      onClose={() => setVariantMenuId(null)}
-                                      onAdjust={onAdjustItem}
-                                      onConfigure={onConfigureItem}
-                                    />
-                                  ) : null}
-                                  {onConfigureItem ? (
-                                    <button
-                                      type="button"
-                                      className="inventory-icon-btn"
-                                      onClick={() => onConfigureItem(soloVariant)}
-                                      title="Ajustar mínimo e unidade"
-                                      aria-label="Ajustar mínimo e unidade"
-                                    >
-                                      <Settings2 size={16} aria-hidden />
-                                    </button>
-                                  ) : null}
-                                </>
-                              ) : (
+                            {solo ? (
+                              <RowPrimaryActions
+                                variant={soloVariant}
+                                menuOpen={variantMenuId === soloVariant.id}
+                                onMenuToggle={() =>
+                                  setVariantMenuId((id) =>
+                                    id === soloVariant.id ? null : soloVariant.id
+                                  )
+                                }
+                                onMenuClose={() => setVariantMenuId(null)}
+                                onRegisterEntry={onRegisterEntry}
+                                onRequestCheck={onRequestCheck}
+                                onAdjustItem={onAdjustItem}
+                                onConfigureItem={onConfigureItem}
+                              />
+                            ) : (
+                              <div className="inventory-table__actions-inner">
                                 <ParentActionsMenu
                                   parent={parent}
                                   isOpen={actionsMenuId === parent.id}
@@ -544,13 +569,14 @@ export default function InventoryBalanceView({
                                   onConfigure={onConfigureItem}
                                   onAdjust={onAdjustItem}
                                 />
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </td>
                         </tr>
                         {expanded && hasVariants
                           ? variants.map((v) => {
                               const vHighlight = highlightItemId === v.id;
+                              const sizeLabel = variantSizeLabel(v);
                               const vClass = [
                                 'inventory-table__row',
                                 'inventory-table__row--variant',
@@ -568,13 +594,20 @@ export default function InventoryBalanceView({
                                   data-item-id={v.id}
                                 >
                                   <td className="inventory-table__thumb-cell" aria-hidden />
-                                  <td className="inventory-table__col-name products-table__variant-label">
-                                    {parent.nome}
+                                  <td
+                                    className="inventory-table__col-name inventory-table__variant-name-cell"
+                                    aria-hidden={showSizeColumn ? true : undefined}
+                                  >
+                                    {showSizeColumn ? null : (
+                                      <span className="inventory-table__size-label" title={sizeLabel}>
+                                        {sizeLabel}
+                                      </span>
+                                    )}
                                   </td>
                                   {showSizeColumn ? (
                                     <td className="inventory-table__col-size">
-                                      <strong className="inventory-table__size-label">
-                                        {variantSizeLabel(v)}
+                                      <strong className="inventory-table__size-label" title={sizeLabel}>
+                                        {sizeLabel}
                                       </strong>
                                     </td>
                                   ) : null}
@@ -590,22 +623,11 @@ export default function InventoryBalanceView({
                                   <td className="inventory-table__col-qty inventory-table__qty">
                                     {v.current_quantity}
                                   </td>
-                                  {showMinColumn ? (
-                                    <td
-                                      className={`inventory-table__col-min inventory-table__min text-small text-muted${onConfigureItem ? ' inventory-table__min--editable' : ''}`}
-                                      onClick={
-                                        onConfigureItem
-                                          ? (e) => {
-                                              e.stopPropagation();
-                                              onConfigureItem(v);
-                                            }
-                                          : undefined
-                                      }
-                                      title={onConfigureItem ? 'Clique para ajustar o mínimo' : undefined}
-                                    >
-                                      {v.minimum_level > 0 ? v.minimum_level : '—'}
-                                    </td>
-                                  ) : null}
+                                  <MinCell
+                                    value={v.minimum_level}
+                                    editable={Boolean(onConfigureItem)}
+                                    onConfigure={() => onConfigureItem(v)}
+                                  />
                                   <td className="inventory-table__col-status">
                                     <StockStatusBadge
                                       status={v.status}
@@ -614,49 +636,18 @@ export default function InventoryBalanceView({
                                     />
                                   </td>
                                   <td className="inventory-table__actions" onClick={(e) => e.stopPropagation()}>
-                                    <div className="inventory-table__actions-inner">
-                                      <button
-                                        type="button"
-                                        className="inventory-icon-btn"
-                                        onClick={() => onRegisterEntry(v)}
-                                        title="Registrar entrada"
-                                        aria-label="Registrar entrada"
-                                      >
-                                        <PackagePlus size={16} aria-hidden />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="inventory-icon-btn"
-                                        onClick={() => onRequestCheck(v)}
-                                        title="Registrar conferência"
-                                        aria-label="Registrar conferência"
-                                      >
-                                        <ClipboardCheck size={16} aria-hidden />
-                                      </button>
-                                      {onAdjustItem || onConfigureItem ? (
-                                        <VariantActionsMenu
-                                          variant={v}
-                                          isOpen={variantMenuId === v.id}
-                                          onToggle={() =>
-                                            setVariantMenuId((id) => (id === v.id ? null : v.id))
-                                          }
-                                          onClose={() => setVariantMenuId(null)}
-                                          onAdjust={onAdjustItem}
-                                          onConfigure={onConfigureItem}
-                                        />
-                                      ) : null}
-                                      {onConfigureItem ? (
-                                        <button
-                                          type="button"
-                                          className="inventory-icon-btn"
-                                          onClick={() => onConfigureItem(v)}
-                                          title="Ajustar mínimo e unidade"
-                                          aria-label="Ajustar mínimo e unidade"
-                                        >
-                                          <Settings2 size={16} aria-hidden />
-                                        </button>
-                                      ) : null}
-                                    </div>
+                                    <RowPrimaryActions
+                                      variant={v}
+                                      menuOpen={variantMenuId === v.id}
+                                      onMenuToggle={() =>
+                                        setVariantMenuId((id) => (id === v.id ? null : v.id))
+                                      }
+                                      onMenuClose={() => setVariantMenuId(null)}
+                                      onRegisterEntry={onRegisterEntry}
+                                      onRequestCheck={onRequestCheck}
+                                      onAdjustItem={onAdjustItem}
+                                      onConfigureItem={onConfigureItem}
+                                    />
                                   </td>
                                 </tr>
                               );
@@ -676,6 +667,7 @@ export default function InventoryBalanceView({
                 const expanded = expandedIds.has(parent.id);
                 const solo = !hasVariants;
                 const soloVariant = variants[0];
+                const criticalSummary = hasVariants ? formatCriticalSizesSummary(parent) : '';
                 const rowHighlight =
                   highlightItemId === parent.id ||
                   (parent.variants || []).some((v) => v.id === highlightItemId);
@@ -705,29 +697,33 @@ export default function InventoryBalanceView({
                               type="button"
                               className="inventory-mobile-expand"
                               aria-expanded={expanded}
+                              aria-label={expanded ? 'Recolher variantes' : 'Expandir variantes'}
                               onClick={() => toggleExpanded(parent.id)}
                             >
                               {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                             </button>
                           ) : null}
-                          <span className="inventory-mobile-card__title">{parent.nome}</span>
+                          <span className="inventory-mobile-card__title" title={parent.nome}>
+                            {parent.nome}
+                          </span>
                         </div>
+                        {criticalSummary ? (
+                          <div className="inventory-mobile-card__critical-summary" title={criticalSummary}>
+                            {criticalSummary}
+                          </div>
+                        ) : null}
                         <div className="inventory-mobile-card__meta text-small text-muted">
                           {parent.categoria || '—'}
                           {solo && soloVariant ? (
                             <> · <strong>{variantSizeLabel(soloVariant)}</strong></>
-                          ) : hasVariants ? (
-                            <> · {variants.length} tamanhos</>
                           ) : null}
                         </div>
                         <div className="inventory-mobile-card__stats text-small">
                           <span>
                             Saldo: <strong>{parent.total_quantity}</strong>
                           </span>
-                          {solo && soloVariant?.minimum_level > 0 ? (
-                            <span>
-                              Mín.: <strong>{soloVariant.minimum_level}</strong>
-                            </span>
+                          {solo ? (
+                            <span>{formatMinimumLabel(soloVariant?.minimum_level)}</span>
                           ) : null}
                           <StockStatusBadge
                             status={parent.status}
@@ -748,87 +744,78 @@ export default function InventoryBalanceView({
                         >
                           <PackagePlus size={16} aria-hidden />
                         </button>
-                        <button
-                          type="button"
-                          className="inventory-icon-btn"
-                          onClick={() => onRequestCheck(soloVariant)}
-                          title="Registrar conferência"
-                          aria-label="Registrar conferência"
-                        >
-                          <ClipboardCheck size={16} aria-hidden />
-                        </button>
-                        {onConfigureItem ? (
-                          <button
-                            type="button"
-                            className="inventory-icon-btn"
-                            onClick={() => onConfigureItem(soloVariant)}
-                            title="Ajustar mínimo e unidade"
-                            aria-label="Ajustar mínimo e unidade"
-                          >
-                            <Settings2 size={16} aria-hidden />
-                          </button>
-                        ) : null}
+                        <VariantActionsMenu
+                          variant={soloVariant}
+                          isOpen={variantMenuId === `m-${soloVariant.id}`}
+                          onToggle={() =>
+                            setVariantMenuId((id) =>
+                              id === `m-${soloVariant.id}` ? null : `m-${soloVariant.id}`
+                            )
+                          }
+                          onClose={() => setVariantMenuId(null)}
+                          onRequestCheck={onRequestCheck}
+                          onAdjust={onAdjustItem}
+                          onConfigure={onConfigureItem}
+                        />
                       </div>
                     ) : null}
                     {expanded && hasVariants ? (
                       <ul className="inventory-mobile-variants">
-                        {variants.map((v) => (
-                          <li key={v.id} className="inventory-mobile-variant">
-                            <div className="inventory-mobile-variant__label">
-                              <strong>{variantSizeLabel(v)}</strong>
-                            </div>
-                            <div className="inventory-mobile-variant__meta text-small">
-                              <span>Saldo: {v.current_quantity}</span>
-                              {onConfigureItem ? (
-                                <button
-                                  type="button"
-                                  className="inventory-mobile-min-btn"
-                                  onClick={() => onConfigureItem(v)}
-                                >
-                                  Mín.: <strong>{v.minimum_level > 0 ? v.minimum_level : '—'}</strong>
-                                </button>
-                              ) : v.minimum_level > 0 ? (
-                                <span>Mín.: {v.minimum_level}</span>
-                              ) : null}
-                              <StockStatusBadge
-                                status={v.status}
-                                item={v}
-                                onRegisterEntry={onRegisterEntry}
-                              />
-                            </div>
-                            <div className="inventory-mobile-variant__actions">
-                              <button
-                                type="button"
-                                className="inventory-icon-btn"
-                                onClick={() => onRegisterEntry(v)}
-                                title="Registrar entrada"
-                                aria-label="Registrar entrada"
-                              >
-                                <PackagePlus size={16} aria-hidden />
-                              </button>
-                              <button
-                                type="button"
-                                className="inventory-icon-btn"
-                                onClick={() => onRequestCheck(v)}
-                                title="Registrar conferência"
-                                aria-label="Registrar conferência"
-                              >
-                                <ClipboardCheck size={16} aria-hidden />
-                              </button>
-                              {onConfigureItem ? (
+                        {variants.map((v) => {
+                          const vCritical = v.status === 'critical';
+                          return (
+                            <li
+                              key={v.id}
+                              className={`inventory-mobile-variant${vCritical ? ' inventory-mobile-variant--critical' : ''}`}
+                            >
+                              <div className="inventory-mobile-variant__label">
+                                <strong title={variantSizeLabel(v)}>{variantSizeLabel(v)}</strong>
+                              </div>
+                              <div className="inventory-mobile-variant__meta text-small">
+                                <span>Saldo: {v.current_quantity}</span>
+                                {onConfigureItem ? (
+                                  <button
+                                    type="button"
+                                    className="inventory-mobile-min-btn"
+                                    onClick={() => onConfigureItem(v)}
+                                    title="Clique para ajustar o mínimo"
+                                  >
+                                    {formatMinimumLabel(v.minimum_level)}
+                                  </button>
+                                ) : (
+                                  <span>{formatMinimumLabel(v.minimum_level)}</span>
+                                )}
+                                <StockStatusBadge
+                                  status={v.status}
+                                  item={v}
+                                  onRegisterEntry={onRegisterEntry}
+                                />
+                              </div>
+                              <div className="inventory-mobile-variant__actions">
                                 <button
                                   type="button"
                                   className="inventory-icon-btn"
-                                  onClick={() => onConfigureItem(v)}
-                                  title="Ajustar mínimo e unidade"
-                                  aria-label="Ajustar mínimo e unidade"
+                                  onClick={() => onRegisterEntry(v)}
+                                  title="Registrar entrada"
+                                  aria-label="Registrar entrada"
                                 >
-                                  <Settings2 size={16} aria-hidden />
+                                  <PackagePlus size={16} aria-hidden />
                                 </button>
-                              ) : null}
-                            </div>
-                          </li>
-                        ))}
+                                <VariantActionsMenu
+                                  variant={v}
+                                  isOpen={variantMenuId === `m-${v.id}`}
+                                  onToggle={() =>
+                                    setVariantMenuId((id) => (id === `m-${v.id}` ? null : `m-${v.id}`))
+                                  }
+                                  onClose={() => setVariantMenuId(null)}
+                                  onRequestCheck={onRequestCheck}
+                                  onAdjust={onAdjustItem}
+                                  onConfigure={onConfigureItem}
+                                />
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     ) : null}
                   </article>

@@ -1372,10 +1372,18 @@ const LP_STYLES = `
         .navi-lp { --nl-pad: 18px; }
         .navi-lp-modules-grid { grid-template-columns: 1fr; }
         .navi-lp-gallery { grid-template-columns: 1fr; }
-        .navi-lp-btn-nav-ghost { display: none; }
-        .navi-lp-nav { min-height: 76px; padding: 10px var(--nl-pad); }
+        .navi-lp-nav { min-height: 84px; padding: 10px var(--nl-pad); }
         .navi-lp-nav-brand .navi-brand-lockup,
-        .navi-lp-nav-brand .navi-brand-lockup--lp-nav { height: 52px !important; }
+        .navi-lp-nav-brand .navi-brand-lockup--lp-nav { height: 68px !important; }
+        .navi-lp-nav-cta { gap: 8px; }
+        .navi-lp-btn-nav-ghost {
+          display: inline-flex;
+          padding: 8px 12px;
+          font-size: 13px;
+          min-height: 38px;
+          color: var(--ink);
+          font-weight: 600;
+        }
         .navi-lp-btn-nav-primary { font-size: 13px; padding: 8px 14px; white-space: nowrap; }
         .navi-lp-hero-grid { padding-top: 20px; padding-bottom: 36px; }
         .navi-lp-hero-badge { font-size: 11px; margin-bottom: 14px; }
@@ -1395,9 +1403,10 @@ const LP_STYLES = `
       }
       @media (max-width: 480px) {
         .navi-lp { --nl-pad: 16px; }
-        .navi-lp-nav { min-height: 68px; }
+        .navi-lp-nav { min-height: 76px; }
         .navi-lp-nav-brand .navi-brand-lockup,
-        .navi-lp-nav-brand .navi-brand-lockup--lp-nav { height: 44px !important; }
+        .navi-lp-nav-brand .navi-brand-lockup--lp-nav { height: 58px !important; }
+        .navi-lp-btn-nav-ghost { font-size: 12px; padding: 7px 10px; min-height: 36px; }
         .navi-lp-btn-nav-primary { font-size: 12px; padding: 7px 12px; min-height: 36px; }
         .navi-lp-hero-h1 { font-size: clamp(1.55rem, 7.2vw, 1.85rem); line-height: 1.12; }
         .navi-lp-hero-sub { font-size: 15px; line-height: 1.6; }

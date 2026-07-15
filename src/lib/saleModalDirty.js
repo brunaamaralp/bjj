@@ -43,6 +43,7 @@ export function getSaleFooterHint({
   receiveLater = false,
   dueDateValid = true,
   busy = false,
+  allowPartial = false,
 } = {}) {
   if (busy) return null;
   if (cartLength === 0) return 'Adicione pelo menos um item ao carrinho.';
@@ -50,7 +51,9 @@ export function getSaleFooterHint({
     return 'Informe a data de vencimento da venda a prazo.';
   }
   if (!deferredSale && !receiveLater && !paymentValid) {
-    return 'Ajuste os valores de pagamento para cobrir o total.';
+    return allowPartial
+      ? 'Informe um valor de pagamento válido (pode ser parcial).'
+      : 'Ajuste os valores de pagamento para cobrir o total.';
   }
   return null;
 }

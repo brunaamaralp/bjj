@@ -3,6 +3,9 @@ import {
   mergeCatalogWithInventoryItems,
   variantSizeLabel,
   parentSizeSummary,
+  countCriticalVariants,
+  formatCriticalSizesSummary,
+  formatMinimumLabel,
 } from '../lib/inventoryCatalogMerge.js';
 
 describe('inventoryCatalogMerge', () => {
@@ -110,5 +113,29 @@ describe('inventoryCatalogMerge', () => {
     expect(parents).toHaveLength(1);
     expect(parents[0].id).toBe('p-real');
     expect(parents[0].variants.map((v) => v.id).sort()).toEqual(['v1', 'v2']);
+  });
+
+  it('countCriticalVariants e formatCriticalSizesSummary só contam status critical', () => {
+    const parent = {
+      variants: [
+        { id: 'a', status: 'critical' },
+        { id: 'b', status: 'reorder' },
+        { id: 'c', status: 'ok' },
+        { id: 'd', status: 'critical' },
+      ],
+    };
+    expect(countCriticalVariants(parent)).toEqual({ critical: 2, total: 4 });
+    expect(formatCriticalSizesSummary(parent)).toBe('2 de 4 tamanhos críticos');
+    expect(formatCriticalSizesSummary({ variants: [{ id: 'x', status: 'ok' }] })).toBe('');
+    expect(formatCriticalSizesSummary({ variants: [{ id: 'x', status: 'critical' }] })).toBe(
+      '1 de 1 tamanho crítico'
+    );
+  });
+
+  it('formatMinimumLabel evita traço ambíguo', () => {
+    expect(formatMinimumLabel(5)).toBe('mín. 5');
+    expect(formatMinimumLabel(0)).toBe('sem mínimo');
+    expect(formatMinimumLabel(null)).toBe('sem mínimo');
+    expect(formatMinimumLabel(undefined)).toBe('sem mínimo');
   });
 });

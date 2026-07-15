@@ -386,6 +386,7 @@ export default function SalesNewSaleTab({
             deferredSale,
             dueDateValid,
             busy: creating,
+            allowPartial: true,
           }),
       footerError: localError || error ? friendlySaleError(localError || error) : null,
     });
@@ -1070,6 +1071,7 @@ export default function SalesNewSaleTab({
               onPick={handleCatalogPick}
               flashProductId={flashProductId}
               onNavigateAway={onNavigateAway}
+              autoFocusSearch={Boolean(modalMode)}
             />
           </div>
 
@@ -1220,8 +1222,10 @@ export default function SalesNewSaleTab({
                 onVariantChange={changeCartVariant}
                 onRemove={removeFromCart}
                 subtotalMasked={subtotalMasked}
+                subtotalValue={totalCart}
                 descGeralMasked={descGeralMaskedOut}
                 totalMasked={totalMasked}
+                totalValue={totalFinal}
                 inlineValidate
                 priceTouched={priceTouched}
                 onPriceBlur={handlePriceBlur}

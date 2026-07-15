@@ -47,6 +47,13 @@ describe('getSaleFooterHint', () => {
 
   it('hints invalid payment when cart has items', () => {
     expect(getSaleFooterHint({ cartLength: 2, paymentValid: false })).toMatch(/pagamento/i);
+    expect(getSaleFooterHint({ cartLength: 2, paymentValid: false })).toMatch(/cobrir o total/i);
+  });
+
+  it('hints partial-friendly payment when allowPartial', () => {
+    expect(
+      getSaleFooterHint({ cartLength: 2, paymentValid: false, allowPartial: true })
+    ).toMatch(/parcial/i);
   });
 
   it('returns null when receiveLater bypasses payment', () => {

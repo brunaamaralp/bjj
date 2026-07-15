@@ -126,7 +126,9 @@ export default function SalesPaymentBlock({
     if (payments.length <= 1) return;
     let next = payments.filter((_, i) => i !== idx);
     if (next.length >= 2) next = rebalanceFirstRow(next, total);
-    else if (next.length === 1) next[0] = { ...next[0], valorCents: total };
+    else if (next.length === 1 && !allowPartial) {
+      next[0] = { ...next[0], valorCents: total };
+    }
     onChange(next);
   };
 
@@ -152,6 +154,11 @@ export default function SalesPaymentBlock({
           </button>
         ) : null}
       </div>
+      {allowPartial ? (
+        <p className="sales-payment-block__partial-hint text-small text-muted">
+          Pode informar um valor menor que o total — o saldo fica em aberto.
+        </p>
+      ) : null}
 
       <div className="sales-payment-block__rows">
         {payments.map((row, idx) => {
