@@ -142,3 +142,29 @@ export const DATE_INPUT_PLACEHOLDERS = {
   month: 'mm/aaaa',
   'datetime-local': 'dd/mm/aaaa hh:mm',
 };
+
+/**
+ * Ao abrir o calendário nativo (portal), o input de texto perde o foco.
+ * Esse blur não deve disparar autosave — senão o commit roda com valor antigo
+ * e o campo sai do modo edição antes da data escolhida chegar.
+ */
+export function shouldSuppressDateFieldBlur(relatedTarget, fieldEl, nativePickerEl) {
+  if (!relatedTarget) return false;
+  if (nativePickerEl && (relatedTarget === nativePickerEl || nativePickerEl.contains?.(relatedTarget))) {
+    return true;
+  }
+  if (fieldEl && fieldEl.contains(relatedTarget)) return true;
+  return false;
+}
+
+/**
+ * Resolve o valor ISO a partir do texto exibido no blur (sem depender de setState).
+ * @returns {{ iso: string, valid: boolean }} valid=false → display incompleto/inválido (manter value)
+ */
+export function resolveTypableDateBlur(type, display, value) {
+  const trimmed = String(display || '').trim();
+  if (!trimmed) return { iso: '', valid: true };
+  const iso = parseDisplayToIso(type, trimmed);
+  if (iso) return { iso, valid: true };
+  return { iso: String(value ?? ''), valid: false };
+}

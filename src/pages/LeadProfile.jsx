@@ -2553,13 +2553,19 @@ const LeadProfile = () => {
                                           editValue: String(lead.birthDate || '').slice(0, 10),
                                           empty: !lead.birthDate,
                                           inputType: 'date',
-                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, commitEdit, disabled: saving, fieldId: fid }) => (
                                               <DateInputField
                                                   id={fid}
                                                   type="date"
                                                   className="form-input-sm"
                                                   value={draft ?? ''}
-                                                  onChange={(e) => setDraft(e.target.value)}
+                                                  onChange={(e) => {
+                                                      const next = e.target.value;
+                                                      setDraft(next);
+                                                      if (/^\d{4}-\d{2}-\d{2}$/.test(String(next || '').trim()) || next === '') {
+                                                          void commitEdit(next);
+                                                      }
+                                                  }}
                                                   onKeyDown={onKeyDown}
                                                   onBlur={onBlur}
                                                   disabled={saving}
@@ -2686,13 +2692,19 @@ const LeadProfile = () => {
                                           editValue: String(lead.enrollmentDate || '').slice(0, 10),
                                           empty: !lead.enrollmentDate,
                                           inputType: 'date',
-                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                                          renderEditor: ({ draft, setDraft, onKeyDown, onBlur, commitEdit, disabled: saving, fieldId: fid }) => (
                                               <DateInputField
                                                   id={fid}
                                                   type="date"
                                                   className="form-input-sm"
                                                   value={draft ?? ''}
-                                                  onChange={(e) => setDraft(e.target.value)}
+                                                  onChange={(e) => {
+                                                      const next = e.target.value;
+                                                      setDraft(next);
+                                                      if (/^\d{4}-\d{2}-\d{2}$/.test(String(next || '').trim()) || next === '') {
+                                                          void commitEdit(next);
+                                                      }
+                                                  }}
                                                   onKeyDown={onKeyDown}
                                                   onBlur={onBlur}
                                                   disabled={saving}

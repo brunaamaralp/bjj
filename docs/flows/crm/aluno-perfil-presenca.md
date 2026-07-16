@@ -91,6 +91,8 @@ flowchart TD
 5. [ ] Editar telefone, **turma** ou plano → salvar → toast de sucesso; dados persistem após reload
 5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (select inline após turma)
 5c. [ ] Sem graduações configuradas: campo **Faixa/Evolução** ausente no perfil (exceto aluno com valor legado — somente leitura + banner)
+5d. [ ] Seção **Quem costuma pagar**: campo de adicionar nome visível sem precisar de “Editar tudo”; aliases persistem ao adicionar/remover
+5e. [ ] Clique no **avatar** abre upload de foto; foto aparece no avatar após salvar (bucket `VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID`)
 6. [ ] Check-in manual no perfil (se presença configurada) → evento na timeline
 7. [ ] **`/recepcao`** exibe painel ao vivo e histórico Control iD (ou empty state se não configurado)
 7b. [ ] *Nota:* `/students?view=presenca` e `/presenca` **não** ativam modo presença no hub embutido (`Students embedded`) — usar `/recepcao`

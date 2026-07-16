@@ -26,6 +26,8 @@ import {
   filterTimelineItems,
   buildFinancialSummary,
   filterTypeCounts,
+  DEFAULT_TIMELINE_TYPE_FILTER,
+  DEFAULT_TIMELINE_PERIOD_FILTER,
 } from '../../lib/studentFinancialTimeline.js';
 import {
   formatReferenceMonthLong,
@@ -40,9 +42,10 @@ import {
   canDownloadPaymentReceipt,
 } from '../../lib/receiptDownload.js';
 import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
-import { paymentStatusLabelPt, paymentTimelineBadge } from '../../lib/paymentStatus.js';
+import { paymentStatusLabelPt } from '../../lib/paymentStatus.js';
 import { paymentCaixaMeta, saleCaixaMeta, CaixaLinkBadge } from '../../lib/studentPaymentCaixaLink.jsx';
 import '../../styles/sales.css';
+import '../../styles/student-profile.css';
 import SaleDetailModal from '../sales/SaleDetailModal.jsx';
 import SalesEditItemModal from '../sales/SalesEditItemModal.jsx';
 import SalesCancelModal from '../sales/SalesCancelModal.jsx';
@@ -112,104 +115,60 @@ function TimelineRow({
   receiptPdf,
   caixaMeta,
 }) {
-  const showActions = Boolean(payment && canManagePayments && onEditPayment && onDeletePayment);
-  const showReceiptPdf = Boolean(receiptPdf?.enabled && receiptPdf?.onDownload);
+  const showActions = Boolean(expanded && payment && canManagePayments && onEditPayment && onDeletePayment);
+  const showReceiptPdf = Boolean(expanded && receiptPdf?.enabled && receiptPdf?.onDownload);
+  const title = item.ledgerTitle || item.title;
 
   return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '0.5px solid var(--border-light)',
-        borderRadius: 10,
-        overflow: 'hidden',
-      }}
-    >
+    <div className={`student-pay-ledger-row${expanded ? ' is-expanded' : ''}`}>
       <button
         type="button"
+        className="student-pay-ledger-row__main"
         onClick={onToggle}
-        style={{
-          width: '100%',
-          display: 'flex',
-          gap: 12,
-          alignItems: 'flex-start',
-          padding: '12px 14px',
-          border: 'none',
-          background: 'transparent',
-          cursor: onToggle ? 'pointer' : 'default',
-          textAlign: 'left',
-          fontFamily: 'inherit',
-        }}
+        disabled={!onToggle}
+        aria-expanded={onToggle ? Boolean(expanded) : undefined}
       >
         {React.createElement(icon, {
-          size: 20,
+          size: 16,
           color: iconColor,
-          style: { flexShrink: 0, marginTop: 2 },
+          className: 'student-pay-ledger-row__icon',
           'aria-hidden': true,
         })}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{item.title}</div>
-            <TimelineBadge badge={item.badge} />
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{formatDd(item.sortDate)}</div>
-          {item.subtitle ? (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{item.subtitle}</div>
-          ) : null}
-          <CaixaLinkBadge meta={caixaMeta} />
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>
-            {fmtMoney(item.amount)}
-          </div>
-        </div>
+        <span className="student-pay-ledger-row__title">{title}</span>
+        <TimelineBadge badge={item.badge} />
+        <span className="student-pay-ledger-row__amount">{fmtMoney(item.amount)}</span>
         {onToggle ? (
-          <div style={{ color: 'var(--text-muted)', paddingTop: 4 }}>
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-        ) : null}
+          <span className="student-pay-ledger-row__chevron" aria-hidden>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </span>
+        ) : (
+          <span className="student-pay-ledger-row__chevron" aria-hidden />
+        )}
       </button>
-      {showReceiptPdf ? (
-        <div
-          style={{
-            padding: '0 14px 12px 46px',
-            borderTop: !showActions && !(expanded && children) ? '0.5px solid var(--border-light)' : 'none',
-          }}
-        >
-          <ReceiptPdfButton onDownload={receiptPdf.onDownload} variant="outline" />
-        </div>
-      ) : null}
-      {showActions ? (
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            padding: '0 14px 12px 46px',
-            borderTop: children || expanded || showReceiptPdf ? '0.5px solid var(--border-light)' : 'none',
-          }}
-        >
-          <button
-            type="button"
-            className="btn-outline btn-sm"
-            onClick={() => onEditPayment(payment)}
-          >
-            Editar
-          </button>
-          <button
-            type="button"
-            className="btn-outline btn-sm"
-            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-            onClick={() => onDeletePayment(payment)}
-          >
-            Excluir
-          </button>
-        </div>
-      ) : null}
-      {expanded && children ? (
-        <div
-          style={{
-            padding: '0 14px 12px 46px',
-            borderTop: '0.5px solid var(--border-light)',
-          }}
-        >
-          {children}
+      {expanded ? (
+        <div className="student-pay-ledger-row__detail">
+          <div className="student-pay-ledger-row__meta">
+            <span>{formatDd(item.sortDate)}</span>
+            {item.subtitle ? <span>{item.subtitle}</span> : null}
+          </div>
+          <CaixaLinkBadge meta={caixaMeta} />
+          {showReceiptPdf ? <ReceiptPdfButton onDownload={receiptPdf.onDownload} variant="outline" /> : null}
+          {showActions ? (
+            <div className="student-pay-ledger-row__actions">
+              <button type="button" className="btn-outline btn-sm" onClick={() => onEditPayment(payment)}>
+                Editar
+              </button>
+              <button
+                type="button"
+                className="btn-outline btn-sm"
+                style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                onClick={() => onDeletePayment(payment)}
+              >
+                Excluir
+              </button>
+            </div>
+          ) : null}
+          {children || null}
         </div>
       ) : null}
     </div>
@@ -361,104 +320,104 @@ function ProductTimelineRow({ item, onOpenDetail }) {
   );
 }
 
+function PaymentTimelineRow({ item, canManagePayments, onEditPayment, onDeletePayment }) {
+  const [expanded, setExpanded] = useState(false);
+  const payment = item.payment;
+  const Icon = item.kind === 'fee' ? Receipt : Calendar;
+  const iconColor = item.kind === 'fee' ? '#B45309' : 'var(--petroleo)';
+  const receiptPdf =
+    payment && canDownloadPaymentReceipt(payment)
+      ? {
+          enabled: true,
+          onDownload: () => downloadPaymentReceiptPdf(payment.$id),
+        }
+      : null;
+  return (
+    <TimelineRow
+      icon={Icon}
+      iconColor={iconColor}
+      item={item}
+      expanded={expanded}
+      onToggle={() => setExpanded((v) => !v)}
+      payment={payment}
+      canManagePayments={canManagePayments}
+      onEditPayment={onEditPayment}
+      onDeletePayment={onDeletePayment}
+      receiptPdf={receiptPdf}
+      caixaMeta={payment ? paymentCaixaMeta(payment) : null}
+    />
+  );
+}
+
 function ExtratoTotalsCard({ totals }) {
   if (!totals) return null;
   return (
-    <div
-      style={{
-        padding: '12px 14px',
-        borderRadius: 10,
-        border: '1px solid var(--border-light)',
-        background: 'var(--surface-muted, #f8fafc)',
-        marginBottom: 12,
-        fontSize: 13,
-        lineHeight: 1.55,
-      }}
-    >
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Resumo do extrato</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px' }}>
+    <div className="student-pay-extrato-totals">
+      <div className="student-pay-extrato-totals__title">Totais do período</div>
+      <div className="student-pay-extrato-totals__grid">
         <span>
           <strong>Produtos:</strong> {fmtMoney(totals.total_gasto_produtos)}
         </span>
         <span>
-          <strong>Mensalidades pagas:</strong> {fmtMoney(totals.total_pago_mensalidades)}
+          <strong>Mensalidades:</strong> {fmtMoney(totals.total_pago_mensalidades)}
         </span>
         <span>
           <strong>Em aberto:</strong> {fmtMoney(totals.total_em_aberto)}
         </span>
-        {totals.primeira_compra ? (
-          <span>
-            <strong>1ª compra:</strong> {formatDd(totals.primeira_compra)}
-          </span>
-        ) : null}
-        {totals.ultima_compra ? (
-          <span>
-            <strong>Última compra:</strong> {formatDd(totals.ultima_compra)}
-          </span>
-        ) : null}
       </div>
     </div>
   );
 }
 
-function UnifiedExtratoRow({ row }) {
-  const Icon = row.type === 'product_sale' ? ShoppingBag : Calendar;
-  const iconColor = row.type === 'product_sale' ? '#3B6D11' : 'var(--petroleo)';
-  const badge =
-    row.type === 'product_sale'
-      ? row.status === 'paid'
-        ? { label: 'Pago', tone: 'success' }
-        : row.status === 'cancelled'
-          ? { label: 'Cancelado', tone: 'muted' }
-          : row.status === 'pending'
-            ? { label: 'Pendente', tone: 'danger' }
-            : paymentTimelineBadge(row.status)
-      : paymentTimelineBadge(row.status);
-  return (
-    <TimelineRow icon={Icon} iconColor={iconColor} item={{ title: row.description, sortDate: row.date, amount: row.amount, badge, subtitle: [row.method, row.operador_nome].filter(Boolean).join(' · ') }} />
-  );
-}
-
-function FinancialSummaryCard({ summary }) {
-  const situationColor =
+function SituationHero({
+  summary,
+  freezeActive,
+  onRegisterPayment,
+  showFreezeBtn,
+  onOpenFreeze,
+  freezeBusy,
+}) {
+  const tone =
     summary.situationTone === 'success'
-      ? 'var(--success)'
+      ? 'ok'
       : summary.situationTone === 'danger'
-        ? 'var(--danger)'
-        : 'var(--text-secondary)';
+        ? 'late'
+        : summary.situationTone === 'warning'
+          ? 'soon'
+          : 'muted';
 
   return (
-    <div
-      style={{
-        padding: '12px 14px',
-        borderRadius: 10,
-        border: '1px solid var(--border-light)',
-        background: 'var(--surface)',
-        marginBottom: 12,
-        fontSize: 13,
-        lineHeight: 1.55,
-      }}
-    >
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
-        <span>
-          <strong>Plano ativo:</strong> {summary.planLabel}
-        </span>
-        <span>
-          <strong>{summary.isBundle ? 'Cobertura' : 'Vence'}:</strong> {summary.dueLabel}
-        </span>
-      </div>
-      <div style={{ marginTop: 6, color: situationColor }}>
-        <strong>Situação:</strong> {summary.situationLabel}
+    <div className={`student-pay-situation student-pay-situation--${tone}`}>
+      <div className="student-pay-situation__status">{summary.situationLabel}</div>
+      <div className="student-pay-situation__meta">
+        <span>{summary.planLabel}</span>
+        {summary.dueLabel ? <span>{summary.dueLabel}</span> : null}
       </div>
       {summary.discountLabel ? (
-        <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 12 }}>
-          <strong>{summary.discountLabel}</strong>
+        <div className="student-pay-situation__discount">
+          {summary.discountLabel}
           {summary.finalLabel ? ` · ${summary.finalLabel}` : ''}
         </div>
       ) : null}
-      <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 12 }}>
-        <strong>Histórico:</strong> {summary.historyLabel}
-      </div>
+      {!freezeActive && onRegisterPayment ? (
+        <button
+          type="button"
+          className="student-pay-situation__cta"
+          onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
+        >
+          + Registrar pagamento
+        </button>
+      ) : null}
+      {!freezeActive && showFreezeBtn ? (
+        <button
+          type="button"
+          className="student-pay-situation__freeze"
+          onClick={onOpenFreeze}
+          disabled={freezeBusy}
+        >
+          Trancar matrícula
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -505,8 +464,8 @@ export default function StudentFinancialTimeline({
   canEditSale = false,
   onSalesRefresh,
 }) {
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [periodFilter, setPeriodFilter] = useState('12m');
+  const [typeFilter, setTypeFilter] = useState(DEFAULT_TIMELINE_TYPE_FILTER);
+  const [periodFilter, setPeriodFilter] = useState(DEFAULT_TIMELINE_PERIOD_FILTER);
 
   const fetchSaleDetail = useSalesStore((s) => s.fetchSaleDetail);
   const cancelSale = useSalesStore((s) => s.cancelSale);

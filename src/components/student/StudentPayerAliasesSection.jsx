@@ -39,10 +39,8 @@ export default function StudentPayerAliasesSection({
   };
 
   return (
-    <div style={{ marginBottom: 22 }}>
-      <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
-        Quem costuma pagar
-      </h3>
+    <div className="profile-section-block student-payer-aliases-section">
+      <h3 className="profile-section-heading">Quem costuma pagar</h3>
       <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
         Nomes que aparecem no extrato bancário (PIX, TED etc.) e ajudam a conciliar mensalidades. O
         responsável cadastral pode ser outra pessoa.

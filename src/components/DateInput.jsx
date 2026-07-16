@@ -7,6 +7,8 @@ import {
   isDisplayComplete,
   maskDisplayTyping,
   parseDisplayToIso,
+  resolveTypableDateBlur,
+  shouldSuppressDateFieldBlur,
 } from '../lib/dateInputUtils.js';
 
 const PICKER_TYPES = new Set(['date', 'month', 'datetime-local']);
@@ -77,18 +79,14 @@ function useTypableDateField({ type, value, onChange }) {
   );
 
   const handleBlur = useCallback(() => {
-    const trimmed = String(display || '').trim();
-    if (!trimmed) {
-      if (value) emitChange('');
-      return;
-    }
-    const iso = parseDisplayToIso(type, trimmed);
-    if (iso) {
-      setDisplay(isoValueToDisplay(type, iso));
-      emitChange(iso);
-    } else {
+    const { iso, valid } = resolveTypableDateBlur(type, display, value);
+    if (!valid) {
       setDisplay(isoValueToDisplay(type, value));
+      return value;
     }
+    setDisplay(iso ? isoValueToDisplay(type, iso) : '');
+    if (iso !== value) emitChange(iso);
+    return iso;
   }, [display, type, value, emitChange]);
 
   return { display, handleChange, handleBlur };
@@ -120,17 +118,25 @@ export const DateInputField = forwardRef(function DateInputField(
     onChange: typable ? onChange : undefined,
   });
 
-  const handleBlur = useCallback(
-    (e) => {
-      handleBlurInternal();
-      onBlurProp?.(e);
-    },
-    [handleBlurInternal, onBlurProp]
-  );
-
   const fieldRef = useRef(null);
   const nativePickerRef = useRef(null);
+  const suppressBlurRef = useRef(false);
   const hasNativePicker = typable && PICKER_TYPES.has(type);
+
+  const handleBlur = useCallback(
+    (e) => {
+      if (
+        suppressBlurRef.current ||
+        shouldSuppressDateFieldBlur(e?.relatedTarget, fieldRef.current, nativePickerRef.current)
+      ) {
+        return;
+      }
+      const resolvedIso = typable ? handleBlurInternal() : value;
+      // Segundo arg: ISO já resolvido (evita commit com draft stale do React).
+      onBlurProp?.(e, resolvedIso);
+    },
+    [handleBlurInternal, onBlurProp, typable, value]
+  );
 
   const hideNativePicker = useCallback(() => {
     hidePortaledNativePicker(nativePickerRef.current);
@@ -144,6 +150,9 @@ export const DateInputField = forwardRef(function DateInputField(
       if (!el || !field) return;
       event?.preventDefault?.();
       event?.stopPropagation?.();
+      // relatedTarget do blur costuma ser null com input aria-hidden/portal —
+      // flag explícita evita autosave com valor antigo ao abrir o calendário.
+      suppressBlurRef.current = true;
       positionPortaledNativePicker(el, field);
       try {
         el.focus({ preventScroll: true });
@@ -155,12 +164,16 @@ export const DateInputField = forwardRef(function DateInputField(
       } catch {
         el.click();
       }
+      window.setTimeout(() => {
+        suppressBlurRef.current = false;
+      }, 500);
     },
     [disabled]
   );
 
   const handleNativePickerChange = useCallback(
     (e) => {
+      suppressBlurRef.current = false;
       onChange?.(e);
       hideNativePicker();
     },
@@ -171,7 +184,10 @@ export const DateInputField = forwardRef(function DateInputField(
     const el = nativePickerRef.current;
     if (!el || !hasNativePicker) return undefined;
     hidePortaledNativePicker(el);
-    const onCancel = () => hideNativePicker();
+    const onCancel = () => {
+      suppressBlurRef.current = false;
+      hideNativePicker();
+    };
     el.addEventListener('cancel', onCancel);
     return () => {
       el.removeEventListener('cancel', onCancel);

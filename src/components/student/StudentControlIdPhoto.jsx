@@ -29,12 +29,22 @@ function formatQualityFeedback(result) {
   return lines;
 }
 
+/**
+ * Upload de foto do aluno.
+ * - variant="avatar": botão no avatar do perfil (padrão)
+ * - variant="card": cartão legado com preview e tips (Control iD)
+ */
 export default function StudentControlIdPhoto({
   academyId,
   leadId,
   photoUrl,
   controlidSynced,
   onPhotoSaved,
+  variant = 'avatar',
+  initials = '',
+  disabled = false,
+  /** Quando true, valida qualidade via Control iD antes de salvar. */
+  requireControlIdQuality = false,
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const inputRef = useRef(null);
@@ -80,13 +90,12 @@ export default function StudentControlIdPhoto({
     setUploading(true);
     setFeedback([]);
     try {
-      const quality = await testImage(file);
-      setFeedback(formatQualityFeedback(quality));
+      if (requireControlIdQuality) {
+        const quality = await testImage(file);
+        setFeedback(formatQualityFeedback(quality));
+      }
 
-      let url = photoUrl;
-      if (isStudentPhotoUploadConfigured()) {
-        url = await uploadStudentPhoto(leadId, file);
-      } else {
+      if (!isStudentPhotoUploadConfigured()) {
         addToast({
           type: 'warning',
           message: 'Bucket de fotos não configurado — defina VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID.',
@@ -95,6 +104,7 @@ export default function StudentControlIdPhoto({
         return;
       }
 
+      const url = await uploadStudentPhoto(leadId, file);
       await saveStudentPhotoUrl(leadId, url);
       onPhotoSaved?.(url);
 
@@ -114,6 +124,50 @@ export default function StudentControlIdPhoto({
       setUploading(false);
     }
   };
+
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/jpg"
+      hidden
+      onChange={(ev) => void onFile(ev)}
+    />
+  );
+
+  if (variant === 'avatar') {
+    const canUpload = !disabled && !uploading && Boolean(leadId && academyId);
+    return (
+      <>
+        {fileInput}
+        <button
+          type="button"
+          className="student-profile-hd__avatar student-profile-hd__avatar--upload"
+          disabled={!canUpload}
+          aria-label={uploading ? 'Enviando foto…' : 'Alterar foto do aluno'}
+          title={uploading ? 'Enviando…' : 'Alterar foto'}
+          onClick={() => {
+            if (canUpload) inputRef.current?.click();
+          }}
+        >
+          {photoUrl ? (
+            <img
+              src={photoUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span className="student-profile-hd__initials">{initials || '?'}</span>
+          )}
+          <span className="student-profile-hd__avatar-overlay" aria-hidden>
+            {uploading ? '…' : <Camera size={16} strokeWidth={2.25} />}
+          </span>
+        </button>
+      </>
+    );
+  }
 
   return (
     <div className="card" style={{ padding: 16, marginTop: 12, border: '1px solid var(--border-light)' }}>
@@ -144,11 +198,11 @@ export default function StudentControlIdPhoto({
           )}
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/jpg" hidden onChange={(ev) => void onFile(ev)} />
+          {fileInput}
           <button
             type="button"
             className="btn-secondary"
-            disabled={uploading}
+            disabled={uploading || disabled}
             onClick={() => inputRef.current?.click()}
           >
             {uploading ? 'Enviando…' : '📷 Enviar foto'}

@@ -30,6 +30,10 @@ export const TIMELINE_FILTER_TYPES = {
   FEE: 'fee',
 };
 
+/** Defaults da aba Pagamentos no perfil (recepção: mensalidades recentes). */
+export const DEFAULT_TIMELINE_TYPE_FILTER = TIMELINE_FILTER_TYPES.PLAN;
+export const DEFAULT_TIMELINE_PERIOD_FILTER = '3m';
+
 export const PERIOD_FILTERS = {
   '3m': 3,
   '6m': 6,
@@ -310,9 +314,12 @@ export function buildFinancialSummary({
       situationLabel = `Registro no mês atual (status: ${String(currentMonthPayment.status).toLowerCase()})`;
       situationTone = String(currentMonthPayment.status).toLowerCase() === 'paid' ? 'success' : 'warning';
     }
-  } else if (st === 'pending' || st === 'partial') {
-    situationLabel = 'Pendência no mês atual';
+  } else if (st === 'pending' || st === 'partial' || st === 'awaiting') {
+    situationLabel = st === 'partial' ? 'Pagamento parcial — em atraso' : 'Em atraso';
     situationTone = 'danger';
+  } else if (st === 'soon') {
+    situationLabel = dueDay ? `A vencer (dia ${dueDay})` : 'A vencer';
+    situationTone = 'warning';
   }
 
   const expected = openAmountForStudent(student, null, financeConfig);

@@ -152,6 +152,46 @@
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
+  position: relative;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+button.student-profile-hd__avatar--upload {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.student-profile-hd__avatar--upload:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
+
+button.student-profile-hd__avatar--upload:focus-visible {
+  outline: 2px solid var(--color-primary, var(--v600));
+  outline-offset: 2px;
+}
+
+.student-profile-hd__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+button.student-profile-hd__avatar--upload:hover .student-profile-hd__avatar-overlay,
+button.student-profile-hd__avatar--upload:focus-visible .student-profile-hd__avatar-overlay,
+button.student-profile-hd__avatar--upload:disabled .student-profile-hd__avatar-overlay {
+  opacity: 1;
 }
 
 .student-profile-hd__initials {

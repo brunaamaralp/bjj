@@ -10,6 +10,8 @@ import {
   maskBrDatetimeTyping,
   isIsoDateYmd,
   defaultDeferredDueYmd,
+  shouldSuppressDateFieldBlur,
+  resolveTypableDateBlur,
 } from '../lib/dateInputUtils.js';
 
 describe('dateInputUtils', () => {
@@ -39,5 +41,29 @@ describe('dateInputUtils', () => {
     expect(isoDatetimeLocalToBr('2026-05-30T14:30')).toBe('30/05/2026 14:30');
     expect(parseBrDatetimeToIsoLocal('30/05/2026 14:30')).toBe('2026-05-30T14:30');
     expect(maskBrDatetimeTyping('300520261430')).toBe('30/05/2026 14:30');
+  });
+});
+
+describe('date blur helpers (inline autosave)', () => {
+  it('suppresses blur when focus moves to native picker or field chrome', () => {
+    const field = { contains: (n) => n === 'btn' };
+    const picker = { contains: (n) => n === 'inner' };
+    expect(shouldSuppressDateFieldBlur(null, field, picker)).toBe(false);
+    expect(shouldSuppressDateFieldBlur(picker, field, picker)).toBe(true);
+    expect(shouldSuppressDateFieldBlur('inner', field, picker)).toBe(true);
+    expect(shouldSuppressDateFieldBlur('btn', field, picker)).toBe(true);
+    expect(shouldSuppressDateFieldBlur('outside', field, picker)).toBe(false);
+  });
+
+  it('resolveTypableDateBlur returns ISO sync for commit', () => {
+    expect(resolveTypableDateBlur('date', '15/03/2026', '2020-01-01')).toEqual({
+      iso: '2026-03-15',
+      valid: true,
+    });
+    expect(resolveTypableDateBlur('date', '', '2020-01-01')).toEqual({ iso: '', valid: true });
+    expect(resolveTypableDateBlur('date', '99/99/2026', '2020-01-01')).toEqual({
+      iso: '2020-01-01',
+      valid: false,
+    });
   });
 });

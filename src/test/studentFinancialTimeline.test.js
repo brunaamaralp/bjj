@@ -5,6 +5,8 @@ import {
   buildFinancialSummary,
   countTimelineHistory,
   filterTypeCounts,
+  DEFAULT_TIMELINE_TYPE_FILTER,
+  DEFAULT_TIMELINE_PERIOD_FILTER,
 } from '../lib/studentFinancialTimeline.js';
 
 describe('studentFinancialTimeline', () => {
@@ -175,5 +177,41 @@ describe('studentFinancialTimeline', () => {
     expect(summary.planLabel).toMatch(/bolsista/i);
     expect(summary.planLabel).toMatch(/isento/i);
     expect(summary.situationLabel).toMatch(/isento|sem cobran/i);
+  });
+
+  it('buildFinancialSummary usa Em dia e Em atraso para recepção', () => {
+    const paid = buildFinancialSummary({
+      student: { plan: 'Mensal', dueDay: 10 },
+      financeConfig: { plans: [{ name: 'Mensal', price: 200 }] },
+      payments: [
+        {
+          $id: 'p1',
+          payment_category: 'plan',
+          reference_month: '2026-06',
+          status: 'paid',
+          amount: 200,
+          paid_at: '2026-06-05T12:00:00.000Z',
+        },
+      ],
+      sales: [],
+      paymentStatus: { status: 'paid' },
+    });
+    expect(paid.situationTone).toBe('success');
+    expect(paid.situationLabel).toMatch(/^Em dia/i);
+
+    const overdue = buildFinancialSummary({
+      student: { plan: 'Mensal', dueDay: 10 },
+      financeConfig: { plans: [{ name: 'Mensal', price: 200 }] },
+      payments: [],
+      sales: [],
+      paymentStatus: { status: 'pending' },
+    });
+    expect(overdue.situationTone).toBe('danger');
+    expect(overdue.situationLabel).toMatch(/em atraso/i);
+  });
+
+  it('defaults de filtro do perfil priorizam mensalidades recentes', () => {
+    expect(DEFAULT_TIMELINE_TYPE_FILTER).toBe('plan');
+    expect(DEFAULT_TIMELINE_PERIOD_FILTER).toBe('3m');
   });
 });

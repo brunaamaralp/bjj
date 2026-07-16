@@ -403,6 +403,7 @@ export default function StudentProfile() {
     });
     const [savingData, setSavingData] = useState(false);
     const [payerAliases, setPayerAliases] = useState([]);
+    const [savingPayerAliases, setSavingPayerAliases] = useState(false);
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
     const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
@@ -1080,6 +1081,24 @@ export default function StudentProfile() {
         setEditingData(false);
         setPayerAliases(Array.isArray(student.payerAliases) ? student.payerAliases : []);
     }, [student, academyTurmas]);
+
+    const handlePayerAliasesChange = useCallback(
+        async (nextAliases) => {
+            const next = Array.isArray(nextAliases) ? nextAliases : [];
+            setPayerAliases(next);
+            if (editingData || !leadId || !canEditProfile) return;
+            setSavingPayerAliases(true);
+            try {
+                await updateStudent(leadId, { payerAliases: next });
+            } catch (e) {
+                setPayerAliases(Array.isArray(student?.payerAliases) ? student.payerAliases : []);
+                toast.error(e, 'save');
+            } finally {
+                setSavingPayerAliases(false);
+            }
+        },
+        [editingData, leadId, canEditProfile, updateStudent, student, toast]
+    );
 
     const handleSaveData = useCallback(async () => {
         if (!student || savingData) return;
@@ -2026,13 +2045,21 @@ export default function StudentProfile() {
                     {...common}
                     editValue={editValue}
                     inputType="date"
-                    renderEditor={({ draft, setDraft, onKeyDown, onBlur, disabled: saving, fieldId: fid }) => (
+                    renderEditor={({ draft, setDraft, onKeyDown, onBlur, commitEdit, disabled: saving, fieldId: fid }) => (
                         <DateInputField
                             id={fid}
                             type="date"
                             className="student-profile-data-input form-input"
                             value={draft ?? ''}
-                            onChange={(e) => setDraft(e.target.value)}
+                            onChange={(e) => {
+                                const next = e.target.value;
+                                setDraft(next);
+                                // Calendário nativo: o texto já perdeu o foco ao abrir o picker —
+                                // precisa commit explícito na escolha da data.
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(String(next || '').trim()) || next === '') {
+                                    void commitEdit(next);
+                                }
+                            }}
                             onKeyDown={onKeyDown}
                             onBlur={onBlur}
                             disabled={saving || field.disabled}
@@ -2460,18 +2487,32 @@ export default function StudentProfile() {
 
             <div className="student-panel-left__scroll">
                 <div className="student-profile-hd">
-                    {/* Avatar com iniciais */}
-                    <div className="student-profile-hd__avatar">
-                        {studentPhotoUrl ? (
-                            <img
-                                src={studentPhotoUrl}
-                                alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <span className="student-profile-hd__initials">{studentInitials}</span>
-                        )}
-                    </div>
+                    {canEditProfile ? (
+                        <StudentControlIdPhoto
+                            variant="avatar"
+                            academyId={academyId}
+                            leadId={id}
+                            photoUrl={studentPhotoUrl}
+                            controlidSynced={student.controlid_synced}
+                            initials={studentInitials}
+                            requireControlIdQuality={controlIdCfg.enabled}
+                            onPhotoSaved={(url) => {
+                                void updateStudent(id, { photo_url: url });
+                            }}
+                        />
+                    ) : (
+                        <div className="student-profile-hd__avatar">
+                            {studentPhotoUrl ? (
+                                <img
+                                    src={studentPhotoUrl}
+                                    alt=""
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            ) : (
+                                <span className="student-profile-hd__initials">{studentInitials}</span>
+                            )}
+                        </div>
+                    )}
                     <div className="student-profile-hd__body">
                     {!editingData && canEditProfile ? (
                         <ProfileInlineField
@@ -2733,25 +2774,6 @@ export default function StudentProfile() {
                     {renderStudentDiscountSection()}
                 </div>
 
-                <StudentPayerAliasesSection
-                    aliases={payerAliases}
-                    responsavel={editingData ? dataForm.responsavel : student.responsavel}
-                    disabled={!editingData || savingData}
-                    onChange={setPayerAliases}
-                />
-
-                {controlIdCfg.enabled && (
-                    <StudentControlIdPhoto
-                        academyId={academyId}
-                        leadId={id}
-                        photoUrl={student.photo_url}
-                        controlidSynced={student.controlid_synced}
-                        onPhotoSaved={(url) => {
-                            void updateStudent(id, { photo_url: url });
-                        }}
-                    />
-                )}
-
                 <div className="profile-section-block">
                     <h3 className="profile-section-heading">Contato de emergência</h3>
                     {editingData ? (
@@ -2826,6 +2848,13 @@ export default function StudentProfile() {
                         </>
                     )}
                 </div>
+
+                <StudentPayerAliasesSection
+                    aliases={payerAliases}
+                    responsavel={editingData ? dataForm.responsavel : student.responsavel}
+                    disabled={!canEditProfile || savingData || savingPayerAliases}
+                    onChange={handlePayerAliasesChange}
+                />
 
                 {editingData ? (
                     <div className="student-profile-edit-actions">

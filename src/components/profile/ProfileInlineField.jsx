@@ -190,7 +190,7 @@ export default function ProfileInlineField({
                 setDraft,
                 inputRef,
                 onKeyDown,
-                onBlur: () => void commitEdit(),
+                onBlur: (_e, override) => void commitEdit(override),
                 commitEdit,
                 cancelEdit,
                 disabled: saving,
