@@ -306,7 +306,8 @@ export default function MensalidadesPanel({
     setStudentsBootstrapDone(false);
     (async () => {
       try {
-        await ensureAllStudentsLoaded({ signal: controller.signal, refresh: true });
+        // refresh:false — reusa o store se já estiver completo; evita N páginas em série a cada visita.
+        await ensureAllStudentsLoaded({ signal: controller.signal, refresh: false });
       } catch (err) {
         console.warn('[MensalidadesPanel] ensureAllStudentsLoaded:', err?.message || err);
       } finally {

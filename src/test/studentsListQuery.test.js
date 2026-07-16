@@ -54,7 +54,7 @@ describe('buildStudentsListDocumentQueries', () => {
     expect(STUDENT_LIST_SELECT).toContain('converted_at');
     expect(STUDENT_LIST_SELECT).toContain('enrollmentDate');
     expect(STUDENT_LIST_SELECT).toContain('due_day');
-    expect(STUDENT_LIST_SELECT).toContain('dueDay');
+    expect(STUDENT_LIST_SELECT).not.toContain('dueDay');
     expect(STUDENT_LIST_SELECT).toContain('preferred_payment_method');
     expect(STUDENT_LIST_SELECT).toContain('preferred_payment_account');
     expect(STUDENT_LIST_SELECT).toContain('freeze_status');

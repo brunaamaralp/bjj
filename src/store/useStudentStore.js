@@ -120,11 +120,15 @@ const STUDENT_TURMA_KEY = (() => {
   return raw || 'turma';
 })();
 
-/** false = não gravar; true = gravar em due_day (nome no Appwrite). */
+/**
+ * false = não gravar; true = gravar em due_day (nome no Appwrite).
+ * Default habilitado — o schema CRM já tem `due_day`. Desligar só com off/false/0/no/none.
+ * (Antes, env vazio desligava a gravação: o UI mostrava o dia no store e sumia após refresh.)
+ */
 const STUDENT_DUE_DAY_ENABLED = (() => {
-  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || '').trim();
+  const raw = String(import.meta.env.VITE_APPWRITE_LEAD_DUE_DAY_ATTR || 'due_day').trim();
   const lower = raw.toLowerCase();
-  if (!raw || ['off', 'false', '0', 'no', 'none'].includes(lower)) return false;
+  if (['off', 'false', '0', 'no', 'none'].includes(lower)) return false;
   return true;
 })();
 
