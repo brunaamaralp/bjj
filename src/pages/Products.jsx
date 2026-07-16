@@ -80,6 +80,18 @@ function ProductStatus({ lifecycleKey }) {
   );
 }
 
+function RentalAvailabilityChip({ available }) {
+  const qty = Number(available) || 0;
+  const ok = qty > 0;
+  return (
+    <span
+      className={`products-status-chip products-status-chip--${ok ? 'ativo' : 'sem_estoque'}`}
+    >
+      {ok ? 'Disponível' : 'Indisponível'}
+    </span>
+  );
+}
+
 function ProductActionsMenu({
   product,
   isOpen,
@@ -304,6 +316,12 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
     });
     return list;
   }, [filtered, sort]);
+
+  /** Na aba Aluguel, mantém todas as linhas pai expandidas para ver tamanho a tamanho. */
+  useEffect(() => {
+    if (!isRentalScope) return;
+    setExpandedIds(new Set(sorted.map((p) => p.id)));
+  }, [isRentalScope, sorted]);
 
   const toggleSort = (key) => {
     setSort((prev) =>
@@ -756,7 +774,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
         ) : (
           <>
           <div className="navi-desktop-table-wrap products-desktop-table-wrap">
-            <table className="navi-table products-table">
+            <table className={`navi-table products-table${isRentalScope ? ' products-table--rental' : ''}`}>
               <colgroup>
                 <col className="products-table__col-thumb" />
                 <col className="products-table__col-product" />
@@ -771,7 +789,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                 ) : (
                   <col className="products-table__col-qty" />
                 )}
-                <col className="products-table__col-status" />
+                {!isRentalScope ? <col className="products-table__col-status" /> : null}
                 <col className="products-table__col-actions" />
               </colgroup>
               <thead>
@@ -789,27 +807,34 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                       {!isRentalScope ? (
                         <SortHeader label="Venda" sortKey="total_sale_quantity" className="products-table__col-qty" />
                       ) : null}
-                      <SortHeader label="Aluguel" sortKey="total_rental_available" className="products-table__col-qty" />
+                      <SortHeader
+                        label={isRentalScope ? 'Disponível' : 'Aluguel'}
+                        sortKey="total_rental_available"
+                        className="products-table__col-qty"
+                      />
                       <SortHeader label="Emprestado" sortKey="total_rental_out" className="products-table__col-qty" />
                     </>
                   ) : (
                     <SortHeader label="Saldo" sortKey="total_quantity" className="products-table__col-qty" />
                   )}
-                  <SortHeader label="Status" sortKey="lifecycle" className="products-table__col-status" />
+                  {!isRentalScope ? (
+                    <SortHeader label="Status" sortKey="lifecycle" className="products-table__col-status" />
+                  ) : null}
                   <th className="products-table__actions-head" aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((p) => {
                   const lifecycleKey = p.lifecycle || 'ativo';
-                  const hasVariants = (p.variants || []).length > 1;
-                  const expanded = expandedIds.has(p.id);
+                  const variants = p.variants || [];
+                  const hasVariants = isRentalScope ? variants.length >= 1 : variants.length > 1;
+                  const expanded = isRentalScope || expandedIds.has(p.id);
                   return (
                     <React.Fragment key={p.id}>
                       <tr className="products-table__row" onClick={() => openEdit(p)}>
                         <td className="products-table__thumb-cell" onClick={(e) => e.stopPropagation()}>
                           <div className="products-table__thumb-inner">
-                            {hasVariants ? (
+                            {hasVariants && !isRentalScope ? (
                               <button
                                 type="button"
                                 className="products-table__expand-btn"
@@ -868,9 +893,11 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                             {p.total_quantity ?? p.current_quantity ?? 0}
                           </td>
                         )}
-                        <td className="products-table__col-status">
-                          <ProductStatus lifecycleKey={lifecycleKey} />
-                        </td>
+                        {!isRentalScope ? (
+                          <td className="products-table__col-status">
+                            <ProductStatus lifecycleKey={lifecycleKey} />
+                          </td>
+                        ) : null}
                         <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
                           <div className="products-table__actions-inner">
                             <ProductActionsMenu
@@ -888,8 +915,11 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                         </td>
                       </tr>
                       {expanded && hasVariants
-                        ? (p.variants || []).map((v) => {
+                        ? variants.map((v) => {
                             const vLife = v.lifecycle || 'ativo';
+                            const sizeLabel =
+                              [v.size || v.Tamanho, v.color].filter(Boolean).join(' / ') || 'Único';
+                            const rentalAvail = v.rental_available ?? 0;
                             return (
                               <tr
                                 key={v.id}
@@ -898,7 +928,12 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                               >
                                 <td className="products-table__thumb-cell" aria-hidden />
                                 <td className="products-table__col-product products-table__variant-label">
-                                  {[v.size || v.Tamanho, v.color].filter(Boolean).join(' / ') || 'Único'}
+                                  <span className="products-table__variant-size-row">
+                                    {sizeLabel}
+                                    {isRentalScope ? (
+                                      <RentalAvailabilityChip available={rentalAvail} />
+                                    ) : null}
+                                  </span>
                                 </td>
                                 <td className="products-table__col-cat products-table__cell-empty" aria-hidden />
                                 <td className="products-table__col-price products-table__cell-empty" aria-hidden />
@@ -910,7 +945,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                                       </td>
                                     ) : null}
                                     <td className="products-table__col-qty products-table__qty">
-                                      {v.rental_available ?? 0}
+                                      {rentalAvail}
                                     </td>
                                     <td className="products-table__col-qty products-table__qty">
                                       {v.rental_out ?? 0}
@@ -919,9 +954,11 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                                 ) : (
                                   <td className="products-table__col-qty products-table__qty">{v.current_quantity}</td>
                                 )}
-                                <td className="products-table__col-status">
-                                  <ProductStatus lifecycleKey={vLife} />
-                                </td>
+                                {!isRentalScope ? (
+                                  <td className="products-table__col-status">
+                                    <ProductStatus lifecycleKey={vLife} />
+                                  </td>
+                                ) : null}
                                 <td className="products-table__actions" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
@@ -946,6 +983,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
           <div className="navi-mobile-list products-mobile-list" aria-label="Lista de produtos">
             {sorted.map((p) => {
               const lifecycleKey = p.lifecycle || 'ativo';
+              const variants = p.variants || [];
               return (
                 <article key={p.id} className="navi-mobile-card products-mobile-card">
                   <div className="products-mobile-card__main" onClick={() => openEdit(p)} role="presentation">
@@ -981,7 +1019,25 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
                             : `Saldo: ${p.total_quantity ?? p.current_quantity ?? 0}`}
                         </span>
                       </div>
-                      <ProductStatus lifecycleKey={lifecycleKey} />
+                      {!isRentalScope ? <ProductStatus lifecycleKey={lifecycleKey} /> : null}
+                      {isRentalScope && variants.length > 0 ? (
+                        <ul className="products-mobile-card__sizes" aria-label="Tamanhos">
+                          {variants.map((v) => {
+                            const avail = Number(v.rental_available) || 0;
+                            const sizeLabel =
+                              [v.size || v.Tamanho, v.color].filter(Boolean).join(' / ') || 'Único';
+                            return (
+                              <li key={v.id} className="products-mobile-card__size-row">
+                                <span>{sizeLabel}</span>
+                                <RentalAvailabilityChip available={avail} />
+                                <span className="text-muted text-small">
+                                  {avail} disp. · {v.rental_out ?? 0} empr.
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                   <div className="navi-mobile-card__actions products-mobile-card__actions">

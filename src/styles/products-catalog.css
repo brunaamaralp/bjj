@@ -69,8 +69,36 @@
   width: 70px;
 }
 
+.products-table--rental .products-table__col-qty {
+  width: 96px;
+}
+
 .products-table__col-status {
   width: 110px;
+}
+
+.products-table__variant-size-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.products-mobile-card__sizes {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.products-mobile-card__size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-sm);
 }
 
 .products-table__col-actions {
