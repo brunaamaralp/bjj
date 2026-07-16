@@ -7,6 +7,12 @@ import { useLeadStore } from '../store/useLeadStore';
 import { useProductsStore } from '../store/useProductsStore';
 import { useUiStore } from '../store/useUiStore';
 import { filterParentCatalog, findParentByProductOrVariantId } from '../lib/productCatalog';
+import {
+  defaultProductTypeForLojaScope,
+  isRentalLojaCatalogScope,
+  LOJA_PRODUCT_SCOPES,
+  parentMatchesLojaCatalogScope,
+} from '../lib/lojaProductScope';
 import { formatStockPoolsSummary } from '../lib/dualStockPools';
 import { formatBRL } from '../lib/moneyBr';
 import { refreshStockStores } from '../lib/syncStockStores';
@@ -140,7 +146,9 @@ function ProductActionsMenu({
   );
 }
 
-export default function Products() {
+export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }) {
+  const isRentalScope = isRentalLojaCatalogScope(catalogScope);
+  const defaultCreateType = defaultProductTypeForLojaScope(catalogScope);
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
   const products = useProductsStore((s) => s.products);
@@ -207,17 +215,22 @@ export default function Products() {
     );
   }, [canAccess, searchParams, setSearchParams]);
 
+  const scopedProducts = useMemo(
+    () => products.filter((p) => parentMatchesLojaCatalogScope(p, catalogScope)),
+    [products, catalogScope]
+  );
+
   const categories = useMemo(() => {
     const set = new Set();
-    for (const p of products) {
+    for (const p of scopedProducts) {
       const c = String(p.categoria || '').trim();
       if (c) set.add(c);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [products]);
+  }, [scopedProducts]);
 
   const filtered = useMemo(() => {
-    let list = filterParentCatalog(products, {
+    let list = filterParentCatalog(scopedProducts, {
       search,
       category: categoryFilter,
       statusFilter: statusFilter === 'all' ? '' : statusFilter,
@@ -230,7 +243,7 @@ export default function Products() {
       );
     }
     return list;
-  }, [products, search, categoryFilter, statusFilter, typeFilter, importFilterIds]);
+  }, [scopedProducts, search, categoryFilter, statusFilter, typeFilter, importFilterIds]);
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => {
@@ -255,6 +268,9 @@ export default function Products() {
           break;
         case 'sale_price':
           out = cmpNum(a.sale_price, b.sale_price);
+          break;
+        case 'rental_price':
+          out = cmpNum(a.rental_price, b.rental_price);
           break;
         case 'current_quantity':
           out = cmpNum(a.current_quantity, b.current_quantity);
@@ -619,7 +635,7 @@ export default function Products() {
           </button>
           <button type="button" className="btn-action-ghost" onClick={openCreate}>
             <Plus size={14} aria-hidden />
-            Novo produto
+            {isRentalScope ? 'Novo item de aluguel' : 'Novo produto'}
           </button>
         </div>
       </div>
@@ -669,8 +685,14 @@ export default function Products() {
             <label className="text-xs">Tipo</label>
             <select className="form-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">Todos</option>
-              <option value="for_sale">Para venda</option>
-              <option value="internal">Insumo interno</option>
+              {isRentalScope ? (
+                <option value="for_sale">Para aluguel</option>
+              ) : (
+                <>
+                  <option value="for_sale">Para venda</option>
+                  <option value="internal">Insumo interno</option>
+                </>
+              )}
             </select>
           </div>
         </div>
@@ -678,15 +700,22 @@ export default function Products() {
         {loading ? (
           <PageSkeleton variant="cards" rows={6} />
         ) : filtered.length === 0 && !error ? (
-          products.length === 0 ? (
+          scopedProducts.length === 0 ? (
             <EmptyState
               variant="default"
               tone="dashed"
               className="products-empty"
               icon={Package}
-              title="Nenhum produto cadastrado ainda"
-              description="Cadastre os produtos da academia para usá-los nas vendas e no controle de estoque."
-              primaryAction={{ label: 'Cadastrar primeiro produto', onClick: openCreate }}
+              title={isRentalScope ? 'Nenhum item de aluguel cadastrado ainda' : 'Nenhum produto cadastrado ainda'}
+              description={
+                isRentalScope
+                  ? 'Cadastre kimonos e outros itens para empréstimo na academia.'
+                  : 'Cadastre os produtos da academia para usá-los nas vendas e no controle de estoque.'
+              }
+              primaryAction={{
+                label: isRentalScope ? 'Cadastrar primeiro item' : 'Cadastrar primeiro produto',
+                onClick: openCreate,
+              }}
               secondaryAction={{ label: 'Importar planilha', onClick: () => setImportOpen(true) }}
               role="status"
             />
@@ -710,7 +739,7 @@ export default function Products() {
                 <col className="products-table__col-price" />
                 {showDualStockColumns ? (
                   <>
-                    <col className="products-table__col-qty" />
+                    {!isRentalScope ? <col className="products-table__col-qty" /> : null}
                     <col className="products-table__col-qty" />
                     <col className="products-table__col-qty" />
                   </>
@@ -725,10 +754,16 @@ export default function Products() {
                   <th className="products-table__thumb-head" aria-hidden />
                   <SortHeader label="Produto" sortKey="nome" className="products-table__col-product" />
                   <SortHeader label="Categoria" sortKey="categoria" className="products-table__col-cat" />
-                  <SortHeader label="Preço" sortKey="sale_price" className="products-table__col-price" />
+                  <SortHeader
+                    label={isRentalScope ? 'Preço aluguel' : 'Preço'}
+                    sortKey={isRentalScope ? 'rental_price' : 'sale_price'}
+                    className="products-table__col-price"
+                  />
                   {showDualStockColumns ? (
                     <>
-                      <SortHeader label="Venda" sortKey="total_sale_quantity" className="products-table__col-qty" />
+                      {!isRentalScope ? (
+                        <SortHeader label="Venda" sortKey="total_sale_quantity" className="products-table__col-qty" />
+                      ) : null}
                       <SortHeader label="Aluguel" sortKey="total_rental_available" className="products-table__col-qty" />
                       <SortHeader label="Emprestado" sortKey="total_rental_out" className="products-table__col-qty" />
                     </>
@@ -781,13 +816,21 @@ export default function Products() {
                         </td>
                         <td className="products-table__col-cat text-small text-muted">{p.categoria || '—'}</td>
                         <td className="products-table__col-price text-small products-table__price">
-                          {p.sale_price != null ? formatBRL(p.sale_price) : '—'}
+                          {isRentalScope
+                            ? p.rental_price != null
+                              ? formatBRL(p.rental_price)
+                              : '—'
+                            : p.sale_price != null
+                              ? formatBRL(p.sale_price)
+                              : '—'}
                         </td>
                         {showDualStockColumns ? (
                           <>
-                            <td className="products-table__col-qty products-table__qty">
-                              {p.total_sale_quantity ?? 0}
-                            </td>
+                            {!isRentalScope ? (
+                              <td className="products-table__col-qty products-table__qty">
+                                {p.total_sale_quantity ?? 0}
+                              </td>
+                            ) : null}
                             <td className="products-table__col-qty products-table__qty">
                               {p.total_rental_available ?? 0}
                             </td>
@@ -836,9 +879,11 @@ export default function Products() {
                                 <td className="products-table__col-price products-table__cell-empty" aria-hidden />
                                 {showDualStockColumns ? (
                                   <>
-                                    <td className="products-table__col-qty products-table__qty">
-                                      {v.sale_quantity ?? 0}
-                                    </td>
+                                    {!isRentalScope ? (
+                                      <td className="products-table__col-qty products-table__qty">
+                                        {v.sale_quantity ?? 0}
+                                      </td>
+                                    ) : null}
                                     <td className="products-table__col-qty products-table__qty">
                                       {v.rental_available ?? 0}
                                     </td>
@@ -888,7 +933,15 @@ export default function Products() {
                         {p.categoria || '—'}
                       </div>
                       <div className="products-mobile-card__row text-small">
-                        <span>{p.sale_price != null ? formatBRL(p.sale_price) : '—'}</span>
+                        <span>
+                          {isRentalScope
+                            ? p.rental_price != null
+                              ? formatBRL(p.rental_price)
+                              : '—'
+                            : p.sale_price != null
+                              ? formatBRL(p.sale_price)
+                              : '—'}
+                        </span>
                         <span className="products-mobile-card__dot" aria-hidden>•</span>
                         <span>
                           {showDualStockColumns
@@ -957,6 +1010,7 @@ export default function Products() {
         categories={categories}
         mode={modalMode}
         catalogMode={catalogMode}
+        defaultProductType={defaultCreateType}
         loading={loading || deleteBusy}
         onSave={handleSave}
         onDeactivate={handleDeactivate}

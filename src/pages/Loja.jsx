@@ -22,6 +22,7 @@ export default function Loja() {
     if (modules.sales === true) items.push({ id: 'vendas', label: 'Vendas' });
     if (modules.inventory === true || modules.sales === true) {
       items.push({ id: 'produtos', label: 'Produtos' });
+      items.push({ id: 'aluguel', label: 'Aluguel' });
     }
     if (modules.inventory === true) items.push({ id: 'estoque', label: 'Estoque' });
     return items;
@@ -59,9 +60,11 @@ export default function Loja() {
       ? 'Registre vendas e consulte comprovantes.'
       : activeTab === 'produtos'
         ? 'Cadastre itens, variantes e preços para estoque e vendas.'
-        : activeTab === 'estoque'
-          ? 'Ajuste saldos e movimentações por item.'
-          : 'Gerencie vendas, produtos e estoque.';
+        : activeTab === 'aluguel'
+          ? 'Cadastre itens de aluguel, preços e saldo do armário.'
+          : activeTab === 'estoque'
+            ? 'Ajuste saldos e movimentações por item.'
+            : 'Gerencie vendas, produtos e estoque.';
 
   const hubMeta = (() => {
     if (activeTab === 'vendas' && resolveSalesSubtab(searchParams) === 'history') {
@@ -88,7 +91,12 @@ export default function Loja() {
       )}
       <Suspense fallback={<PageSkeleton variant="cards" rows={4} />}>
         {activeTab === 'vendas' && modules.sales === true ? <Sales /> : null}
-        {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? <Products /> : null}
+        {activeTab === 'produtos' && (modules.inventory === true || modules.sales === true) ? (
+          <Products catalogScope="produtos" />
+        ) : null}
+        {activeTab === 'aluguel' && (modules.inventory === true || modules.sales === true) ? (
+          <Products catalogScope="aluguel" />
+        ) : null}
         {activeTab === 'estoque' && modules.inventory === true ? <Inventory /> : null}
       </Suspense>
     </div>

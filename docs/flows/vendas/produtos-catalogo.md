@@ -5,7 +5,7 @@
 | **id** | `vendas.produtos.catalogo` |
 | **módulo** | Vendas |
 | **personas** | owner, admin, recepcionista (member) |
-| **rotas** | `/loja?tab=produtos`, `/loja?tab=produtos&import=1`, `?edit=`, `?duplicate=` |
+| **rotas** | `/loja?tab=produtos`, `/loja?tab=aluguel`, `/loja?tab=produtos&import=1`, `?edit=`, `?duplicate=` |
 | **pré-requisitos** | Módulo `sales` ou `inventory` ativo |
 | **status** | revisado (código) |
 | **última revisão** | 2026-06-15 |
@@ -21,7 +21,7 @@
 
 ## Resumo
 
-O operador mantém o **catálogo de produtos** (nome, preço, categoria, variantes tamanho/cor, imagem), importa em lote, duplica itens e consulta movimentações de estoque por produto. Produtos ativos alimentam o PDV ([pdv-nova-venda.md](pdv-nova-venda.md)).
+O operador mantém o **catálogo de produtos** (nome, preço, categoria, variantes tamanho/cor, imagem), importa em lote, duplica itens e consulta movimentações de estoque por produto. Itens de **aluguel** (`type: rental`) ficam na aba **Aluguel**; venda e insumo na aba **Produtos**; itens `both` aparecem nas duas. Produtos ativos alimentam o PDV ([pdv-nova-venda.md](pdv-nova-venda.md)).
 
 ---
 
@@ -48,7 +48,8 @@ flowchart TD
 
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
-| 1 | `/loja?tab=produtos` | `Products` | Abrir **Produtos** | Lista com filtros busca/categoria/status/tipo |
+| 1 | `/loja?tab=produtos` | `Products` | Abrir **Produtos** | Lista venda/insumo/both (sem rental puro) |
+| 1b | `/loja?tab=aluguel` | `Products catalogScope=aluguel` | Abrir **Aluguel** | Lista rental/both; criação default `type=rental` |
 | 2 | Produtos | **Novo produto** | Abrir modal passo 1 | `ProductFormModal` criação |
 | 3 | Modal | Dados básicos | Nome, preço, categoria, imagem | `createProduct` via `/api/products` |
 | 4 | Modal | Passo variantes | Tamanhos/cores, SKU | `saveProductVariants` |

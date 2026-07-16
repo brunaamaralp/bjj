@@ -244,6 +244,7 @@ export function buildLojaAccordion({ modules }) {
   }
   if (modules.inventory === true || modules.sales === true) {
     children.push({ id: 'produtos', label: 'Produtos', to: '/loja?tab=produtos', iconKey: 'produtos' });
+    children.push({ id: 'aluguel', label: 'Aluguel', to: '/loja?tab=aluguel', iconKey: 'produtos' });
   }
   if (modules.inventory === true) {
     children.push({ id: 'estoque', label: 'Estoque', to: '/loja?tab=estoque', iconKey: 'estoque' });

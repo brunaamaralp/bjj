@@ -40,6 +40,10 @@ describe('resolveRouteBootstrapNeeds', () => {
   it('recepcao precisa de alunos', () => {
     expect(resolveRouteBootstrapNeeds('/recepcao')).toEqual({ leads: false, students: true });
   });
+
+  it('tarefas precisa de leads e alunos para vincular pessoa', () => {
+    expect(resolveRouteBootstrapNeeds('/tarefas')).toEqual({ leads: true, students: true });
+  });
 });
 
 describe('shouldSkipLeadsListFetch', () => {
@@ -63,6 +67,17 @@ describe('shouldSkipLeadsListFetch', () => {
       shouldSkipLeadsListFetch({ loading: false, loadingMore: false, leads: [], leadsLastFetchedAt: null }),
     ).toBe(false);
   });
+
+  it('pula quando lista vazia mas fetch recente (evita loop na Recepção)', () => {
+    expect(
+      shouldSkipLeadsListFetch({
+        loading: false,
+        loadingMore: false,
+        leads: [],
+        leadsLastFetchedAt: Date.now(),
+      }),
+    ).toBe(true);
+  });
 });
 
 describe('shouldSkipStudentsListFetch', () => {
@@ -76,6 +91,17 @@ describe('shouldSkipStudentsListFetch', () => {
         loading: false,
         loadingMore: false,
         students: [{ id: '1' }],
+        lastFetchedAt: Date.now(),
+      }),
+    ).toBe(true);
+  });
+
+  it('pula quando lista vazia mas fetch recente (evita loop na Recepção)', () => {
+    expect(
+      shouldSkipStudentsListFetch({
+        loading: false,
+        loadingMore: false,
+        students: [],
         lastFetchedAt: Date.now(),
       }),
     ).toBe(true);

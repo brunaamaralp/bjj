@@ -25,6 +25,7 @@ import {
   filterTaskLinkablePeople,
   profilePathForLinkablePerson,
 } from '../lib/taskLinkablePeople.js';
+import { ensureAllStudentsLoaded } from '../lib/ensureAllStudentsLoaded.js';
 import { useUiStore } from '../store/useUiStore';
 import { fetchTeamMemberships } from '../lib/teamApi.js';
 import { TASKS_HUB_TABS, TASKS_TAB_OPERACAO, TASKS_TAB_PROCESSOS, resolveTasksHubTab } from '../lib/tasksHubTabs.js';
@@ -457,20 +458,22 @@ export default function Tasks() {
     [linkablePeople, leadSearch]
   );
 
-  // Carrega todas as páginas de leads + alunos ao abrir o modal (matriculados saem de leads).
+  // Carrega todas as páginas de leads + alunos ao abrir o modal (matriculados vivem em students).
   useEffect(() => {
     if (!showModal || !academyId) return;
     let cancelled = false;
     (async () => {
+      const leadState = useLeadStore.getState();
+      if (!leadState.leadsLastFetchedAt && !leadState.loading) {
+        await leadState.fetchLeads({ reset: true });
+      }
       let guard = 0;
       while (!cancelled && useLeadStore.getState().leadsHasMore && guard < 40) {
         await useLeadStore.getState().fetchMoreLeads();
         guard += 1;
       }
-      guard = 0;
-      while (!cancelled && useStudentStore.getState().studentsHasMore && guard < 40) {
-        await useStudentStore.getState().fetchMoreStudents();
-        guard += 1;
+      if (!cancelled) {
+        await ensureAllStudentsLoaded();
       }
     })();
     return () => {

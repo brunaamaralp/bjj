@@ -164,6 +164,7 @@ describe('naviMenu', () => {
       action: NOVA_VENDA_MENU_ACTION,
     });
     expect(loja.children[1].id).toBe('vendas');
+    expect(loja.children.some((c) => c.id === 'aluguel')).toBe(true);
     expect(loja.children.some((c) => c.id === 'relatorios')).toBe(false);
     const estoqueIdx = loja.children.findIndex((c) => c.id === 'estoque');
     expect(estoqueIdx).toBeGreaterThan(-1);

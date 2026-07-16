@@ -27,6 +27,7 @@ const STUDENT_ROUTE_PATTERNS = [
   /^\/mensalidades/,
   /^\/presenca/,
   /^\/recepcao/,
+  /^\/tarefas/,
 ];
 
 /**
@@ -47,11 +48,7 @@ const DEFAULT_LIST_STALE_MS = 5 * 60 * 1000;
 export function shouldSkipLeadsListFetch(state, staleMs = DEFAULT_LIST_STALE_MS) {
   if (!state) return false;
   if (state.loading || state.loadingMore) return true;
-  if (
-    state.leads.length > 0 &&
-    state.leadsLastFetchedAt &&
-    Date.now() - state.leadsLastFetchedAt < staleMs
-  ) {
+  if (state.leadsLastFetchedAt && Date.now() - state.leadsLastFetchedAt < staleMs) {
     return true;
   }
   return false;
@@ -61,11 +58,7 @@ export function shouldSkipLeadsListFetch(state, staleMs = DEFAULT_LIST_STALE_MS)
 export function shouldSkipStudentsListFetch(state, staleMs = DEFAULT_LIST_STALE_MS) {
   if (!state) return false;
   if (state.loading || state.loadingMore) return true;
-  if (
-    state.students.length > 0 &&
-    state.lastFetchedAt &&
-    Date.now() - state.lastFetchedAt < staleMs
-  ) {
+  if (state.lastFetchedAt && Date.now() - state.lastFetchedAt < staleMs) {
     return true;
   }
   return false;

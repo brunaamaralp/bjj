@@ -94,7 +94,7 @@ function VariantsSection({ title, hint, children, className }) {
   );
 }
 
-function emptyParentForm() {
+function emptyParentForm(defaultType = 'sale') {
   return {
     nome: '',
     categoria: '',
@@ -103,8 +103,8 @@ function emptyParentForm() {
     saleMask: '',
     costMask: '',
     rentalMask: '',
-    type: 'sale',
-    is_for_sale: true,
+    type: defaultType,
+    is_for_sale: defaultType !== 'supply',
     is_active: true,
     image_url: '',
     unit: 'unidade',
@@ -329,6 +329,7 @@ export default function ProductFormModal({
   mode,
   loading,
   catalogMode = 'legacy',
+  defaultProductType = 'sale',
   onSave,
   // Props are accepted for API parity (used in other UIs).
   // eslint-disable-next-line no-unused-vars
@@ -399,7 +400,7 @@ export default function ProductFormModal({
     if (useVariantWizard) {
       const initialParent = isDuplicate && product
         ? parentFormFromProductForDuplicate(product)
-        : emptyParentForm();
+        : emptyParentForm(defaultProductType);
       const initialVariants = isDuplicate && product
         ? duplicateVariantRowsFromProduct(product)
         : [emptyVariantRow()];
@@ -437,7 +438,7 @@ export default function ProductFormModal({
       initialSnapshotRef.current = { mode: 'legacy', legacyForm: lf };
     }
     setDiscardOpen(false);
-  }, [open, product, parentRow, isDuplicate, useVariantWizard, useEditWizard, initialStep]);
+  }, [open, product, parentRow, isDuplicate, useVariantWizard, useEditWizard, initialStep, defaultProductType]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const isFormDirty = useCallback(() => {
