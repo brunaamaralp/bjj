@@ -8,13 +8,14 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-07-01 |
+| **última revisão** | 2026-07-16 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
 - [docs/contracts-autentique.md](../contracts-autentique.md) — assinatura digital de contratos
 - [config/empresa-horarios-turmas.md](../config/empresa-horarios-turmas.md) — catálogo de turmas (`classes`) usado no select Turma
+- [2026-07-16-student-profile-payments-status-first-design.md](../../superpowers/specs/2026-07-16-student-profile-payments-status-first-design.md) — aba Pagamentos status-first
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
@@ -102,6 +103,8 @@ flowchart TD
 9b. [ ] Pagamento **pago/parcial** espelha em Financeiro → Lançamentos; badge **No Caixa** no perfil (link) ou **Caixa pendente** se falhar
 9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
+9e. [ ] Aba Pagamentos: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
+9f. [ ] Lista em linhas compactas (ações só ao expandir); default Mensalidades · 3 meses; sem lista duplicada do extrato
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
 12. [ ] Trocar academia — lista mostra só alunos da academia atual

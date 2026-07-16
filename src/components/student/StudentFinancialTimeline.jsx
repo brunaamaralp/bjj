@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
-  Pause,
   Download,
 } from 'lucide-react';
 import { downloadCsv } from '../../lib/reportsExport.js';
@@ -15,8 +14,6 @@ import PlanFreezePanel from './PlanFreezePanel.jsx';
 import {
   canStartPlanFreeze,
   isFreezeActive,
-  effectiveFreezeDaysUsed,
-  FREEZE_MAX_DAYS_PER_YEAR,
   activeFreezeReasonFromHistory,
 } from '../../lib/planFreeze.js';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
@@ -118,14 +115,14 @@ function TimelineRow({
   const showActions = Boolean(expanded && payment && canManagePayments && onEditPayment && onDeletePayment);
   const showReceiptPdf = Boolean(expanded && receiptPdf?.enabled && receiptPdf?.onDownload);
   const title = item.ledgerTitle || item.title;
+  const MainTag = onToggle ? 'button' : 'div';
 
   return (
     <div className={`student-pay-ledger-row${expanded ? ' is-expanded' : ''}`}>
-      <button
-        type="button"
+      <MainTag
+        type={onToggle ? 'button' : undefined}
         className="student-pay-ledger-row__main"
-        onClick={onToggle}
-        disabled={!onToggle}
+        onClick={onToggle || undefined}
         aria-expanded={onToggle ? Boolean(expanded) : undefined}
       >
         {React.createElement(icon, {
@@ -144,7 +141,7 @@ function TimelineRow({
         ) : (
           <span className="student-pay-ledger-row__chevron" aria-hidden />
         )}
-      </button>
+      </MainTag>
       {expanded ? (
         <div className="student-pay-ledger-row__detail">
           <div className="student-pay-ledger-row__meta">
@@ -602,36 +599,15 @@ export default function StudentFinancialTimeline({
   };
 
   return (
-    <div>
-      {extratoUnificado?.totals ? (
-        <>
-          <ExtratoTotalsCard totals={extratoUnificado.totals} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button
-              type="button"
-              className="btn-outline btn-sm"
-              onClick={exportExtratoCsv}
-              disabled={!extratoUnificado.timeline?.length}
-            >
-              <Download size={14} aria-hidden style={{ marginRight: 6, verticalAlign: 'middle' }} />
-              Exportar extrato CSV
-            </button>
-          </div>
-          {extratoUnificado.timeline?.length ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              {extratoUnificado.timeline.slice(0, 30).map((row) => (
-                <UnifiedExtratoRow key={`${row.type}-${row.reference_id}-${row.date}`} row={row} />
-              ))}
-            </div>
-          ) : null}
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '16px 0' }} />
-          <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
-            Detalhamento por tipo (mensalidades, planos e produtos)
-          </p>
-        </>
-      ) : null}
-
-      <FinancialSummaryCard summary={summary} />
+    <div className="student-pay-panel">
+      <SituationHero
+        summary={summary}
+        freezeActive={freezeActive}
+        onRegisterPayment={onRegisterPayment}
+        showFreezeBtn={showFreezeBtn}
+        onOpenFreeze={onOpenFreeze}
+        freezeBusy={freezeBusy}
+      />
 
       {freezeActive ? (
         <PlanFreezePanel
@@ -643,30 +619,27 @@ export default function StudentFinancialTimeline({
         />
       ) : null}
 
-      {!freezeActive && showFreezeBtn ? (
-        <button
-          type="button"
-          className="btn-outline"
-          style={{ width: '100%', marginBottom: 12 }}
-          onClick={onOpenFreeze}
-          disabled={freezeBusy}
-        >
-          Trancar matrícula
-        </button>
+      {extratoUnificado?.totals ? (
+        <div className="student-pay-extrato-block">
+          <ExtratoTotalsCard totals={extratoUnificado.totals} />
+          <button
+            type="button"
+            className="btn-outline btn-sm student-pay-extrato-export"
+            onClick={exportExtratoCsv}
+            disabled={!extratoUnificado.timeline?.length}
+          >
+            <Download size={14} aria-hidden style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Exportar CSV
+          </button>
+        </div>
       ) : null}
 
-      {!freezeActive && !showFreezeBtn && String(student?.plan || '').trim() ? (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
-          Trancamento: {effectiveFreezeDaysUsed(student)} de {FREEZE_MAX_DAYS_PER_YEAR} dias utilizados no ano do plano.
-        </p>
-      ) : null}
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+      <div className="student-pay-filters">
         <CompactStatusFilter
           value={typeFilter}
           onChange={setTypeFilter}
           options={typeOptions}
-          placeholder="Tudo"
+          placeholder="Mensalidades"
           allLabel="Tudo"
           showCounts
         />
@@ -675,7 +648,7 @@ export default function StudentFinancialTimeline({
           onChange={setPeriodFilter}
           options={PERIOD_OPTIONS}
           placeholder="Período"
-          allLabel="Últimos 12 meses"
+          allLabel="Últimos 3 meses"
           showCounts={false}
         />
       </div>
@@ -683,7 +656,7 @@ export default function StudentFinancialTimeline({
       {showEmpty ? (
         <EmptyState variant="compact" tone="dashed" title="Nenhum lançamento neste filtro" role="status" />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="student-pay-ledger" role="list">
           {filteredItems.map((item) => {
             if (item.kind === 'bundle') {
               return (
@@ -706,74 +679,28 @@ export default function StudentFinancialTimeline({
             if (item.kind === 'freeze') {
               return <TimelineRow key={item.id} icon={Lock} iconColor="#64748b" item={item} />;
             }
-            const Icon = item.kind === 'fee' ? Receipt : Calendar;
-            const iconColor = item.kind === 'fee' ? '#B45309' : 'var(--petroleo)';
-            const payment = item.payment;
-            const receiptPdf =
-              payment && canDownloadPaymentReceipt(payment)
-                ? {
-                    enabled: true,
-                    onDownload: () => downloadPaymentReceiptPdf(payment.$id),
-                  }
-                : null;
             return (
-              <TimelineRow
+              <PaymentTimelineRow
                 key={item.id}
-                icon={Icon}
-                iconColor={iconColor}
                 item={item}
-                payment={payment}
                 canManagePayments={canManagePayments}
                 onEditPayment={onEditPayment}
                 onDeletePayment={onDeletePayment}
-                receiptPdf={receiptPdf}
-                caixaMeta={payment ? paymentCaixaMeta(payment) : null}
               />
             );
           })}
         </div>
       )}
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          marginTop: 16,
-          paddingTop: 14,
-          borderTop: '1px solid var(--border-light)',
-        }}
-      >
-        {!freezeActive ? (
-          <button
-            type="button"
-            onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: 'none',
-              background: 'var(--petroleo)',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            + Registrar pagamento
+      <div className="student-pay-footer">
+        <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoMensalidades}>
+          Ver na Mensalidades
+        </button>
+        {hasSales ? (
+          <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoSales}>
+            Ver venda em Vendas
           </button>
         ) : null}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoMensalidades}>
-            Ver na Mensalidades
-          </button>
-          {hasSales ? (
-            <button type="button" className="btn-outline btn-sm" style={{ flex: 1 }} onClick={onGoSales}>
-              Ver venda em Vendas
-            </button>
-          ) : null}
-        </div>
       </div>
 
       <SaleDetailModal

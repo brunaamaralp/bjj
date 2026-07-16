@@ -54,8 +54,8 @@ Reutilizar `buildFinancialSummary`, `paymentStatus`, `buildFinancialTimelineItem
 
 ## Aceite
 
-- [ ] Topo mostra situação sem scroll
-- [ ] Registrar pagamento visível sem rolar a lista
-- [ ] Sem segunda lista de extrato unificado
-- [ ] Default 3 meses + mensalidades
-- [ ] Ações Editar/Excluir não aparecem com linha colapsada
+- [x] Topo mostra situação sem scroll
+- [x] Registrar pagamento visível sem rolar a lista
+- [x] Sem segunda lista de extrato unificado
+- [x] Default 3 meses + mensalidades
+- [x] Ações Editar/Excluir não aparecem com linha colapsada
