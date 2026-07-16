@@ -177,9 +177,9 @@ Criar `docs/flows/vendas/aluguel-catalogo.md` (copiar `_template.md`):
 | `src/pages/Loja.jsx` | tab + render |
 | `src/pages/Products.jsx` | `catalogScope`, UI |
 | `src/components/products/ProductFormModal.jsx` | `defaultProductType` |
-| `src/lib/naviMenu.js` | nav child |
+| `src/lib/naviMenu.js` | sem child Aluguel (só hub) |
 | `src/test/lojaProductScope.test.js` | **novo** |
-| `src/test/naviMenu.test.js` | assert aluguel |
+| `src/test/naviMenu.test.js` | assert sem aluguel na sidebar |
 | `docs/flows/vendas/produtos-catalogo.md` | rotas |
 
 ### Fase 2 (planejada)
