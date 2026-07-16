@@ -344,6 +344,23 @@ Harness: `productCatalog`, `productCatalogDb`.
 
 ---
 
+## aluguel-catalogo (2026-07-16)
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | `?tab=aluguel` no hub Loja | ✅ Código | `Loja.jsx`, `lojaProductScope.js` |
+| 2 | Escopo rental/both vs produtos | ✅ Código | `filterParentsByLojaCatalogScope` |
+| 3 | Modal tipos restritos por aba | ✅ Código | `allowedProductTypesForLojaScope` |
+| 4 | Deep link escopo errado | ✅ Código | `otherLojaCatalogTab` + toast |
+| 5 | Import default rental | ✅ Código | `ProductImportModal`, `applyLojaImportRowDefaults` |
+| 6 | KimonoLoanPanel CTA vazio | ✅ Código | link `/loja?tab=aluguel` |
+| 7 | Sidebar nav Aluguel | ✅ Código | `naviMenu.js` |
+| 8–8 | Testes | ✅ Código | `lojaProductScope`, `productsCatalogScope` |
+
+Harness: `npm test -- lojaProductScope productsCatalogScope productImport`.
+
+---
+
 ## estoque-movimentacoes
 
 | # | Item | Resultado | Evidência |

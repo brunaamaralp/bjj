@@ -9,8 +9,11 @@ import { useUiStore } from '../store/useUiStore';
 import { filterParentCatalog, findParentByProductOrVariantId } from '../lib/productCatalog';
 import {
   defaultProductTypeForLojaScope,
+  allowedProductTypesForLojaScope,
+  filterParentsByLojaCatalogScope,
   isRentalLojaCatalogScope,
   LOJA_PRODUCT_SCOPES,
+  otherLojaCatalogTab,
   parentMatchesLojaCatalogScope,
 } from '../lib/lojaProductScope';
 import { formatStockPoolsSummary } from '../lib/dualStockPools';
@@ -149,6 +152,7 @@ function ProductActionsMenu({
 export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }) {
   const isRentalScope = isRentalLojaCatalogScope(catalogScope);
   const defaultCreateType = defaultProductTypeForLojaScope(catalogScope);
+  const allowedProductTypes = allowedProductTypesForLojaScope(catalogScope);
   const modules = useLeadStore((s) => s.modules);
   const academyId = useLeadStore((s) => s.academyId);
   const products = useProductsStore((s) => s.products);
@@ -216,7 +220,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
   }, [canAccess, searchParams, setSearchParams]);
 
   const scopedProducts = useMemo(
-    () => products.filter((p) => parentMatchesLojaCatalogScope(p, catalogScope)),
+    () => filterParentsByLojaCatalogScope(products, catalogScope),
     [products, catalogScope]
   );
 
@@ -438,6 +442,27 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
     if (!id) return;
     const parent = findParentByProductOrVariantId(products, id);
     if (!parent) return;
+    if (!parentMatchesLojaCatalogScope(parent, catalogScope)) {
+      const otherTab = otherLojaCatalogTab(catalogScope);
+      addToast({
+        type: 'info',
+        message:
+          otherTab === LOJA_PRODUCT_SCOPES.RENTAL
+            ? 'Este item está na aba Aluguel.'
+            : 'Este item está na aba Produtos.',
+      });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', otherTab);
+          if (editId) next.set('edit', parent.id);
+          if (dupId) next.set('duplicate', parent.id);
+          return next;
+        },
+        { replace: true }
+      );
+      return;
+    }
     if (dupId) {
       if (modalOpen && modalMode === 'duplicate' && activeProduct?.id === parent.id) return;
       openDuplicate(parent);
@@ -447,7 +472,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
       openEdit(parent, { step: isVariantId ? 2 : 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, searchParams]);
+  }, [products, searchParams, catalogScope]);
 
   const handleSave = async (payload, { isEdit: editFlag, isParent, phase } = {}) => {
     const isEdit = editFlag ?? modalMode === 'edit';
@@ -1011,6 +1036,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
         mode={modalMode}
         catalogMode={catalogMode}
         defaultProductType={defaultCreateType}
+        allowedProductTypes={allowedProductTypes}
         loading={loading || deleteBusy}
         onSave={handleSave}
         onDeactivate={handleDeactivate}
@@ -1048,6 +1074,7 @@ export default function Products({ catalogScope = LOJA_PRODUCT_SCOPES.PRODUCTS }
       <ProductImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        defaultProductType={isRentalScope ? defaultCreateType : null}
         onImported={async ({ ids, reload, viewFilter }) => {
           if (reload) await loadProducts();
           if (viewFilter && ids?.length) {

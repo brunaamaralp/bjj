@@ -24,3 +24,46 @@ export function defaultProductTypeForLojaScope(scope = LOJA_PRODUCT_SCOPES.PRODU
 export function isRentalLojaCatalogScope(scope) {
   return scope === LOJA_PRODUCT_SCOPES.RENTAL;
 }
+
+const PRODUCT_TYPE_OPTIONS = [
+  { value: 'sale', label: 'Venda' },
+  { value: 'both', label: 'Venda e aluguel' },
+  { value: 'supply', label: 'Insumo' },
+  { value: 'rental', label: 'Aluguel' },
+];
+
+/** Tipos exibidos no select do modal por aba. */
+export function allowedProductTypesForLojaScope(scope = LOJA_PRODUCT_SCOPES.PRODUCTS) {
+  if (scope === LOJA_PRODUCT_SCOPES.RENTAL) {
+    return PRODUCT_TYPE_OPTIONS.filter((o) => o.value === 'rental' || o.value === 'both');
+  }
+  return PRODUCT_TYPE_OPTIONS.filter((o) => o.value !== 'rental');
+}
+
+export function otherLojaCatalogTab(scope = LOJA_PRODUCT_SCOPES.PRODUCTS) {
+  return scope === LOJA_PRODUCT_SCOPES.RENTAL
+    ? LOJA_PRODUCT_SCOPES.PRODUCTS
+    : LOJA_PRODUCT_SCOPES.RENTAL;
+}
+
+export function filterParentsByLojaCatalogScope(parents, scope = LOJA_PRODUCT_SCOPES.PRODUCTS) {
+  return (parents || []).filter((p) => parentMatchesLojaCatalogScope(p, scope));
+}
+
+/** Defaults de importação conforme aba (tipo + preço de aluguel). */
+export function applyLojaImportRowDefaults(row, defaultProductType) {
+  const type = String(defaultProductType || '').trim().toLowerCase();
+  if (!type || type === 'sale') return row;
+
+  const out = { ...row, type };
+  const price = out.rental_price ?? out.sale_price;
+  if (type === 'rental' || type === 'both') {
+    if (price != null && Number.isFinite(Number(price))) {
+      out.rental_price = Number(price);
+    }
+  }
+  if (type === 'rental') {
+    out.is_for_sale = true;
+  }
+  return out;
+}

@@ -122,6 +122,21 @@
   margin: 0;
 }
 
+.kimono-loan-panel__empty-catalog {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border, #d0d5dd);
+  border-radius: 8px;
+}
+
+.kimono-loan-panel__setup-link {
+  text-decoration: none;
+}
+
 .kimono-loan-inventory {
   list-style: none;
   margin: 0;

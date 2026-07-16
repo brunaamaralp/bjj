@@ -27,6 +27,7 @@ import {
   classifyImportRow,
   importProductDedupKey,
 } from '../../lib/productImport';
+import { applyLojaImportRowDefaults } from '../../lib/lojaProductScope.js';
 import { downloadCsvTemplate } from '../../lib/reportsExport.js';
 
 // Internamente ainda temos 4 estados, mas a UI agrupa em 3 etapas:
@@ -85,9 +86,16 @@ async function fetchAiMapping(headers, sampleRows, academyId) {
   return data;
 }
 
-async function createProductApi(payload, academyId) {
+async function createProductApi(payload, academyId, defaultProductType) {
   const jwt = await createSessionJwt();
   if (!jwt) throw new Error('Sessão inválida');
+
+  const enriched = defaultProductType ? applyLojaImportRowDefaults(payload, defaultProductType) : payload;
+  const body = { action: 'create', ...pickProductApiBody(enriched) };
+  if (defaultProductType) {
+    body.type = enriched.type || defaultProductType;
+    if (enriched.rental_price != null) body.rental_price = enriched.rental_price;
+  }
 
   const res = await fetch('/api/products', {
     method: 'POST',
@@ -96,7 +104,7 @@ async function createProductApi(payload, academyId) {
       'Content-Type': 'application/json',
       'x-academy-id': String(academyId || '').trim(),
     },
-    body: JSON.stringify({ action: 'create', ...pickProductApiBody(payload) }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -278,7 +286,7 @@ function EditRowPanel({ data, onChange, onClose, highlightMissing }) {
   );
 }
 
-export default function ProductImportModal({ open, onClose, onImported }) {
+export default function ProductImportModal({ open, onClose, onImported, defaultProductType = null }) {
   const academyId = useLeadStore((s) => s.academyId);
   const fileRef = useRef(null);
   const [step, setStep] = useState(0);
@@ -367,12 +375,22 @@ export default function ProductImportModal({ open, onClose, onImported }) {
     setColumnConfidence((prev) => ({ ...prev, [col]: field ? 'high' : 'unmapped' }));
   };
 
-  const goToReview = () => { setPreviewRows(buildImportPreviewRows(dataRows, columnToFieldMap)); setStep(2); };
+  const goToReview = () => {
+    setPreviewRows(buildImportPreviewRows(dataRows, columnToFieldMap, { defaultProductType }));
+    setStep(2);
+  };
   const updatePreviewRow = (id, patch) => {
     setPreviewRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
-      const data = patch.data ?? r.data;
-      return { ...r, ...patch, data, status: classifyImportRow(data), selected: patch.selected !== undefined ? patch.selected : r.selected };
+      let data = patch.data ?? r.data;
+      if (defaultProductType) data = applyLojaImportRowDefaults(data, defaultProductType);
+      return {
+        ...r,
+        ...patch,
+        data,
+        status: classifyImportRow(data, { defaultProductType }),
+        selected: patch.selected !== undefined ? patch.selected : r.selected,
+      };
     }));
   };
   const selectAllReady = () => setPreviewRows((prev) => prev.map((r) => ({ ...r, selected: r.status === 'ready' })));
@@ -437,7 +455,7 @@ export default function ProductImportModal({ open, onClose, onImported }) {
       }
 
       try {
-        const product = await createProductApi(row.data, academyId);
+        const product = await createProductApi(row.data, academyId, defaultProductType);
         sessionKeys.add(key);
         existingKeys.add(key);
         if (product?.id) ids.push(product.id);

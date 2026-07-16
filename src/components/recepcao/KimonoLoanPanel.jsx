@@ -394,6 +394,17 @@ export default function KimonoLoanPanel({ academyId, modules }) {
 
       {error ? <StatusBanner variant="error" title={error} className="kimono-loan-panel__error" /> : null}
 
+      {!loading && variants.length === 0 && enabled ? (
+        <div className="kimono-loan-panel__empty-catalog">
+          <p className="text-small text-muted">
+            Nenhum item de aluguel cadastrado. Cadastre kimonos na Loja para emprestar pela recepção.
+          </p>
+          <Link to="/loja?tab=aluguel" className="btn-secondary btn-sm kimono-loan-panel__setup-link">
+            Cadastrar em Loja → Aluguel
+          </Link>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-muted text-small kimono-loan-panel__loading">Carregando kimonos…</p>
       ) : (

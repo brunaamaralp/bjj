@@ -168,7 +168,15 @@ function ToggleRow({ label, checked, onChange }) {
   );
 }
 
-function ProductBaseFields({ form, setForm, categoryOptions }) {
+function ProductBaseFields({ form, setForm, categoryOptions, allowedProductTypes = null }) {
+  const typeOptions = allowedProductTypes?.length
+    ? allowedProductTypes
+    : [
+        { value: 'sale', label: 'Venda' },
+        { value: 'both', label: 'Venda e aluguel' },
+        { value: 'supply', label: 'Insumo' },
+        { value: 'rental', label: 'Aluguel' },
+      ];
   const categorySelectOptions = useMemo(
     () => [
       ...categoryOptions.map((c) => ({ value: c, label: c })),
@@ -272,10 +280,11 @@ function ProductBaseFields({ form, setForm, categoryOptions }) {
             }));
           }}
         >
-          <option value="sale">Venda</option>
-          <option value="both">Venda e aluguel</option>
-          <option value="supply">Insumo</option>
-          <option value="rental">Aluguel</option>
+          {typeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </select>
       </Field>
       {productTypeShowsRentalPools(form.type) ? (
@@ -330,6 +339,7 @@ export default function ProductFormModal({
   loading,
   catalogMode = 'legacy',
   defaultProductType = 'sale',
+  allowedProductTypes = null,
   onSave,
   // Props are accepted for API parity (used in other UIs).
   // eslint-disable-next-line no-unused-vars
@@ -1195,7 +1205,12 @@ export default function ProductFormModal({
             {((useVariantWizard || useEditWizard) && step === 1) ? (
               <>
                 <div className="product-form-modal__body">
-                <ProductBaseFields form={parentForm} setForm={setParentForm} categoryOptions={categoryOptions} />
+                <ProductBaseFields
+                  form={parentForm}
+                  setForm={setParentForm}
+                  categoryOptions={categoryOptions}
+                  allowedProductTypes={allowedProductTypes}
+                />
                 {useEditWizard ? (
                   <p className="text-small text-muted mt-2" style={{ marginBottom: 0 }}>
                     <button
@@ -1329,7 +1344,12 @@ export default function ProductFormModal({
             {!useVariantWizard && !useEditWizard ? (
               <>
                 <div className="product-form-modal__body">
-                <ProductBaseFields form={legacyForm} setForm={setLegacyForm} categoryOptions={categoryOptions} />
+                <ProductBaseFields
+                  form={legacyForm}
+                  setForm={setLegacyForm}
+                  categoryOptions={categoryOptions}
+                  allowedProductTypes={allowedProductTypes}
+                />
                 <Field label="Variação / Tamanho">
                   <input className="form-input" maxLength={16} value={legacyForm.Tamanho} onChange={(e) => setLegacyForm((f) => ({ ...f, Tamanho: e.target.value }))} />
                 </Field>

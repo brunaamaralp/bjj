@@ -11,7 +11,7 @@
 | **última revisão** | 2026-06-15 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** — (catálogo pai/variante em `productCatalog.js`)
+**Specs relacionadas:** [2026-07-16-loja-aba-aluguel-PRODUCT.md](../../superpowers/specs/2026-07-16-loja-aba-aluguel-PRODUCT.md) · catálogo pai/variante em `productCatalog.js`
 
 **Harness relacionado:** `npm test -- productCatalog productCatalogDb`
 

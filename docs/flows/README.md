@@ -79,6 +79,7 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 |---|---|---|
 | PDV e nova venda | [vendas/pdv-nova-venda.md](vendas/pdv-nova-venda.md) | revisado (código) |
 | Produtos e catálogo | [vendas/produtos-catalogo.md](vendas/produtos-catalogo.md) | revisado (código) |
+| Aluguel — catálogo | [vendas/aluguel-catalogo.md](vendas/aluguel-catalogo.md) | revisado (código) |
 | Estoque e movimentações | [vendas/estoque-movimentacoes.md](vendas/estoque-movimentacoes.md) | revisado (código) |
 
 ### Atendimento

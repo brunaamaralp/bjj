@@ -37,7 +37,7 @@ Hoje o Nave só suporta **venda definitiva** com um saldo único (`current_quant
 
 | Item | Motivo |
 |------|--------|
-| Módulo / menu “Aluguel” separado | Escopo acordado: extensão de Vendas |
+| Módulo / menu “Aluguel” separado | **Supersedido** por [2026-07-16-loja-aba-aluguel-PRODUCT.md](./2026-07-16-loja-aba-aluguel-PRODUCT.md) — aba no hub Loja, não módulo novo |
 | Caução, multa por atraso, contrato de locação | Complexidade; fase futura |
 | Aluguel recorrente (mensalidade de equipamento) | Diferente de taxa única na locação |
 | Devolução guiada com 1 clique | **P1** desta iniciativa; v1 pode usar movimento manual de estoque |

@@ -1,5 +1,7 @@
 /** Utilitários para importação em lote de produtos via CSV. */
 
+import { applyLojaImportRowDefaults } from './lojaProductScope.js';
+
 export const MAX_IMPORT_ROWS = 500;
 
 export const IMPORT_FIELD_OPTIONS = [
@@ -146,11 +148,14 @@ export function rowToProduct(rawRow, columnToField) {
 }
 
 /** @returns {'ready'|'incomplete'|'invalid'} */
-export function classifyImportRow(product) {
+export function classifyImportRow(product, { defaultProductType } = {}) {
   const nome = String(product.nome || '').trim();
   if (!nome) return 'invalid';
 
-  const price = product.sale_price;
+  const price =
+    defaultProductType === 'rental'
+      ? product.rental_price ?? product.sale_price
+      : product.sale_price;
   const hasPrice = price != null && Number.isFinite(Number(price)) && Number(price) > 0;
 
   if (!hasPrice) return 'incomplete';
@@ -187,10 +192,13 @@ export function dedupeImportPreviewRows(rows) {
   });
 }
 
-export function buildImportPreviewRows(dataRows, columnToField) {
+export function buildImportPreviewRows(dataRows, columnToField, { defaultProductType } = {}) {
   const rows = dataRows.map((raw, index) => {
-    const data = rowToProduct(raw, columnToField);
-    const status = classifyImportRow(data);
+    let data = rowToProduct(raw, columnToField);
+    if (defaultProductType) {
+      data = applyLojaImportRowDefaults(data, defaultProductType);
+    }
+    const status = classifyImportRow(data, { defaultProductType });
     return {
       id: `row-${index}`,
       raw,
@@ -227,25 +235,39 @@ export function groupImportRowsByProductName(rows) {
 }
 
 /** Converte linhas agrupadas (mesmo nome) em body para createProductWithVariants. */
-export function buildParentCreateBodyFromImportRows(rows) {
+export function buildParentCreateBodyFromImportRows(rows, { defaultProductType } = {}) {
   const first = rows[0] || {};
   const nome = String(first.nome || first.name || '').trim();
+
+  let type = defaultProductType || (first.is_for_sale === false ? 'supply' : 'sale');
+  if (first.type) type = first.type;
+
   const variants = [];
   const seen = new Set();
   for (const r of rows || []) {
     const size = String(r.Tamanho ?? r.tamanho ?? '').trim() || 'Único';
-    const color = String(r.color ?? r.cor ?? '').trim(); // vazio = comportamento atual
+    const color = String(r.color ?? r.cor ?? '').trim();
     const key = `${size.toLowerCase()}\0${color.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    variants.push({
+    const initQty = Math.max(0, Math.trunc(Number(r.initial_quantity) || 0));
+    const variant = {
       size,
       color,
       sku: String(r.sku ?? '').trim(),
-      initial_quantity: Math.max(0, Math.trunc(Number(r.initial_quantity) || 0)),
+      initial_quantity: initQty,
       minimum_level: Math.max(0, Math.trunc(Number(r.minimum_level) || 0)),
-    });
+    };
+    if (type === 'rental') {
+      variant.initial_rental_quantity = initQty;
+      variant.initial_sale_quantity = 0;
+      variant.initial_quantity = 0;
+    }
+    variants.push(variant);
   }
+
+  const salePrice = first.sale_price;
+  const rentalPrice = first.rental_price ?? (type === 'rental' ? salePrice : null);
 
   return {
     name: nome,
@@ -254,10 +276,11 @@ export function buildParentCreateBodyFromImportRows(rows) {
     descricao: String(first.descricao || '').trim(),
     category: String(first.categoria || 'Sem categoria').trim() || 'Sem categoria',
     categoria: String(first.categoria || 'Sem categoria').trim() || 'Sem categoria',
-    sale_price: first.sale_price,
+    sale_price: type === 'rental' ? null : salePrice,
     cost_price: first.cost_price,
-    type: first.is_for_sale === false ? 'supply' : 'sale',
-    is_for_sale: first.is_for_sale !== false,
+    rental_price: rentalPrice,
+    type,
+    is_for_sale: type !== 'supply',
     is_active: first.is_active !== false,
     image_url: String(first.image_url || '').trim(),
     unit: String(first.unit || 'unidade').trim() || 'unidade',
