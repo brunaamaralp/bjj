@@ -27,7 +27,7 @@ src/lib/lojaProductScope.js          ← NOVO: escopo produtos vs aluguel
 src/pages/Loja.jsx                   ← tab aluguel + Products catalogScope
 src/pages/Products.jsx               ← prop catalogScope, UI condicional
 src/components/products/ProductFormModal.jsx  ← defaultProductType
-src/lib/naviMenu.js                  ← child Aluguel
+src/lib/naviMenu.js                  ← sem child Aluguel (só hub tabs)
 src/test/lojaProductScope.test.js    ← NOVO
 docs/flows/vendas/produtos-catalogo.md      ← rotas aba Aluguel
 ```

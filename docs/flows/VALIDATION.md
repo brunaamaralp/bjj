@@ -354,7 +354,7 @@ Harness: `productCatalog`, `productCatalogDb`.
 | 4 | Deep link escopo errado | ✅ Código | `otherLojaCatalogTab` + toast |
 | 5 | Import default rental | ✅ Código | `ProductImportModal`, `applyLojaImportRowDefaults` |
 | 6 | KimonoLoanPanel CTA vazio | ✅ Código | link `/loja?tab=aluguel` |
-| 7 | Sidebar nav Aluguel | ✅ Código | `naviMenu.js` |
+| 7 | Sem item Aluguel na sidebar | ✅ Código | `naviMenu.js` — só hub tabs |
 | 8–8 | Testes | ✅ Código | `lojaProductScope`, `productsCatalogScope` |
 
 Harness: `npm test -- lojaProductScope productsCatalogScope productImport`.

@@ -27,7 +27,7 @@ Academias de Jiu-Jitsu operam **dois catálogos mentais distintos**: produtos pa
 
 | # | Objetivo | Como medir |
 |---|----------|------------|
-| G1 | Aba **Aluguel** dedicada no hub Loja | `/loja?tab=aluguel` no `HubTabBar` e sidebar |
+| G1 | Aba **Aluguel** dedicada no hub Loja | `/loja?tab=aluguel` no `HubTabBar` (sem item na sidebar) |
 | G2 | Separação visual do catálogo | `type=rental` só na aba Aluguel; `sale`/`supply` só em Produtos |
 | G3 | `both` visível nas duas abas | Mesmo produto editável em qualquer aba; pools corretos no modal |
 | G4 | Criação com defaults corretos | Novo item na aba Aluguel nasce `type=rental` com foco em `rental_price` |
@@ -68,7 +68,7 @@ Academias de Jiu-Jitsu operam **dois catálogos mentais distintos**: produtos pa
 
 - Nova aba **Aluguel** entre **Produtos** e **Estoque** (quando `modules.sales` ou `modules.inventory`).
 - Subtítulo do hub: *“Cadastre itens de aluguel, preços e saldo do armário.”*
-- Sidebar (`naviMenu`): entrada **Aluguel** → `/loja?tab=aluguel`.
+- Acesso: hub Loja (`HubTabBar`); **não** entra como item na sidebar (`naviMenu`).
 
 ### 5.2 Listagem (aba Aluguel)
 
@@ -134,7 +134,7 @@ Academias de Jiu-Jitsu operam **dois catálogos mentais distintos**: produtos pa
 | R2 | Filtro de escopo | `parentMatchesLojaCatalogScope` em `lojaProductScope.js` | Feito |
 | R3 | UI dedicada | Preço aluguel, CTAs, empty state, colunas estoque | Feito |
 | R4 | Default tipo rental | `ProductFormModal` `defaultProductType` na criação | Feito |
-| R5 | Navegação | `naviMenu` child Aluguel | Feito |
+| R5 | Navegação | Aba no hub Loja; sem child na sidebar | Feito |
 | R6 | Testes escopo | `lojaProductScope.test.js` | Feito |
 | R7 | Fluxo documentado | `produtos-catalogo.md` + esta spec | Feito |
 
@@ -190,7 +190,7 @@ Academias de Jiu-Jitsu operam **dois catálogos mentais distintos**: produtos pa
 - [x] Criar `rental` em Aluguel → não aparece em Produtos
 - [x] `both` aparece nas duas abas
 - [x] Preço exibido é `rental_price` na aba Aluguel
-- [x] Sidebar link Aluguel ativo na rota correta
+- [x] Aba Aluguel no hub Loja (`HubTabBar`); sem item na sidebar
 - [x] `npm test -- lojaProductScope naviMenu` verde
 
 **Fase 2 (P1 — entregue)**
