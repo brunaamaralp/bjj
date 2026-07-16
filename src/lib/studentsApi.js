@@ -89,6 +89,9 @@ export async function fetchStudentsList(opts = {}) {
   if (opts.origin) params.set('origin', String(opts.origin).trim());
   if (opts.studentStatus) params.set('student_status', String(opts.studentStatus).trim());
   if (opts.cursor) params.set('cursor', String(opts.cursor).trim());
+  if (opts.offset != null && Number(opts.offset) > 0) {
+    params.set('offset', String(Math.trunc(Number(opts.offset))));
+  }
   if (opts.limit) params.set('limit', String(opts.limit));
 
   const qs = params.toString();

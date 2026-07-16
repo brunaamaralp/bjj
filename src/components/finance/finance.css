@@ -4813,6 +4813,36 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   background: var(--surface-hover, var(--azul-gelo));
 }
 
+.mensalidades-page .mensal-table-wrap--desktop-virtual .mensal-table--virt-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.mensalidades-page .mensal-desktop-virtual-body {
+  position: relative;
+  width: 100%;
+}
+
+.mensalidades-page .mensal-desktop-virtual-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.mensalidades-page .mensal-table--virt-slice {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.mensalidades-page .mensal-table--virt-slice colgroup,
+.mensalidades-page .mensal-table--virt-head colgroup {
+  display: table-column-group;
+}
+
 .mensal-row--zebra td {
   background: rgba(0, 0, 0, 0.018);
 }

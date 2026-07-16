@@ -77,4 +77,11 @@ describe('buildStudentsListDocumentQueries', () => {
     const withoutStatus = buildStudentsListDocumentQueries('acad1', opts, 'turma', { withStatusFilter: false });
     expect(withStatus.length).toBeGreaterThan(withoutStatus.length);
   });
+
+  it('usa offset quando nao ha cursor', () => {
+    const opts = parseStudentsListQueryParams({ offset: '200', limit: '100' });
+    expect(opts.offset).toBe(200);
+    const queries = buildStudentsListDocumentQueries('acad1', opts, 'turma');
+    expect(queries.some((q) => String(q).includes('offset'))).toBe(true);
+  });
 });

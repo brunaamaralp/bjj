@@ -1,9 +1,12 @@
-import { useStudentStore } from '../store/useStudentStore.js';
+import { useStudentStore, STUDENTS_PAGE_SIZE } from '../store/useStudentStore.js';
+import { fetchStudentsList } from './studentsApi.js';
 import { STUDENT_STATUS } from './studentStatus.js';
 
 const DEFAULT_MAX_PAGES = 40;
 const FETCH_IDLE_POLL_MS = 50;
 const FETCH_IDLE_TIMEOUT_MS = 20000;
+/** Quantas páginas de offset buscar em paralelo após a 1ª. */
+const PARALLEL_PAGE_CONCURRENCY = 4;
 
 /** Cache veio de busca/filtro na listagem de alunos — não representa a academia inteira. */
 export function didLastFetchUseSubsetFilters(fetchOpts = {}) {
@@ -31,12 +34,53 @@ async function waitForStudentFetchIdle(signal) {
   }
 }
 
+async function loadRemainingPagesInParallel({ signal, onProgress }) {
+  const state = useStudentStore.getState();
+  const total = state.studentsTotal;
+  const loaded = state.students.length;
+  if (!state.studentsHasMore) return true;
+  if (typeof total !== 'number' || total <= loaded) return false;
+
+  const pageSize = STUDENTS_PAGE_SIZE;
+  const offsets = [];
+  for (let offset = loaded; offset < total; offset += pageSize) {
+    offsets.push(offset);
+  }
+  if (!offsets.length) return false;
+
+  const baseOpts = {
+    search: state.lastFetchOpts?.search,
+    plan: state.lastFetchOpts?.plan,
+    turma: state.lastFetchOpts?.turma,
+    turmaEmpty: state.lastFetchOpts?.turmaEmpty,
+    origin: state.lastFetchOpts?.origin,
+    studentStatus: state.lastFetchOpts?.studentStatus || STUDENT_STATUS.ACTIVE,
+    limit: pageSize,
+    signal,
+  };
+
+  for (let i = 0; i < offsets.length; i += PARALLEL_PAGE_CONCURRENCY) {
+    if (signal?.aborted) return true;
+    const chunk = offsets.slice(i, i + PARALLEL_PAGE_CONCURRENCY);
+    const pages = await Promise.all(chunk.map((offset) => fetchStudentsList({ ...baseOpts, offset })));
+    for (const page of pages) {
+      useStudentStore.getState().appendStudentsPage(page.items || []);
+    }
+    onProgress?.(useStudentStore.getState().students);
+  }
+
+  useStudentStore.getState().markStudentsFullyLoaded();
+  return true;
+}
+
 /**
  * Carrega todos os alunos da academia no store (paginação completa).
  * Usado em telas que precisam da base inteira (ex.: grade de Mensalidades).
  *
+ * Após a 1ª página, tenta buscar o restante em paralelo via offset (mais rápido).
+ * Se total for desconhecido, cai no fetchMore sequencial.
+ *
  * @param {{ signal?: AbortSignal, maxPages?: number, refresh?: boolean, onProgress?: (students: object[]) => void }} [opts]
- *   onProgress — chamado após a 1ª página e a cada página extra (permite pintar a UI cedo).
  */
 export async function ensureAllStudentsLoaded(opts = {}) {
   const { signal, maxPages = DEFAULT_MAX_PAGES, refresh = false, onProgress } = opts;
@@ -56,13 +100,22 @@ export async function ensureAllStudentsLoaded(opts = {}) {
   const afterFirst = useStudentStore.getState().students;
   if (afterFirst.length > 0) onProgress?.(afterFirst);
 
-  let guard = 0;
-  while (useStudentStore.getState().studentsHasMore && guard < maxPages) {
-    if (signal?.aborted) break;
-    await useStudentStore.getState().fetchMoreStudents();
-    await waitForStudentFetchIdle(signal);
-    onProgress?.(useStudentStore.getState().students);
-    guard += 1;
+  let usedParallel = false;
+  try {
+    usedParallel = await loadRemainingPagesInParallel({ signal, onProgress });
+  } catch (err) {
+    console.warn('[ensureAllStudentsLoaded] parallel pages failed, sequential fallback', err?.message || err);
+    usedParallel = false;
+  }
+
+  if (!usedParallel) {
+    let guard = 0;
+    while (useStudentStore.getState().studentsHasMore && guard < maxPages) {
+      if (signal?.aborted) break;
+      await useStudentStore.getState().fetchMoreStudents();
+      onProgress?.(useStudentStore.getState().students);
+      guard += 1;
+    }
   }
 
   return useStudentStore.getState().students;

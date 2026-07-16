@@ -90,6 +90,7 @@ export default function MensalidadesListTable({
   const [confirmPayment, setConfirmPayment] = useState(null);
   const [reversingPaymentId, setReversingPaymentId] = useState(null);
   const mobileListRef = useRef(null);
+  const desktopScrollRef = useRef(null);
   const shouldVirtualizeMobile = displayedStudents.length > 50;
   const mobileVirtualizer = useVirtualizer({
     count: shouldVirtualizeMobile ? displayedStudents.length : 0,
@@ -145,6 +146,45 @@ export default function MensalidadesListTable({
       return changed ? next : prev;
     });
   }, [studentsByGroup, displayedStudents.length]);
+
+  /** Linhas planas (grupo + aluno) para virtualização desktop. */
+  const desktopFlatRows = useMemo(() => {
+    const rows = [];
+    const showGroupHeader = studentsByGroup.length > 1;
+    let studentRowIndex = 0;
+    for (const group of studentsByGroup) {
+      const expanded = expandedGroups[group.key] !== false;
+      if (showGroupHeader) {
+        rows.push({
+          type: 'group',
+          key: `g:${group.key}`,
+          groupKey: group.key,
+          count: group.students.length,
+          expanded,
+        });
+      }
+      if (expanded) {
+        for (const student of group.students) {
+          rows.push({
+            type: 'student',
+            key: student.id,
+            student,
+            rowIndex: studentRowIndex,
+          });
+          studentRowIndex += 1;
+        }
+      }
+    }
+    return rows;
+  }, [studentsByGroup, expandedGroups]);
+
+  const shouldVirtualizeDesktop = desktopFlatRows.length > 40;
+  const desktopVirtualizer = useVirtualizer({
+    count: shouldVirtualizeDesktop ? desktopFlatRows.length : 0,
+    getScrollElement: () => desktopScrollRef.current,
+    estimateSize: (index) => (desktopFlatRows[index]?.type === 'group' ? 44 : 58),
+    overscan: 8,
+  });
 
   const renderStudentName = (student, { canRegister, displayName, mobile = false }) => {
     const title = displayName !== '—' ? displayName : undefined;
@@ -510,6 +550,57 @@ export default function MensalidadesListTable({
 
   let globalRowIndex = 0;
 
+  const renderGroupHeaderRow = (groupKey, count, expanded) => (
+    <tr className="mensal-group-row">
+      <td colSpan={6}>
+        <button
+          type="button"
+          className="mensal-group-toggle"
+          onClick={() =>
+            setExpandedGroups((prev) => ({ ...prev, [groupKey]: !expanded }))
+          }
+          aria-expanded={expanded}
+        >
+          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>{groupKey}</span>
+          <span className="mensal-group-toggle__count">{count}</span>
+        </button>
+      </td>
+    </tr>
+  );
+
+  const desktopTableHead = (
+    <thead>
+      <tr>
+        <th>{terms.student}</th>
+        <th>
+          <button
+            type="button"
+            className={`mensal-th-sort${dueSortOrder != null ? ' mensal-th-sort--active' : ''}`}
+            onClick={() =>
+              setDueSortOrder((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null))
+            }
+          >
+            <span>Vencimento</span>
+            <span className="mensal-th-sort__icon" aria-hidden>
+              {dueSortOrder === 'asc' ? (
+                <ArrowUp size={14} />
+              ) : dueSortOrder === 'desc' ? (
+                <ArrowDown size={14} />
+              ) : (
+                <ArrowUpDown size={14} />
+              )}
+            </span>
+          </button>
+        </th>
+        <th className="mensal-th-num">Valor</th>
+        <th>Conta / Plataforma</th>
+        <th>Status</th>
+        <th className="mensal-th-action">Ação</th>
+      </tr>
+    </thead>
+  );
+
   return (
     <>
       <ConfirmDialog
@@ -524,73 +615,68 @@ export default function MensalidadesListTable({
         }}
         onConfirm={() => void confirmEstornar()}
       />
-      <div className="mensal-table-wrap mensal-table-wrap--desktop">
-        <table className="mensal-table">
-          <thead>
-            <tr>
-              <th>{terms.student}</th>
-              <th>
-                <button
-                  type="button"
-                  className={`mensal-th-sort${dueSortOrder != null ? ' mensal-th-sort--active' : ''}`}
-                  onClick={() =>
-                    setDueSortOrder((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null))
-                  }
-                >
-                  <span>Vencimento</span>
-                  <span className="mensal-th-sort__icon" aria-hidden>
-                    {dueSortOrder === 'asc' ? (
-                      <ArrowUp size={14} />
-                    ) : dueSortOrder === 'desc' ? (
-                      <ArrowDown size={14} />
-                    ) : (
-                      <ArrowUpDown size={14} />
-                    )}
-                  </span>
-                </button>
-              </th>
-              <th className="mensal-th-num">Valor</th>
-              <th>Conta / Plataforma</th>
-              <th>Status</th>
-              <th className="mensal-th-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody className="mensal-tbody">
-            {studentsByGroup.map((group) => {
-              const expanded = expandedGroups[group.key] !== false;
-              const showGroupHeader = studentsByGroup.length > 1;
-              return (
-                <React.Fragment key={group.key}>
-                  {showGroupHeader ? (
-                    <tr className="mensal-group-row">
-                      <td colSpan={6}>
-                        <button
-                          type="button"
-                          className="mensal-group-toggle"
-                          onClick={() =>
-                            setExpandedGroups((prev) => ({ ...prev, [group.key]: !expanded }))
-                          }
-                          aria-expanded={expanded}
-                        >
-                          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                          <span>{group.key}</span>
-                          <span className="mensal-group-toggle__count">{group.students.length}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ) : null}
-                  {expanded
-                    ? group.students.map((student) => {
-                        const el = renderStudentRow(student, globalRowIndex);
-                        globalRowIndex += 1;
-                        return el;
-                      })
-                    : null}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+      <div
+        className={`mensal-table-wrap mensal-table-wrap--desktop${
+          shouldVirtualizeDesktop ? ' mensal-table-wrap--desktop-virtual' : ''
+        }`}
+        ref={desktopScrollRef}
+      >
+        {shouldVirtualizeDesktop ? (
+          <>
+            <table className="mensal-table mensal-table--virt-head">{desktopTableHead}</table>
+            <div
+              className="mensal-desktop-virtual-body"
+              style={{ height: desktopVirtualizer.getTotalSize() }}
+            >
+              {desktopVirtualizer.getVirtualItems().map((vi) => {
+                const row = desktopFlatRows[vi.index];
+                if (!row) return null;
+                return (
+                  <div
+                    key={row.key}
+                    className="mensal-desktop-virtual-row"
+                    style={{
+                      transform: `translateY(${vi.start}px)`,
+                      height: vi.size,
+                    }}
+                  >
+                    <table className="mensal-table mensal-table--virt-slice">
+                      <tbody className="mensal-tbody">
+                        {row.type === 'group'
+                          ? renderGroupHeaderRow(row.groupKey, row.count, row.expanded)
+                          : renderStudentRow(row.student, row.rowIndex)}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <table className="mensal-table">
+            {desktopTableHead}
+            <tbody className="mensal-tbody">
+              {studentsByGroup.map((group) => {
+                const expanded = expandedGroups[group.key] !== false;
+                const showGroupHeader = studentsByGroup.length > 1;
+                return (
+                  <React.Fragment key={group.key}>
+                    {showGroupHeader
+                      ? renderGroupHeaderRow(group.key, group.students.length, expanded)
+                      : null}
+                    {expanded
+                      ? group.students.map((student) => {
+                          const el = renderStudentRow(student, globalRowIndex);
+                          globalRowIndex += 1;
+                          return el;
+                        })
+                      : null}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div

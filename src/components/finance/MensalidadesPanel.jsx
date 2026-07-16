@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
 import PaymentFormErrorBanner from '../shared/PaymentFormErrorBanner.jsx';
@@ -272,6 +272,9 @@ export default function MensalidadesPanel({
     () => allStudents.filter((l) => isActiveStudent(l)),
     [allStudents]
   );
+  /** Adia recomputes pesados enquanto o roster ainda está chegando página a página. */
+  const deferredStudents = useDeferredValue(students);
+  const heavyMetricsReady = studentsBootstrapDone && !loading;
 
   // Pinta cedo: 1ª página de alunos basta; pagamentos atualizam a grade sem skeleton full-page.
   const gridLoading = !rosterPaintReady && students.length === 0 && !studentsBootstrapDone;
@@ -466,7 +469,7 @@ export default function MensalidadesPanel({
 
   const studentOverdueMeta = useMemo(() => {
     const map = {};
-    for (const s of students) {
+    for (const s of deferredStudents) {
       const p = paymentMap[s.id];
       const row = getPaymentRowStatus(s, p, currentMonth, new Date(), financeConfig);
       if (row.status !== 'pending' || row.daysOverdue < 1) continue;
@@ -478,13 +481,14 @@ export default function MensalidadesPanel({
       };
     }
     return map;
-  }, [students, paymentMap, currentMonth, collectionRules, financeConfig]);
+  }, [deferredStudents, paymentMap, currentMonth, collectionRules, financeConfig]);
 
   const collectionDashboard = useMemo(() => {
+    if (!heavyMetricsReady) return { total: 0, totalOpen: 0, byStage: {} };
     const byStage = {};
     let total = 0;
     let totalOpen = 0;
-    for (const s of students) {
+    for (const s of deferredStudents) {
       const meta = studentOverdueMeta[s.id];
       if (!meta) continue;
       total += 1;
@@ -493,7 +497,7 @@ export default function MensalidadesPanel({
       byStage[key] = (byStage[key] || 0) + 1;
     }
     return { total, totalOpen, byStage };
-  }, [students, studentOverdueMeta]);
+  }, [heavyMetricsReady, deferredStudents, studentOverdueMeta]);
 
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
@@ -547,11 +551,14 @@ export default function MensalidadesPanel({
   }, [filteredStudents, dueSortOrder]);
 
   const receptionSummary = useMemo(() => {
+    if (!heavyMetricsReady) {
+      return { dueToday: 0, dueWeek: 0, overdue: 0, paid: 0 };
+    }
     let dueToday = 0;
     let dueWeek = 0;
     let overdue = 0;
     let paid = 0;
-    for (const s of students) {
+    for (const s of deferredStudents) {
       const st = getStatus(s);
       if (st === 'paid' || st === 'covered') {
         paid += 1;
@@ -563,7 +570,7 @@ export default function MensalidadesPanel({
       else if (bucket === 'overdue') overdue += 1;
     }
     return { dueToday, dueWeek, overdue, paid };
-  }, [students, paymentMap, currentMonth, getStatus, financeConfig]);
+  }, [heavyMetricsReady, deferredStudents, paymentMap, currentMonth, getStatus, financeConfig]);
 
   const toggleReceptionFilter = useCallback(
     (next) => {
@@ -577,30 +584,33 @@ export default function MensalidadesPanel({
   );
 
   const filterCounts = useMemo(
-    () => buildMensalidadesFilterCounts(students, getStatus),
-    [students, getStatus]
+    () =>
+      heavyMetricsReady
+        ? buildMensalidadesFilterCounts(deferredStudents, getStatus)
+        : buildMensalidadesFilterCounts(students, getStatus),
+    [heavyMetricsReady, deferredStudents, students, getStatus]
   );
 
   const reguaFilterChips = useMemo(() => {
     const rules = (collectionRules || []).filter((r) => r.day >= 1 && r.day <= 30);
     const pick = rules.length ? rules.slice(0, 3) : [{ day: 1 }, { day: 7 }, { day: 15 }];
+    const source = heavyMetricsReady ? deferredStudents : students;
     return pick.map((rule) => {
       const day = rule.day;
-      const count = students.filter((s) => {
+      const count = source.filter((s) => {
         const meta = studentOverdueMeta[s.id];
         return meta && Number(meta.stage?.day) === day;
       }).length;
       return { id: `regua_${day}`, label: `D+${day}`, count };
     });
-  }, [collectionRules, students, studentOverdueMeta]);
+  }, [collectionRules, heavyMetricsReady, deferredStudents, students, studentOverdueMeta]);
 
-  const exceptionCount = useMemo(
-    () =>
-      students.filter((s) =>
-        isRealPaymentException(s, paymentMap[s.id], currentMonth, financeConfig)
-      ).length,
-    [students, paymentMap, currentMonth, financeConfig]
-  );
+  const exceptionCount = useMemo(() => {
+    if (!heavyMetricsReady) return 0;
+    return deferredStudents.filter((s) =>
+      isRealPaymentException(s, paymentMap[s.id], currentMonth, financeConfig)
+    ).length;
+  }, [heavyMetricsReady, deferredStudents, paymentMap, currentMonth, financeConfig]);
 
   const viewTabs = useMemo(
     () => [
@@ -615,10 +625,18 @@ export default function MensalidadesPanel({
     [exceptionCount]
   );
 
-  const monthKpis = useMemo(
-    () => computeMensalidadesMonthKpis(students, payments, financeConfig, currentMonth),
-    [students, payments, financeConfig, currentMonth]
-  );
+  const monthKpis = useMemo(() => {
+    if (!heavyMetricsReady) {
+      return {
+        activeWithPlan: 0,
+        expectedTotal: 0,
+        receivedTotal: 0,
+        overdueCount: 0,
+        overdueOpen: 0,
+      };
+    }
+    return computeMensalidadesMonthKpis(deferredStudents, payments, financeConfig, currentMonth);
+  }, [heavyMetricsReady, deferredStudents, payments, financeConfig, currentMonth]);
 
   const monthOpenTotal = useMemo(
     () => Math.max(0, Math.round((monthKpis.expectedTotal - monthKpis.receivedTotal) * 100) / 100),

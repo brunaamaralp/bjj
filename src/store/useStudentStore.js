@@ -482,6 +482,17 @@ export const useStudentStore = create((set, get) => ({
     await get().fetchStudents({ ...get().lastFetchOpts, reset: false });
   },
 
+  /** Anexa uma página já buscada (ex.: prefetch paralelo por offset). */
+  appendStudentsPage: (students) => {
+    const list = Array.isArray(students) ? students : [];
+    if (!list.length) return;
+    set((state) => appendStudents(state, list));
+  },
+
+  markStudentsFullyLoaded: () => {
+    set({ studentsHasMore: false, studentsCursor: null });
+  },
+
   addStudent: async (student) => {
     const { academyId, academyList, teamId: storeTeamId, userId: storeUserId } = getAcademyContext();
     if (!academyId || !STUDENTS_COL) return;
