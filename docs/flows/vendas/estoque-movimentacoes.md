@@ -21,7 +21,7 @@
 
 ## Resumo
 
-Com o módulo **estoque** ativo, o operador consulta saldos (**Inventário**), registra entradas/saídas/ajustes/conferências e revisa o log em **Movimentações**. Entradas podem gerar despesa no caixa quando `modules.finance` está ligado.
+Com o módulo **estoque** ativo, o operador consulta saldos (**Inventário**), registra entradas/saídas/ajustes/conferências e revisa o log em **Movimentações**. Entradas podem gerar despesa no caixa quando `modules.finance` está ligado. A listagem de saldos mostra o escopo de **venda** (`sale` / `supply` / `both`); produtos só de **aluguel** (`type=rental`) ficam em [Loja → Aluguel](aluguel-catalogo.md).
 
 ---
 
@@ -48,7 +48,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/loja?tab=estoque` | `Inventory` | Abrir **Estoque** | Default `subtab=saldo` |
-| 2 | `&subtab=saldo` | `InventoryBalanceView` | Ver saldos por item | Quantidade, mínimo, status |
+| 2 | `&subtab=saldo` | `InventoryBalanceView` | Ver saldos por item | Quantidade, mínimo, status; **sem** itens `type=rental` |
 | 3 | Inventário | **Registrar entrada** | `InventoryEntryModal` | `inventoryMove` tipo entrada |
 | 4 | Entrada | Com financeiro | Custo + conta | Toast «Entrada e despesa no Caixa» |
 | 5 | Inventário | **Ajustar** | `InventoryAdjustModal` | `adjustStock` |

@@ -54,6 +54,12 @@ describe('productsCatalogScope', () => {
     expect(body.variants[0].initial_rental_quantity).toBe(3);
   });
 
+  it('estoque de venda usa escopo produtos (exclui rental puro)', () => {
+    const forSale = filterParentsByLojaCatalogScope(MIX, LOJA_PRODUCT_SCOPES.PRODUCTS);
+    expect(forSale.every((p) => p.type !== 'rental')).toBe(true);
+    expect(forSale.some((p) => p.type === 'both')).toBe(true);
+  });
+
   it('classifyImportRow accepts sale_price as rental when defaultProductType rental', () => {
     expect(
       classifyImportRow({ nome: 'K', sale_price: 10 }, { defaultProductType: 'rental' })

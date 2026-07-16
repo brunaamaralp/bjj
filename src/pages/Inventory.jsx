@@ -19,6 +19,10 @@ import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
 import { lojaEstoqueTabParams, resolveInventorySubtab } from '../lib/lojaInventoryTabs.js';
+import {
+  filterParentsByLojaCatalogScope,
+  LOJA_PRODUCT_SCOPES,
+} from '../lib/lojaProductScope.js';
 import { useUserRole } from '../lib/useUserRole.js';
 const Inventory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,9 +87,15 @@ const Inventory = () => {
     });
   }, [items, parentProducts]);
 
+  /** Estoque de venda: exclui produtos só de aluguel (`type=rental`). */
+  const saleParentProducts = useMemo(
+    () => filterParentsByLojaCatalogScope(parentProducts, LOJA_PRODUCT_SCOPES.PRODUCTS),
+    [parentProducts]
+  );
+
   const catalogParents = useMemo(
-    () => mergeCatalogWithInventoryItems(parentProducts, itemsWithImages),
-    [parentProducts, itemsWithImages]
+    () => mergeCatalogWithInventoryItems(saleParentProducts, itemsWithImages),
+    [saleParentProducts, itemsWithImages]
   );
 
   useEffect(() => {
