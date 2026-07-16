@@ -111,9 +111,14 @@ export default function ReceivablesTab({
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const isMensalidadesSection = resolvedSection === RECEIVABLES_SECTIONS.MENSALIDADES;
+  const isCobrancaSection = resolvedSection === RECEIVABLES_SECTIONS.COBRANCA;
+
   const load = useCallback(
     async (append = false) => {
       if (!academyId || !ym) return;
+      // Mensalidades e Cobrança têm painéis próprios — não bloquear / duplicar o snapshot pesado.
+      if (isMensalidadesSection || isCobrancaSection) return;
       const offset = append ? (data?.items?.length || 0) : 0;
       if (append) setLoadingMore(true);
       else {
@@ -127,7 +132,7 @@ export default function ReceivablesTab({
           section: resolvedSection,
           limit: RECEIVABLES_PAGE_SIZE,
           offset,
-          includeCobranca: true,
+          includeCobranca: false,
           force: refreshToken > 0 && !append,
         });
         setHasMore(Boolean(body?.pagination?.hasMore));
@@ -156,12 +161,28 @@ export default function ReceivablesTab({
         }
       }
     },
-    [academyId, ym, resolvedSection, refreshToken, data?.items?.length]
+    [
+      academyId,
+      ym,
+      resolvedSection,
+      refreshToken,
+      data?.items?.length,
+      isMensalidadesSection,
+      isCobrancaSection,
+    ]
   );
 
   useEffect(() => {
+    if (isMensalidadesSection || isCobrancaSection) {
+      setLoading(false);
+      setLoadedOnce(true);
+      setError('');
+      return;
+    }
     void load(false);
-  }, [academyId, ym, resolvedSection, refreshToken]);
+    // load omitido de propósito — espelha o padrão anterior (evita loop com data.items.length).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- academy/month/section/refresh
+  }, [academyId, ym, resolvedSection, refreshToken, isMensalidadesSection, isCobrancaSection]);
 
   useEffect(() => {
     const bump = () => setRefreshToken((t) => t + 1);
@@ -223,7 +244,8 @@ export default function ReceivablesTab({
     return <p className="text-small text-muted">Selecione uma academia.</p>;
   }
 
-  if (loading && !loadedOnce) {
+  // Nunca bloquear Mensalidades/Cobrança atrás do snapshot de "a receber".
+  if (loading && !loadedOnce && !isMensalidadesSection && !isCobrancaSection) {
     return (
       <div className="mt-2">
         <PageSkeleton variant="table" rows={6} />
@@ -231,7 +253,7 @@ export default function ReceivablesTab({
     );
   }
 
-  if (error) {
+  if (error && !isMensalidadesSection && !isCobrancaSection) {
     return <ErrorBanner message={error} onRetry={() => setRefreshToken((t) => t + 1)} />;
   }
 

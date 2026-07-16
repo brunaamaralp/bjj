@@ -80,4 +80,20 @@ describe('ensureAllStudentsLoaded', () => {
     await ensureAllStudentsLoaded({ refresh: true });
     expect(storeMocks.fetchStudents).toHaveBeenCalledWith({ reset: true });
   });
+
+  it('calls onProgress after first page so UI can paint early', async () => {
+    const onProgress = vi.fn();
+    storeMocks.students = [];
+    storeMocks.studentsHasMore = true;
+    storeMocks.fetchStudents.mockImplementation(async () => {
+      storeMocks.students = [{ id: 's1' }];
+    });
+    storeMocks.fetchMoreStudents.mockImplementation(async () => {
+      storeMocks.studentsHasMore = false;
+      storeMocks.students.push({ id: 's2' });
+    });
+    await ensureAllStudentsLoaded({ onProgress });
+    expect(onProgress).toHaveBeenCalled();
+    expect(onProgress.mock.calls[0][0].some((s) => s.id === 's1')).toBe(true);
+  });
 });

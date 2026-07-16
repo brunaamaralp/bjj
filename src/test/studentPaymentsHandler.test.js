@@ -89,6 +89,13 @@ vi.mock('../../lib/server/studentPaymentBundleCreate.js', () => ({
   repairBundleCoverageForMonth: vi.fn().mockResolvedValue({ repaired: [] }),
 }));
 
+vi.mock('@vercel/functions', () => ({
+  waitUntil: (task) => {
+    // Em teste, executa imediatamente para assertir o agendamento do repair.
+    void Promise.resolve(task);
+  },
+}));
+
 function mockRes() {
   return {
     statusCode: 200,

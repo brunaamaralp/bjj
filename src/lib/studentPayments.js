@@ -617,7 +617,7 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
 
   const useApi = import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false';
   if (useApi) {
-    const pageSize = 200;
+    const pageSize = 500;
     let page = 1;
     let cursor = null;
     let all = [];

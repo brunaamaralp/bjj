@@ -208,6 +208,10 @@ export default function MensalidadesPanel({
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(false);
   const [studentsBootstrapDone, setStudentsBootstrapDone] = useState(false);
+  /** Libera a grade após a 1ª página de alunos (resto carrega em background). */
+  const [rosterPaintReady, setRosterPaintReady] = useState(
+    () => (useStudentStore.getState().students || []).length > 0
+  );
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 200);
@@ -269,7 +273,8 @@ export default function MensalidadesPanel({
     [allStudents]
   );
 
-  const gridLoading = loading || (allStudents.length === 0 && !studentsBootstrapDone);
+  // Pinta cedo: 1ª página de alunos basta; pagamentos atualizam a grade sem skeleton full-page.
+  const gridLoading = !rosterPaintReady && students.length === 0 && !studentsBootstrapDone;
 
   const recarregarMes = useCallback(async () => {
     if (!academyId) return;
@@ -294,30 +299,50 @@ export default function MensalidadesPanel({
 
   useEffect(() => {
     if (!academyId) return;
+    // Caixa / hub já costumam ter carregado o merge; evita round-trip duplicado.
+    if (financeConfig && (financeConfig.plans?.length || financeConfig.bankAccounts?.length)) return;
     void loadMergedFinanceConfigForAcademy(academyId);
-  }, [academyId]);
+  }, [academyId, financeConfig]);
 
   useEffect(() => {
     if (!academyId) {
       setStudentsBootstrapDone(false);
+      setRosterPaintReady(false);
       return undefined;
     }
     const controller = new AbortController();
     setStudentsBootstrapDone(false);
+    if ((useStudentStore.getState().students || []).length > 0) {
+      setRosterPaintReady(true);
+    } else {
+      setRosterPaintReady(false);
+    }
     (async () => {
       try {
-        // refresh:false — reusa o store se já estiver completo; evita N páginas em série a cada visita.
-        await ensureAllStudentsLoaded({ signal: controller.signal, refresh: false });
+        await ensureAllStudentsLoaded({
+          signal: controller.signal,
+          refresh: false,
+          onProgress: (list) => {
+            if (!controller.signal.aborted && (list || []).length > 0) {
+              setRosterPaintReady(true);
+            }
+          },
+        });
       } catch (err) {
         console.warn('[MensalidadesPanel] ensureAllStudentsLoaded:', err?.message || err);
       } finally {
-        if (!controller.signal.aborted) setStudentsBootstrapDone(true);
+        if (!controller.signal.aborted) {
+          setStudentsBootstrapDone(true);
+          setRosterPaintReady(true);
+        }
       }
     })();
     return () => controller.abort();
   }, [academyId]);
 
   useEffect(() => {
+    // Nome do operador só é necessário no modal de pagamento.
+    if (!showModal) return undefined;
     let c = false;
     account
       .get()
@@ -331,7 +356,7 @@ export default function MensalidadesPanel({
     return () => {
       c = true;
     };
-  }, []);
+  }, [showModal]);
 
   useEffect(() => {
     if (!academyId) {
@@ -1463,6 +1488,15 @@ export default function MensalidadesPanel({
         linkStudentProfile={linkStudentProfile}
         navRole={navRole}
       />
+      {!gridLoading && (loading || !studentsBootstrapDone) ? (
+        <p className="text-small text-muted mensal-roster-loading-hint" role="status">
+          {loading && !studentsBootstrapDone
+            ? 'Carregando pagamentos e mais alunos…'
+            : loading
+              ? 'Atualizando pagamentos do mês…'
+              : 'Carregando mais alunos…'}
+        </p>
+      ) : null}
 
       {!gridLoading ? (
         <details className="mensal-collapsible-section">

@@ -34,9 +34,12 @@ async function waitForStudentFetchIdle(signal) {
 /**
  * Carrega todos os alunos da academia no store (paginação completa).
  * Usado em telas que precisam da base inteira (ex.: grade de Mensalidades).
+ *
+ * @param {{ signal?: AbortSignal, maxPages?: number, refresh?: boolean, onProgress?: (students: object[]) => void }} [opts]
+ *   onProgress — chamado após a 1ª página e a cada página extra (permite pintar a UI cedo).
  */
 export async function ensureAllStudentsLoaded(opts = {}) {
-  const { signal, maxPages = DEFAULT_MAX_PAGES, refresh = false } = opts;
+  const { signal, maxPages = DEFAULT_MAX_PAGES, refresh = false, onProgress } = opts;
 
   await waitForStudentFetchIdle(signal);
   if (signal?.aborted) return useStudentStore.getState().students;
@@ -50,11 +53,15 @@ export async function ensureAllStudentsLoaded(opts = {}) {
     await waitForStudentFetchIdle(signal);
   }
 
+  const afterFirst = useStudentStore.getState().students;
+  if (afterFirst.length > 0) onProgress?.(afterFirst);
+
   let guard = 0;
   while (useStudentStore.getState().studentsHasMore && guard < maxPages) {
     if (signal?.aborted) break;
     await useStudentStore.getState().fetchMoreStudents();
     await waitForStudentFetchIdle(signal);
+    onProgress?.(useStudentStore.getState().students);
     guard += 1;
   }
 
