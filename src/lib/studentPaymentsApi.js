@@ -58,7 +58,7 @@ export async function apiListStudentPayments({ referenceMonth, page = 1, limit =
   const qs = new URLSearchParams({
     reference_month: String(referenceMonth || ''),
     page: String(page),
-    limit: String(Math.min(200, Math.max(1, limit))),
+    limit: String(Math.min(500, Math.max(1, limit))),
   });
   if (cursor) qs.set('cursor', String(cursor));
   const data = await paymentsFetch(`/api/student-payments?${qs}`, {}, academyId);
