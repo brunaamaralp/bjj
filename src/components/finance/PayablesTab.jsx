@@ -4,7 +4,6 @@ import './finance.css';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
-  Calendar,
   ExternalLink,
   FileSpreadsheet,
   Pencil,
@@ -717,10 +716,7 @@ export default function PayablesTab({
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <span className="finance-table__date">
-                        <Calendar size={14} aria-hidden />
-                        {fmtDateBr(item.due_date)}
-                      </span>
+                      <span className="finance-table__date">{fmtDateBr(item.due_date)}</span>
                     </td>
                     <td>
                       <span className="finance-table__primary">
