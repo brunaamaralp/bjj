@@ -137,47 +137,60 @@
   text-decoration: none;
 }
 
-.kimono-loan-inventory {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.kimono-loan-inventory-search.navi-menu {
+  display: block;
+  width: min(100%, 360px);
+}
+
+.kimono-loan-inventory-search__field {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.kimono-loan-inventory__chip {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
-  background: var(--paper, #fff);
-  font-size: var(--font-sm);
+  width: 100%;
 }
 
-.kimono-loan-inventory__chip--available {
-  border-color: rgba(34, 139, 87, 0.25);
-  background: rgba(34, 139, 87, 0.06);
+.kimono-loan-inventory-search__icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted, #667085);
+  pointer-events: none;
 }
 
-.kimono-loan-inventory__label {
+.kimono-loan-inventory-search__input {
+  width: 100%;
+  padding-left: 38px;
+}
+
+.kimono-loan-inventory-search__panel {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: none;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.kimono-loan-inventory-search__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.kimono-loan-inventory-search__option-label {
   font-weight: 600;
+  text-align: left;
 }
 
-.kimono-loan-inventory__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
+.kimono-loan-inventory-search__option-count {
+  flex-shrink: 0;
   font-size: var(--font-xs);
   font-weight: 700;
   color: #166534;
   background: rgba(34, 139, 87, 0.14);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .kimono-loan-panel__hours-input {

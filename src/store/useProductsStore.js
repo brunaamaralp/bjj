@@ -38,7 +38,10 @@ export const useProductsStore = create((set, get) => ({
   error: null,
 
   loadProducts: async () => {
-    set({ loading: true, error: null });
+    // Skeleton só no primeiro load (lista vazia). Refresh/mutação mantém a tabela montada.
+    const isInitial = get().products.length === 0;
+    if (isInitial) set({ loading: true, error: null });
+    else set({ error: null });
     try {
       let data = await productsFetch('/api/products');
       let normalized = normalizeProductsCatalogFromApi(data);
@@ -64,13 +67,17 @@ export const useProductsStore = create((set, get) => ({
       });
       return normalized.parentProducts;
     } catch (e) {
-      set({ error: friendlyError(e, 'load'), loading: false, products: [], variants: [] });
-      return [];
+      if (isInitial) {
+        set({ error: friendlyError(e, 'load'), loading: false, products: [], variants: [] });
+      } else {
+        set({ error: friendlyError(e, 'load'), loading: false });
+      }
+      return isInitial ? [] : get().products;
     }
   },
 
   createProduct: async (payload) => {
-    set({ loading: true, error: null });
+    set({ error: null });
     try {
       const body =
         Array.isArray(payload.variants) && payload.variants.length
@@ -94,17 +101,16 @@ export const useProductsStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify(body),
       });
-      set({ loading: false });
       await get().loadProducts();
       return data.product;
     } catch (e) {
-      set({ error: friendlyError(e, 'save'), loading: false });
+      set({ error: friendlyError(e, 'save') });
       return null;
     }
   },
 
   updateProduct: async (payload) => {
-    set({ loading: true, error: null });
+    set({ error: null });
     try {
       const isParent = Boolean(payload.product_id);
       const body = isParent
@@ -128,17 +134,16 @@ export const useProductsStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify(body),
       });
-      set({ loading: false });
       await get().loadProducts();
       return data.product;
     } catch (e) {
-      set({ error: friendlyError(e, 'save'), loading: false });
+      set({ error: friendlyError(e, 'save') });
       return null;
     }
   },
 
   deactivateProduct: async (item_id, { product_id } = {}) => {
-    set({ loading: true, error: null });
+    set({ error: null });
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
@@ -149,7 +154,6 @@ export const useProductsStore = create((set, get) => ({
         }),
       });
       await get().loadProducts();
-      set({ loading: false });
       if (item_id) {
         useInventoryStore.setState((state) => ({
           items: state.items.map((it) =>
@@ -159,7 +163,7 @@ export const useProductsStore = create((set, get) => ({
       }
       return data.product;
     } catch (e) {
-      set({ error: friendlyError(e, 'save'), loading: false });
+      set({ error: friendlyError(e, 'save') });
       return null;
     }
   },
@@ -183,7 +187,7 @@ export const useProductsStore = create((set, get) => ({
   },
 
   saveProductVariants: async ({ product_id, variants, delete_variant_ids, unit }) => {
-    set({ loading: true, error: null });
+    set({ error: null });
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
@@ -196,7 +200,6 @@ export const useProductsStore = create((set, get) => ({
         }),
       });
       if (data.code === 'duplicate_combo') {
-        set({ loading: false });
         return {
           ok: false,
           duplicate_indexes: data.duplicate_indexes || [],
@@ -204,7 +207,6 @@ export const useProductsStore = create((set, get) => ({
         };
       }
       await get().loadProducts();
-      set({ loading: false });
       dispatchRefreshSalesCatalog();
       return {
         ok: true,
@@ -214,13 +216,13 @@ export const useProductsStore = create((set, get) => ({
       };
     } catch (e) {
       const err = friendlyError(e, 'save');
-      set({ error: err, loading: false });
+      set({ error: err });
       return { ok: false, erro: err };
     }
   },
 
   deleteProduct: async (item_id) => {
-    set({ loading: true, error: null });
+    set({ error: null });
     try {
       const data = await productsFetch('/api/products', {
         method: 'POST',
@@ -228,18 +230,17 @@ export const useProductsStore = create((set, get) => ({
       });
       if (data?.sucesso === false) {
         const err = friendlyError(data.erro || data.error || 'delete_failed', 'delete');
-        set({ error: err, loading: false });
+        set({ error: err });
         return { ok: false, error: err, has_sales: Boolean(data.has_sales) };
       }
       await get().loadProducts();
-      set({ loading: false });
       useInventoryStore.setState((state) => ({
         items: state.items.filter((it) => it.id !== item_id),
       }));
       return { ok: true };
     } catch (e) {
       const err = friendlyError(e, 'delete');
-      set({ error: err, loading: false });
+      set({ error: err });
       return { ok: false, error: err };
     }
   },

@@ -648,6 +648,115 @@
 .mensal-toolbar.finance-filters-bar,
 .mensal-toolbar {
   margin-bottom: 10px;
+  /* Dropdown de status precisa escapar o wrap da toolbar */
+  overflow: visible;
+}
+
+/* Dropdown compacto de status (Lista / Exceções) — perdido na extração do index.css */
+.mensal-status-filter,
+.filter-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.mensal-status-filter__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--control-height-toolbar, 36px);
+}
+
+.mensal-status-filter__trigger--active {
+  border-color: var(--v500) !important;
+  color: var(--v500);
+}
+
+.mensal-status-filter__chev--open {
+  transform: rotate(180deg);
+  transition: transform 0.15s ease;
+}
+
+.mensal-status-filter__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.mensal-status-filter__clear:hover {
+  background: var(--v50);
+  color: var(--v500);
+}
+
+.mensal-status-filter__menu {
+  left: 0;
+  right: auto;
+  z-index: 40;
+  min-width: 220px;
+  border-color: var(--border-mid);
+  padding: var(--menu-padding) 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: mensalFilterIn 0.15s ease forwards;
+}
+
+.filter-dropdown .navi-menu__panel,
+.filter-dropdown__menu.navi-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--menu-gap));
+  left: 0;
+  right: auto;
+  z-index: 40;
+  min-width: 220px;
+  max-height: min(70vh, 420px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-color: var(--border-mid);
+  padding: var(--menu-padding) 0;
+}
+
+@keyframes mensalFilterIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-dropdown__option,
+.mensal-status-filter__option {
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+}
+
+.mensal-status-filter__option--active {
+  color: var(--v500);
+  font-weight: 600;
+}
+
+.mensal-status-filter__divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--border-mid);
+}
+
+.mensal-status-filter__section-label {
+  padding: 6px 12px 4px;
+  font-size: var(--font-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 .finance-tx-toolbar.finance-filters-bar,
@@ -2849,6 +2958,104 @@
 .mensalidades-modal-footer__confirm-icon {
   font-size: var(--font-2xl);
   line-height: 1;
+}
+
+/* Base dos KPIs / cards de resumo (perdidos na extração do index.css) */
+.mensal-summary-block {
+  margin-bottom: 16px;
+}
+
+.mensalidades-page .mensal-summary-grid,
+.mensal-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mensal-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+
+.mensal-summary-card__value {
+  font-size: var(--font-4xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mensal-summary-card--paid .mensal-summary-card__value {
+  color: #3b6d11;
+}
+
+.mensal-summary-card--pending .mensal-summary-card__value {
+  color: #a32d2d;
+}
+
+.mensal-summary-card--pending.mensal-summary-card--ok-zero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mensal-summary-card__zero-icon {
+  color: #3b6d11;
+}
+
+.mensal-summary-card--soon .mensal-summary-card__value {
+  color: #b45309;
+}
+
+.mensal-summary-card--total .mensal-summary-card__value--money {
+  color: var(--v500);
+}
+
+.mensal-summary-card__label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.mensal-summary-card__sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.mensal-summary-card--clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mensal-summary-card--clickable:hover {
+  border-color: var(--v300);
+  box-shadow: 0 2px 8px rgba(108, 71, 216, 0.08);
+}
+
+.mensal-summary-card--clickable.mensal-summary-card--active {
+  border-color: var(--v500, var(--petroleo));
+  box-shadow: 0 0 0 2px rgba(108, 71, 216, 0.15);
+}
+
+.mensal-summary-card--today .mensal-summary-card__value {
+  color: #b45309;
+}
+
+.mensal-reception-hint {
+  margin: 10px 0 0;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.mensal-reception-hint strong {
+  color: var(--text-primary, var(--text));
+  font-weight: 600;
 }
 
 .mensal-summary-card--static {

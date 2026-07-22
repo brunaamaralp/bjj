@@ -303,13 +303,27 @@ function CaixaPage() {
   useEffect(() => {
     if (!hasExplicitTab) {
       if (tabParam !== activeTab) {
-        setSearchParams({ tab: activeTab }, { replace: true });
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', activeTab);
+            return next.toString() === prev.toString() ? prev : next;
+          },
+          { replace: true }
+        );
       }
       return;
     }
     const normalized = financeiroLegacyTabToSlug(tabParam);
     if (!allowedLeafTabs.has(normalized) || normalized !== activeTab) {
-      setSearchParams({ tab: activeTab }, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', activeTab);
+          return next.toString() === prev.toString() ? prev : next;
+        },
+        { replace: true }
+      );
     }
   }, [activeTab, allowedLeafTabs, hasExplicitTab, tabParam, setSearchParams]);
 

@@ -1,6 +1,6 @@
 import '../../styles/recepcao-kimono-loans.css';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Loader2, Plus, Settings2, Shirt, Undo2 } from 'lucide-react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { AlertTriangle, Check, Loader2, Plus, Search, Settings2, Shirt, Undo2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
@@ -17,6 +17,12 @@ import { KIMONO_BORROWER_TYPES } from '../../lib/kimonoLoanCore.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import Hint from '../shared/Hint.jsx';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuItemStatic,
+  DropdownMenuPanel,
+} from '../shared/menu';
 
 function formatLentTime(iso) {
   if (!iso) return '—';
@@ -45,7 +51,7 @@ function loanSourceLabel(source) {
   return '';
 }
 
-function KimonoLoanLendModal({ open, onClose, variants, onSubmit, submitting }) {
+function KimonoLoanLendModal({ open, onClose, variants, onSubmit, submitting, initialVariantId = '' }) {
   const leads = useLeadStore((s) => s.leads);
   const academyId = useLeadStore((s) => s.academyId);
 
@@ -65,8 +71,11 @@ function KimonoLoanLendModal({ open, onClose, variants, onSubmit, submitting }) 
       setSelected(null);
       setVariantId('');
       setFieldErrors({});
+      return;
     }
-  }, [open]);
+    const preset = String(initialVariantId || '');
+    setVariantId(preset && variants.some((v) => v.id === preset) ? preset : '');
+  }, [open, initialVariantId, variants]);
 
   useEffect(() => {
     if (!open || borrowerKind !== 'student') return undefined;
@@ -264,13 +273,24 @@ export default function KimonoLoanPanel({ academyId, modules }) {
   const [overdueHours, setOverdueHours] = useState(DEFAULT_KIMONO_LOAN_OVERDUE_HOURS);
   const [overdueCount, setOverdueCount] = useState(0);
   const [lendOpen, setLendOpen] = useState(false);
+  const [lendPresetVariantId, setLendPresetVariantId] = useState('');
+  const [inventoryQuery, setInventoryQuery] = useState('');
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [returningId, setReturningId] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(String(DEFAULT_KIMONO_LOAN_OVERDUE_HOURS));
   const [collectionMissing, setCollectionMissing] = useState(false);
+  const inventoryListboxId = useId();
 
   const enabled = modules?.inventory === true || modules?.sales === true;
+
+  const openLendModal = useCallback((variantId = '') => {
+    setLendPresetVariantId(variantId || '');
+    setInventoryOpen(false);
+    setInventoryQuery('');
+    setLendOpen(true);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!academyId || !enabled || collectionMissing) return;
@@ -357,6 +377,12 @@ export default function KimonoLoanPanel({ academyId, modules }) {
     [inventory]
   );
 
+  const filteredAvailableInventory = useMemo(() => {
+    const q = inventoryQuery.trim().toLowerCase();
+    if (!q) return availableInventory;
+    return availableInventory.filter((item) => String(item.label || '').toLowerCase().includes(q));
+  }, [availableInventory, inventoryQuery]);
+
   if (!enabled) return null;
 
   return (
@@ -374,7 +400,7 @@ export default function KimonoLoanPanel({ academyId, modules }) {
             </span>
           ) : null}
         </div>
-        <button type="button" className="btn-primary kimono-loan-panel__lend-btn" onClick={() => setLendOpen(true)}>
+        <button type="button" className="btn-primary kimono-loan-panel__lend-btn" onClick={() => openLendModal()}>
           <Plus size={16} aria-hidden />
           Emprestar
         </button>
@@ -416,14 +442,67 @@ export default function KimonoLoanPanel({ academyId, modules }) {
                 Nenhum kimono disponível no armário.
               </p>
             ) : (
-              <ul className="kimono-loan-inventory" aria-label="Kimonos disponíveis">
-                {availableInventory.map((item) => (
-                  <li key={item.id} className="kimono-loan-inventory__chip kimono-loan-inventory__chip--available">
-                    <span className="kimono-loan-inventory__label">{item.label}</span>
-                    <span className="kimono-loan-inventory__count">{item.rental_available}</span>
-                  </li>
-                ))}
-              </ul>
+              <DropdownMenu
+                open={inventoryOpen}
+                onOpenChange={setInventoryOpen}
+                align="start"
+                className="kimono-loan-inventory-search"
+              >
+                <div className="kimono-loan-inventory-search__field">
+                  <Search size={16} aria-hidden className="kimono-loan-inventory-search__icon" />
+                  <input
+                    id="kimono-inventory-search"
+                    className="form-input kimono-loan-inventory-search__input"
+                    type="search"
+                    value={inventoryQuery}
+                    autoComplete="off"
+                    placeholder="Buscar tamanho ou peça…"
+                    aria-label="Buscar kimono disponível"
+                    aria-expanded={inventoryOpen}
+                    aria-controls={inventoryListboxId}
+                    aria-haspopup="listbox"
+                    onFocus={() => setInventoryOpen(true)}
+                    onChange={(e) => {
+                      setInventoryQuery(e.target.value);
+                      setInventoryOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setInventoryOpen(true);
+                      }
+                    }}
+                  />
+                </div>
+                {inventoryOpen ? (
+                  <DropdownMenuPanel
+                    id={inventoryListboxId}
+                    role="listbox"
+                    aria-label="Kimonos disponíveis"
+                    className="kimono-loan-inventory-search__panel"
+                  >
+                    {filteredAvailableInventory.length === 0 ? (
+                      <DropdownMenuItemStatic className="text-muted text-small">
+                        Nenhum tamanho encontrado.
+                      </DropdownMenuItemStatic>
+                    ) : (
+                      filteredAvailableInventory.map((item) => (
+                        <DropdownMenuItem
+                          key={item.id}
+                          role="option"
+                          className="kimono-loan-inventory-search__option"
+                          onClick={() => openLendModal(item.id)}
+                        >
+                          <span className="kimono-loan-inventory-search__option-label">{item.label}</span>
+                          <span className="kimono-loan-inventory-search__option-count">
+                            {item.rental_available} disp.
+                          </span>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuPanel>
+                ) : null}
+              </DropdownMenu>
             )}
           </div>
 
@@ -514,6 +593,7 @@ export default function KimonoLoanPanel({ academyId, modules }) {
         open={lendOpen}
         onClose={() => setLendOpen(false)}
         variants={variants}
+        initialVariantId={lendPresetVariantId}
         onSubmit={handleLend}
         submitting={submitting}
       />

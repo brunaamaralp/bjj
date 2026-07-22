@@ -192,9 +192,13 @@ export default function MensalidadesPanel({
   const toast = useToast();
   const terms = useTerms();
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const reconStatementId = String(searchParams.get('recon_statement') || '').trim();
+  const urlSearch = searchParams.get('search') || '';
+  const urlFiltro = parseMensalidadesFiltroParam(
+    searchParams.get('filtro') || searchParams.get('filter')
+  );
 
   const [currentMonth, setCurrentMonth] = useState(
     () => String(referenceMonthProp || '').trim() || new Date().toISOString().slice(0, 7)
@@ -213,16 +217,35 @@ export default function MensalidadesPanel({
   const [rosterPaintReady, setRosterPaintReady] = useState(
     () => (useStudentStore.getState().students || []).length > 0
   );
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState(() => urlFiltro);
+  const [search, setSearch] = useState(() => urlSearch);
   const debouncedSearch = useDebounce(search, 200);
 
+  // Só aplica mudanças reais de search/filtro na URL (não zera estado local em todo setSearchParams do hub).
   useEffect(() => {
-    const q = searchParams.get('search');
-    setSearch(q || '');
-    const filtroParam = searchParams.get('filtro') || searchParams.get('filter');
-    setFilter(parseMensalidadesFiltroParam(filtroParam));
-  }, [searchParams]);
+    setSearch((cur) => (cur === urlSearch ? cur : urlSearch));
+    setFilter((cur) => (cur === urlFiltro ? cur : urlFiltro));
+  }, [urlSearch, urlFiltro]);
+
+  // Persiste status na URL (deep link / mês). Busca fica só local↔URL via efeito acima —
+  // não reescrever `search` a partir do debounce (evita reintroduzir termo após limpar a URL).
+  useEffect(() => {
+    const nextFiltro = filter && filter !== 'all' ? filter : '';
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (nextFiltro) {
+          next.set('filtro', nextFiltro);
+          next.delete('filter');
+        } else {
+          next.delete('filtro');
+          next.delete('filter');
+        }
+        return next.toString() === prev.toString() ? prev : next;
+      },
+      { replace: true }
+    );
+  }, [filter, setSearchParams]);
   const [dueSortOrder, setDueSortOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -1025,7 +1048,17 @@ export default function MensalidadesPanel({
     setExPlatformFilter('all');
     setExOnlyWithDiff(false);
     setExSortBy('difference');
-  }, []);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('search');
+        next.delete('filtro');
+        next.delete('filter');
+        return next.toString() === prev.toString() ? prev : next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
 
   const handleExportGrid = useCallback(() => {
     if (exportingGrid) return;

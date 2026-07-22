@@ -159,6 +159,33 @@
   border-color: color-mix(in srgb, var(--danger) 15%, transparent);
 }
 
+button.profile-payment-status {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+}
+
+button.profile-payment-status:disabled {
+  cursor: default;
+}
+
+button.profile-payment-status--clickable:hover {
+  filter: brightness(0.98);
+}
+
+button.profile-payment-status--clickable:focus-visible {
+  outline: 2px solid var(--color-accent, var(--accent));
+  outline-offset: 2px;
+}
+
+.student-profile-attendance-setup-banner {
+  margin-bottom: 16px;
+}
+
 /* —— Cobrança —— */
 .profile-collection-card {
   margin-bottom: 16px;
