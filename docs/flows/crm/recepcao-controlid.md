@@ -58,7 +58,7 @@ flowchart TD
 | 6 | Ao vivo | **Liberar catraca** (header em `Dashboard.jsx` ou painel) | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed |
 | 7 | Ao vivo | Feed entradas hoje | Poll automático | Novos registros com hora e link ao perfil |
 | 8 | `?section=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
-| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs + tabela; filtros turma/**Faixa/Evolução** (`terms.belt`); `?tab=catraca&section=retencao` |
+| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs do hero ou `?section=retencao` (sem sub-aba Retenção); filtros turma/**Faixa/Evolução** |
 | 8c | Catraca (sem Control iD) | `AttendanceAtRiskSection` | Presença só manual (`VITE_APPWRITE_ATTENDANCE_COL_ID`) | Banner info + fila de retenção; feed ao vivo indisponível |
 | 9 | Histórico | Atualizar / sync | `syncAllControlId` | Toast com contagem sincronizada |
 | 10 | Histórico | Liberar catraca | Mesmo endpoint de release | Liberação remota |
@@ -69,9 +69,10 @@ flowchart TD
 
 | Sub-aba | Query | Conteúdo |
 |---|---|---|
-| Ao vivo (default) | `/?tab=catraca` | Status, liberar porta, feed do dia |
+| Ao vivo (default) | `/?tab=catraca` | Status, liberar porta, feed do dia; no desktop, fila de retenção ao lado |
 | Histórico | `/?tab=catraca&section=historico` | Lista agrupada por data, filtros, sync em massa |
-| Retenção | `/?tab=catraca&section=retencao` | Fila de retenção por frequência; filtros `ret_turma` / `ret_belt` na URL |
+
+Retenção (`/?tab=catraca&section=retencao`) abre via KPIs do hero (Em risco / Sumidos) ou deep link — **sem** sub-aba própria na tablist.
 
 ---
 

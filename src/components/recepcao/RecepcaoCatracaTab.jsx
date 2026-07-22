@@ -1,5 +1,5 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { DoorOpen, History, Users } from 'lucide-react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { DoorOpen, History } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import RecepcaoLivePanel from '../attendance/RecepcaoLivePanel.jsx';
@@ -32,7 +32,7 @@ export default function RecepcaoCatracaTab({
 
   const liveRef = useRef(null);
   const retentionRef = useRef(null);
-  const [heroRefreshSignal, setHeroRefreshSignal] = useState(0);
+  const [heroSummary, setHeroSummary] = useState(undefined);
   const [isPresenceDesktop, setIsPresenceDesktop] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 960px)').matches
   );
@@ -52,6 +52,19 @@ export default function RecepcaoCatracaTab({
 
   const desktopSplitLive =
     isPresenceDesktop && showLive && !showHistorico && attendanceReady && integrationReady;
+
+  const retentionVisible =
+    Boolean(desktopSplitLive) ||
+    Boolean(!desktopSplitLive && showRetencao && attendanceReady) ||
+    Boolean(!integrationReady && attendanceReady && !showRetencao);
+
+  const handleRetentionDataLoaded = useCallback((body) => {
+    setHeroSummary(body?.summary ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (!retentionVisible) setHeroSummary(undefined);
+  }, [retentionVisible]);
 
   const scrollToLive = () => {
     liveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -95,46 +108,30 @@ export default function RecepcaoCatracaTab({
     );
   }
 
-  const subTabs = (
+  const subTabs = integrationReady ? (
     <div className="mensal-page-tabs recepcao-presence-tabs" role="tablist" aria-label="Presença">
-      {integrationReady ? (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={showLive}
-          className={`mensal-page-tab${showLive ? ' mensal-page-tab--active' : ''}`}
-          onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_LIVE)}
-        >
-          <DoorOpen size={14} aria-hidden />
-          Ao vivo
-        </button>
-      ) : null}
-      {integrationReady ? (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={showHistorico}
-          className={`mensal-page-tab${showHistorico ? ' mensal-page-tab--active' : ''}`}
-          onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_HISTORICO)}
-        >
-          <History size={14} aria-hidden />
-          Histórico
-        </button>
-      ) : null}
-      {attendanceReady ? (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={showRetencao}
-          className={`mensal-page-tab${showRetencao ? ' mensal-page-tab--active' : ''}`}
-          onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_RETENCAO)}
-        >
-          <Users size={14} aria-hidden />
-          Retenção
-        </button>
-      ) : null}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={showLive || showRetencao}
+        className={`mensal-page-tab${showLive || showRetencao ? ' mensal-page-tab--active' : ''}`}
+        onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_LIVE)}
+      >
+        <DoorOpen size={14} aria-hidden />
+        Ao vivo
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={showHistorico}
+        className={`mensal-page-tab${showHistorico ? ' mensal-page-tab--active' : ''}`}
+        onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_HISTORICO)}
+      >
+        <History size={14} aria-hidden />
+        Histórico
+      </button>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="recepcao-catraca-tab">
@@ -142,7 +139,8 @@ export default function RecepcaoCatracaTab({
         integrationReady={integrationReady}
         onScrollToLive={scrollToLive}
         onScrollToRetention={scrollToRetention}
-        refreshSignal={heroRefreshSignal}
+        summaryOverride={retentionVisible ? heroSummary : undefined}
+        skipFetch={retentionVisible}
       />
 
       {!integrationReady ? (
@@ -166,7 +164,7 @@ export default function RecepcaoCatracaTab({
           <div ref={retentionRef} className="recepcao-presence-grid__retention">
             <AttendanceAtRiskSection
               layout="sidebar"
-              onDataLoaded={() => setHeroRefreshSignal((n) => n + 1)}
+              onDataLoaded={handleRetentionDataLoaded}
             />
           </div>
         </div>
@@ -188,13 +186,13 @@ export default function RecepcaoCatracaTab({
 
       {!desktopSplitLive && showRetencao && attendanceReady ? (
         <div ref={retentionRef}>
-          <AttendanceAtRiskSection onDataLoaded={() => setHeroRefreshSignal((n) => n + 1)} />
+          <AttendanceAtRiskSection onDataLoaded={handleRetentionDataLoaded} />
         </div>
       ) : null}
 
       {!integrationReady && attendanceReady && !showRetencao ? (
         <div ref={retentionRef}>
-          <AttendanceAtRiskSection onDataLoaded={() => setHeroRefreshSignal((n) => n + 1)} />
+          <AttendanceAtRiskSection onDataLoaded={handleRetentionDataLoaded} />
         </div>
       ) : null}
 

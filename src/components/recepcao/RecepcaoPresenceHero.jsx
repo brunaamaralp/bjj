@@ -31,6 +31,16 @@ function buildPresenceSummaryLine({ atRisk = 0, absent = 0, entriesToday = 0, in
 
 /**
  * Hero da aba Presença — KPIs de catraca e retenção.
+ *
+ * @param {{
+ *   integrationReady?: boolean;
+ *   entriesToday?: number|null;
+ *   onScrollToRetention?: () => void;
+ *   onScrollToLive?: () => void;
+ *   refreshSignal?: number;
+ *   summaryOverride?: { at_risk?: number; absent?: number; active?: number }|null;
+ *   skipFetch?: boolean;
+ * }} props
  */
 export default function RecepcaoPresenceHero({
   integrationReady = false,
@@ -38,10 +48,12 @@ export default function RecepcaoPresenceHero({
   onScrollToRetention,
   onScrollToLive,
   refreshSignal = 0,
+  summaryOverride,
+  skipFetch = false,
 }) {
   const academyId = useLeadStore((s) => s.academyId);
   const attendanceReady = isAttendanceConfigured();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skipFetch);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
 
@@ -54,7 +66,10 @@ export default function RecepcaoPresenceHero({
     setLoading(true);
     setError('');
     try {
-      const data = await fetchAttendanceRetention({ academyId });
+      const data = await fetchAttendanceRetention({
+        academyId,
+        includeAtRisk: false,
+      });
       setSummary(data?.summary || null);
     } catch (e) {
       setError(friendlyError(e, 'load'));
@@ -65,8 +80,21 @@ export default function RecepcaoPresenceHero({
   }, [academyId, attendanceReady]);
 
   useEffect(() => {
+    if (skipFetch) return;
     void load();
-  }, [load, refreshSignal]);
+  }, [load, refreshSignal, skipFetch]);
+
+  useEffect(() => {
+    if (!skipFetch) return;
+    if (summaryOverride !== undefined) {
+      setSummary(summaryOverride);
+      setLoading(false);
+      setError('');
+    } else {
+      setSummary(null);
+      setLoading(true);
+    }
+  }, [skipFetch, summaryOverride]);
 
   const atRisk = Number(summary?.at_risk) || 0;
   const absent = Number(summary?.absent) || 0;

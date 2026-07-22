@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-07-21: aba Presença — removida sub-aba **Retenção** da tablist; acesso via KPIs do hero ou `?section=retencao` (`hoje-dashboard.md`, `recepcao-controlid.md`).
 - 2026-06-23: fluxo de matrícula e financeiro alinhado para desconto individual recorrente em `students.discount_amount`; cálculo líquido propagado para primeira cobrança, mensalidades, inadimplência e card financeiro do perfil.
 
 ## Método
@@ -52,6 +53,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | 14 | Aliases `?retornos=1`, `#follow-ups` | ✅ Código | `useEffect` em `Dashboard.jsx` |
 | 15 | Troca de academia | ✅ Código | Store `academyId`; ⚠️ validar em staging |
 | — | Contagem KPI vs badge follow-up | ⚠️ **Nota** | KPI usa `followUpsNeedingContact`; badge/lista usa `followUps.length` — podem divergir |
+| — | Kimonos disponíveis | ✅ Código (2026-07-16) | Chips trocados por busca + dropdown; selecionar abre modal com tamanho pré-selecionado |
 
 **Correções aplicadas (2026-06-17):** fluxo reescrito — hub duas abas, 4 KPIs, terminologia follow-up, diagrama (compareceu/faltou na agenda), contagens documentadas, link para `recepcao-controlid.md`.
 

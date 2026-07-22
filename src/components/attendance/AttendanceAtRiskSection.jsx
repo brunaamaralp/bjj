@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Info, RefreshCw, Users } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
@@ -137,6 +137,10 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
   const [deactivateBusy, setDeactivateBusy] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState('');
 
+  // Evita loop: pai costuma passar callback inline; não pode entrar nas deps do load.
+  const onDataLoadedRef = useRef(onDataLoaded);
+  onDataLoadedRef.current = onDataLoaded;
+
   const permissionContext = useMemo(() => {
     const acad = (academyList || []).find((a) => a.id === academyId) || {};
     return { teamId: acad.teamId, userId: userId || '' };
@@ -153,14 +157,15 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
         belt: belt || undefined,
       });
       setData(body);
-      onDataLoaded?.(body);
+      onDataLoadedRef.current?.(body);
     } catch (e) {
       setError(friendlyError(e, 'load'));
       setData(null);
+      onDataLoadedRef.current?.(null);
     } finally {
       setLoading(false);
     }
-  }, [academyId, turma, belt, onDataLoaded]);
+  }, [academyId, turma, belt]);
 
   const setTurmaFilter = useCallback(
     (value) => {
