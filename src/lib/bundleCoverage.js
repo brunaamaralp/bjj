@@ -49,6 +49,73 @@ export function resolveBundleMonthAction(existing) {
   return 'upsert';
 }
 
+/** Motivo de cobertura sem recebimento (migração / pagamento pré-sistema). */
+export const HISTORICAL_COVERED_REASON = 'historical';
+
+export const HISTORICAL_COVERAGE_DEFAULT_NOTE = 'Cobertura histórica — migração';
+
+export const HISTORICAL_COVERAGE_MIN_MONTHS = 1;
+export const HISTORICAL_COVERAGE_MAX_MONTHS = 24;
+
+/** @param {unknown} doc */
+export function isHistoricalCoveragePayment(doc) {
+  return String(doc?.covered_reason || '').trim().toLowerCase() === HISTORICAL_COVERED_REASON;
+}
+
+/**
+ * Specs de cobertura histórica: todos os meses `covered`, amount 0, sem Caixa.
+ * `bundle_months` na âncora é atribuído na create (primeiro mês escrito).
+ * @param {{ startYm: string, bundleMonths: number, note?: string }} opts
+ */
+export function buildHistoricalCoverageMonthSpecs({ startYm, bundleMonths, note }) {
+  const months = Math.trunc(Number(bundleMonths));
+  if (
+    !Number.isFinite(months) ||
+    months < HISTORICAL_COVERAGE_MIN_MONTHS ||
+    months > HISTORICAL_COVERAGE_MAX_MONTHS
+  ) {
+    return [];
+  }
+  const coverage = enumerateCoverageMonths(startYm, months);
+  if (coverage.length === 0) return [];
+
+  const userNote = String(note || '').trim();
+  const baseNote = userNote
+    ? `${HISTORICAL_COVERAGE_DEFAULT_NOTE}. ${userNote}`.slice(0, 500)
+    : HISTORICAL_COVERAGE_DEFAULT_NOTE;
+
+  return coverage.map((reference_month) => ({
+    reference_month,
+    amount: 0,
+    payment_category: PAYMENT_CATEGORY.BUNDLE,
+    bundle_months: null,
+    status: 'covered',
+    paid_at: null,
+    covered_reason: HISTORICAL_COVERED_REASON,
+    note: baseNote,
+  }));
+}
+
+/**
+ * Preview de ações por mês (create/upsert vs skip paid/partial).
+ * @param {{ specs: Array<{ reference_month: string }>, existingByMonth: Map<string, unknown>|Record<string, unknown> }} opts
+ */
+export function previewHistoricalCoverage({ specs, existingByMonth }) {
+  const list = Array.isArray(specs) ? specs : [];
+  let monthsToWrite = 0;
+  let monthsSkipped = 0;
+  for (const spec of list) {
+    const ym = String(spec?.reference_month || '');
+    const existing =
+      existingByMonth instanceof Map
+        ? existingByMonth.get(ym)
+        : existingByMonth?.[ym];
+    if (resolveBundleMonthAction(existing) === 'skip') monthsSkipped += 1;
+    else monthsToWrite += 1;
+  }
+  return { monthsToWrite, monthsSkipped, total: list.length };
+}
+
 /**
  * Especificações de cada mês do pacote (âncora + cobertos).
  * @param {{ startYm: string, bundleMonths: number, totalAmount: number, base: Record<string, unknown> }} opts

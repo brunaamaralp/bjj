@@ -101,6 +101,44 @@ export async function apiCreateStudentPayment(payload, opts = {}) {
   }
 }
 
+/** Cobertura histórica: retorna payment + contagens (sem espelho Caixa). */
+export async function apiCreateHistoricalCoverage(payload) {
+  const body = {
+    ...payload,
+    action: 'historical_coverage',
+    covered_reason: 'historical',
+    payment_category: 'bundle',
+    amount: 0,
+    status: 'covered',
+  };
+  try {
+    const data = await paymentsFetch(
+      '/api/student-payments',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      payload?.academy_id
+    );
+    dispatchPaymentUpdated(payload);
+    return {
+      payment: data.payment,
+      monthsCreated: data.bundle_months_created ?? 0,
+      monthsSkipped: data.bundle_months_skipped ?? 0,
+    };
+  } catch (error) {
+    if (!shouldFallbackStudentPaymentApi(error)) throw error;
+    const { createHistoricalCoveragePayment } = await loadLocalStudentPaymentsModule();
+    const result = await createHistoricalCoveragePayment(body);
+    dispatchPaymentUpdated(payload);
+    return {
+      payment: result.anchor,
+      monthsCreated: result.monthsCreated,
+      monthsSkipped: result.monthsSkipped,
+    };
+  }
+}
+
 export async function apiUpdateStudentPayment(paymentId, patch, opts = {}) {
   try {
     const data = await paymentsFetch(

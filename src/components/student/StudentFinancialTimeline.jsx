@@ -370,6 +370,7 @@ function SituationHero({
   summary,
   freezeActive,
   onRegisterPayment,
+  onOpenHistoricalCoverage,
   showFreezeBtn,
   onOpenFreeze,
   freezeBusy,
@@ -403,6 +404,15 @@ function SituationHero({
           onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
         >
           + Registrar pagamento
+        </button>
+      ) : null}
+      {!freezeActive && onOpenHistoricalCoverage ? (
+        <button
+          type="button"
+          className="student-pay-situation__freeze"
+          onClick={onOpenHistoricalCoverage}
+        >
+          Cobertura histórica
         </button>
       ) : null}
       {!freezeActive && showFreezeBtn ? (
@@ -444,6 +454,7 @@ export default function StudentFinancialTimeline({
   error,
   onRetry,
   onRegisterPayment,
+  onOpenHistoricalCoverage,
   onGoMensalidades,
   onGoSales,
   onCancelCoverage,
@@ -604,6 +615,7 @@ export default function StudentFinancialTimeline({
         summary={summary}
         freezeActive={freezeActive}
         onRegisterPayment={onRegisterPayment}
+        onOpenHistoricalCoverage={onOpenHistoricalCoverage}
         showFreezeBtn={showFreezeBtn}
         onOpenFreeze={onOpenFreeze}
         freezeBusy={freezeBusy}

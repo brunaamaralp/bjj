@@ -29,8 +29,12 @@ import {
 } from './paymentCategories.js';
 import {
   buildCoverageMonthSpecs,
+  buildHistoricalCoverageMonthSpecs,
   resolveBundleMonthAction,
   listCancellableCoveredMonths,
+  HISTORICAL_COVERED_REASON,
+  HISTORICAL_COVERAGE_MIN_MONTHS,
+  HISTORICAL_COVERAGE_MAX_MONTHS,
 } from './bundleCoverage.js';
 import { notifyPaymentSettlementAfterCreate } from './financeTxSettlementDisplay.js';
 import { resolveMirrorFinanceCategory } from './studentPaymentMirrorCategory.js';
@@ -522,6 +526,100 @@ export async function createBundlePayment(data) {
 
   if (!anchorId) {
     throw new Error('bundle_anchor_not_created');
+  }
+
+  return {
+    anchor: anchor || { $id: anchorId },
+    monthsCreated,
+    monthsSkipped,
+    coverageMonths: enumerateCoverageMonths(startYm, bundleMonths),
+  };
+}
+
+/**
+ * Cobertura histórica local (fallback): covered + amount 0, sem espelho no Caixa.
+ */
+export async function createHistoricalCoveragePayment(data) {
+  if (!PAYMENTS_COL) {
+    throw new Error('student_payments_collection_not_configured');
+  }
+
+  const bundleMonths = Math.trunc(Number(data.bundle_months));
+  const startYm = String(data.coverage_start_month || data.reference_month || '').trim();
+  if (
+    !Number.isFinite(bundleMonths) ||
+    bundleMonths < HISTORICAL_COVERAGE_MIN_MONTHS ||
+    bundleMonths > HISTORICAL_COVERAGE_MAX_MONTHS ||
+    !/^\d{4}-\d{2}$/.test(startYm)
+  ) {
+    throw new Error('historical_coverage_invalid');
+  }
+
+  const specs = buildHistoricalCoverageMonthSpecs({
+    startYm,
+    bundleMonths,
+    note: data.note,
+  });
+  if (specs.length === 0) throw new Error('historical_coverage_invalid');
+
+  const permissions = buildPermissions(data);
+  let anchorId = null;
+  let anchor = null;
+  let monthsCreated = 0;
+  let monthsSkipped = 0;
+
+  for (const spec of specs) {
+    const existing = await findPaymentForMonthUpsert(
+      data.lead_id,
+      spec.reference_month,
+      PAYMENT_CATEGORY.BUNDLE
+    );
+    const action = resolveBundleMonthAction(existing);
+    if (action === 'skip') {
+      monthsSkipped += 1;
+      continue;
+    }
+
+    const isAnchor = !anchorId;
+    const doc = await persistPaymentDocument({
+      data: {
+        lead_id: data.lead_id,
+        academy_id: data.academy_id,
+        team_id: data.team_id,
+        method: 'pix',
+        account: '',
+        plan_name: data.plan_name,
+        registered_by: data.registered_by,
+        registered_by_name: data.registered_by_name,
+        ...spec,
+        covered_reason: HISTORICAL_COVERED_REASON,
+        bundle_months: isAnchor ? bundleMonths : null,
+        bundle_origin_id: isAnchor ? undefined : anchorId,
+      },
+      existingId: action === 'upsert' ? existing?.$id : null,
+      permissions,
+      skipMirror: true,
+    });
+
+    monthsCreated += 1;
+    if (isAnchor) {
+      anchor = doc;
+      anchorId = doc.$id;
+      if (String(doc.bundle_origin_id || '') !== anchorId) {
+        try {
+          anchor = await databases.updateDocument(DB_ID, PAYMENTS_COL, anchorId, {
+            bundle_origin_id: anchorId,
+          });
+        } catch (e) {
+          const msg = String(e?.message || '');
+          if (!msg.includes('Unknown attribute')) throw e;
+        }
+      }
+    }
+  }
+
+  if (!anchorId) {
+    throw new Error('historical_coverage_nothing_to_write');
   }
 
   return {

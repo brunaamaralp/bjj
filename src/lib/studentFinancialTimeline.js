@@ -9,6 +9,7 @@ import {
   formatReferenceMonthShort,
   coverageEndMonth,
   groupStudentPaymentsForProfile,
+  isHistoricalCoveragePayment,
 } from './bundleCoverage.js';
 import { openAmountForStudent } from './collectionOverdue.js';
 import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
@@ -93,20 +94,26 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
     if (g.type === 'bundle') {
       const { anchor, children, months, startYm, endYm } = g;
       const coverageEnd = endYm || coverageEndMonth(startYm, months);
+      const historical = isHistoricalCoveragePayment(anchor);
       items.push({
         id: `bundle:${anchor.$id}`,
         kind: 'bundle',
         sortDate: paymentSortDate(anchor),
-        title: `Mensalidade — ${formatReferenceMonthLong(anchor.reference_month)}`,
-        subtitle: `Cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`,
+        title: historical
+          ? `Cobertura histórica — ${formatReferenceMonthLong(anchor.reference_month)}`
+          : `Mensalidade — ${formatReferenceMonthLong(anchor.reference_month)}`,
+        subtitle: historical
+          ? `Migração · cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`
+          : `Cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`,
         amount: Number(anchor.amount ?? anchor.paid_amount ?? 0),
-        badge: paymentStatusBadge(anchor.status || 'paid'),
+        badge: paymentStatusBadge(anchor.status || (historical ? 'covered' : 'paid')),
         anchor,
         payment: anchor,
         children,
         months,
         startYm,
         endYm: coverageEnd,
+        historical,
       });
       continue;
     }
@@ -313,6 +320,10 @@ export function buildFinancialSummary({
       // Current month payment exists but may not be marked paid yet
       situationLabel = `Registro no mês atual (status: ${String(currentMonthPayment.status).toLowerCase()})`;
       situationTone = String(currentMonthPayment.status).toLowerCase() === 'paid' ? 'success' : 'warning';
+    } else if (st === 'paid') {
+      // Status API diz pago, mas lista de pagamentos ainda não carregou (card esquerdo).
+      situationLabel = 'Em dia';
+      situationTone = 'success';
     }
   } else if (st === 'pending' || st === 'partial' || st === 'awaiting') {
     situationLabel = st === 'partial' ? 'Pagamento parcial — em atraso' : 'Em atraso';
@@ -320,6 +331,9 @@ export function buildFinancialSummary({
   } else if (st === 'soon') {
     situationLabel = dueDay ? `A vencer (dia ${dueDay})` : 'A vencer';
     situationTone = 'warning';
+  } else if (st === 'exempt') {
+    situationLabel = 'Plano isento, sem cobrança mensal';
+    situationTone = 'muted';
   }
 
   const expected = openAmountForStudent(student, null, financeConfig);
@@ -332,6 +346,39 @@ export function buildFinancialSummary({
     historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
     isBundle: false,
     ...discountSummary,
+  };
+}
+
+/** Badge curto + classe CSS do card esquerdo (mesma fonte que SituationHero). */
+export function profilePaymentStatusChrome(summary, { loading = false } = {}) {
+  if (loading || !summary) {
+    return {
+      title: 'Carregando...',
+      subtitle: 'Status financeiro',
+      badge: '…',
+      toneClass: 'loading',
+    };
+  }
+  const tone = summary.situationTone || 'muted';
+  let badge = '—';
+  if (summary.isFrozen) badge = 'Trancado';
+  else if (summary.isBundle) badge = 'Coberto';
+  else if (tone === 'success') badge = 'Em dia';
+  else if (tone === 'danger') badge = 'Em atraso';
+  else if (tone === 'warning') badge = 'A vencer';
+  else if (/isento/i.test(String(summary.situationLabel || ''))) badge = 'Isento';
+  else if (/sem registro/i.test(String(summary.situationLabel || ''))) badge = 'Sem registro';
+
+  const toneClass =
+    tone === 'success' ? 'paid' : tone === 'danger' || tone === 'warning' ? 'pending' : 'neutral';
+
+  const subtitle = [summary.planLabel, summary.dueLabel].filter((x) => x && x !== '—').join(' · ');
+
+  return {
+    title: summary.situationLabel,
+    subtitle: subtitle || 'Aba Pagamentos',
+    badge,
+    toneClass,
   };
 }
 

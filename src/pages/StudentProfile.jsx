@@ -12,11 +12,17 @@ import {
 import {
     apiCreateStudentPayment,
     apiUpdateStudentPayment,
+    apiCreateHistoricalCoverage,
 } from '../lib/studentPaymentsApi.js';
 import StudentFinancialTimeline from '../components/student/StudentFinancialTimeline.jsx';
+import {
+    buildFinancialSummary,
+    profilePaymentStatusChrome,
+} from '../lib/studentFinancialTimeline.js';
 import StudentContractsSection from '../components/student/StudentContractsSection.jsx';
 import StudentContractHeaderChip from '../components/student/StudentContractHeaderChip.jsx';
 import PlanFreezeModal from '../components/student/PlanFreezeModal.jsx';
+import HistoricalCoverageModal from '../components/student/HistoricalCoverageModal.jsx';
 import {
     startPlanFreeze,
     endPlanFreeze,
@@ -274,22 +280,6 @@ function formatCheckinAt(iso) {
     return `${date} · ${time}`;
 }
 
-function capitalizePtBrMonthYear(s) {
-    if (!s) return '';
-    return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** reference_month YYYY-MM → "Abril 2026" (usa dia 02 para evitar timezone) */
-function formatReferenceMonthLong(ym) {
-    if (!ym || String(ym).length < 7) return '';
-    try {
-        const raw = new Date(`${String(ym).slice(0, 7)}-02`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        return capitalizePtBrMonthYear(raw);
-    } catch {
-        return '';
-    }
-}
-
 const METHOD_PAYMENT_LABELS = storageDialectMethodLabelsMap();
 
 export default function StudentProfile() {
@@ -444,6 +434,8 @@ export default function StudentProfile() {
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [paymentsError, setPaymentsError] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [historicalCoverageOpen, setHistoricalCoverageOpen] = useState(false);
+    const [historicalCoverageBusy, setHistoricalCoverageBusy] = useState(false);
     const [editingPaymentId, setEditingPaymentId] = useState(null);
     const [payFormError, setPayFormError] = useState('');
     const [payFormErrors, setPayFormErrors] = useState({});
@@ -1431,6 +1423,25 @@ export default function StudentProfile() {
         [setSearchParams]
     );
 
+    const paymentSummaryLoading =
+        canViewFinance && effectivePaymentStatus === null && loadingPayments;
+    const paymentSummary = useMemo(() => {
+        if (!canViewFinance || !student) return null;
+        return buildFinancialSummary({
+            student,
+            financeConfig,
+            payments,
+            sales,
+            paymentStatus: effectivePaymentStatus,
+        });
+    }, [canViewFinance, student, financeConfig, payments, sales, effectivePaymentStatus]);
+    const paymentStatusChrome = useMemo(
+        () => profilePaymentStatusChrome(paymentSummary, { loading: paymentSummaryLoading }),
+        [paymentSummary, paymentSummaryLoading]
+    );
+    const hideLeftPaymentTeaser =
+        Boolean(canViewFinance && timelineOpen && activeTab === 'payments');
+
     const handleConversationClose = useCallback(() => {
         setProfileTab('frequency');
     }, [setProfileTab]);
@@ -1486,6 +1497,40 @@ export default function StudentProfile() {
         setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: presetType });
         setShowPaymentModal(true);
     }, [student, financeConfig]);
+
+    const handleHistoricalCoverageConfirm = useCallback(
+        async ({ coverage_start_month, bundle_months, note, lead_id }) => {
+            if (!academyId || !lead_id || historicalCoverageBusy) return;
+            setHistoricalCoverageBusy(true);
+            try {
+                const result = await apiCreateHistoricalCoverage({
+                    lead_id,
+                    academy_id: academyId,
+                    coverage_start_month,
+                    bundle_months,
+                    note,
+                    plan_name: student?.plan || '',
+                });
+                const created = Number(result.monthsCreated) || 0;
+                const skipped = Number(result.monthsSkipped) || 0;
+                toast.success(
+                    skipped > 0
+                        ? `Cobertura histórica: ${created} mês(es) marcados (${skipped} pulado(s)).`
+                        : `Cobertura histórica: ${created} mês(es) marcados.`
+                );
+                setHistoricalCoverageOpen(false);
+                await loadPayments();
+            } catch (e) {
+                toast.show({
+                    type: 'error',
+                    message: e?.message || 'Não foi possível registrar a cobertura histórica.',
+                });
+            } finally {
+                setHistoricalCoverageBusy(false);
+            }
+        },
+        [academyId, historicalCoverageBusy, student?.plan, toast, loadPayments]
+    );
 
     const openEditPaymentModal = useCallback(
         (payment) => {
@@ -1755,8 +1800,6 @@ export default function StudentProfile() {
 
     const attendanceReady = isAttendanceConfigured();
     const studentsPlural = terms.students;
-    const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const currentMonthExtended = formatReferenceMonthLong(currentYm);
     const studentPhotoUrl = String(student.photo_url || '').trim();
     const studentDisplayName = editingData
         ? String(dataForm.name || '').trim() || 'Sem nome'
@@ -2642,69 +2685,33 @@ export default function StudentProfile() {
                     </div>{/* fecha student-profile-hd__body */}
                 </div>{/* fecha student-profile-hd */}
 
-                <div
-                    className={`profile-payment-status${
-                        effectivePaymentStatus === null && loadingPayments
-                            ? ' profile-payment-status--loading'
-                            : effectivePaymentStatus?.status === 'paid'
-                              ? ' profile-payment-status--paid'
-                              : effectivePaymentStatus?.status === 'pending'
-                                ? ' profile-payment-status--pending'
-                                : ' profile-payment-status--neutral'
-                    }`}
-                >
-                    <div className="profile-payment-status__body">
-                        {effectivePaymentStatus === null && loadingPayments ? (
-                            <>
-                                <div className="profile-payment-status__title">Carregando...</div>
-                                <div className="profile-payment-status__subtitle">Status do mês</div>
-                            </>
-                        ) : effectivePaymentStatus?.status === 'exempt' ? (
-                            <>
-                                <div className="profile-payment-status__title">Plano isento</div>
-                                <div className="profile-payment-status__subtitle">
-                                    {currentMonthExtended} · sem cobrança de mensalidade
-                                </div>
-                            </>
-                        ) : effectivePaymentStatus?.status === 'paid' ? (
-                            <>
-                                <div className="profile-payment-status__title">Pagamento em dia</div>
-                                <div className="profile-payment-status__subtitle">
-                                    {currentMonthExtended} · pago em{' '}
-                                    {formatDateBR(String(effectivePaymentStatus.payment?.paid_at || '').slice(0, 10)) || '—'}
-                                </div>
-                            </>
-                        ) : effectivePaymentStatus?.status === 'pending' ? (
-                            <>
-                                <div className="profile-payment-status__title">Pagamento pendente</div>
-                                <div className="profile-payment-status__subtitle">
-                                    {currentMonthExtended} ·{' '}
-                                    {effectivePaymentStatus.payment?.due_date
-                                        ? `vence ${formatDateBR(String(effectivePaymentStatus.payment.due_date).slice(0, 10))}`
-                                        : 'vencimento não definido'}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="profile-payment-status__title">Sem registro este mês</div>
-                                <div className="profile-payment-status__subtitle">
-                                    Registre o pagamento na aba Pagamentos
-                                </div>
-                            </>
-                        )}
-                    </div>
-                    {effectivePaymentStatus === null && loadingPayments ? (
-                        <span className="badge-secondary profile-payment-status__badge">…</span>
-                    ) : effectivePaymentStatus?.status === 'exempt' ? (
-                        <span className="badge-secondary profile-payment-status__badge">Isento</span>
-                    ) : effectivePaymentStatus?.status === 'paid' ? (
-                        <span className="badge-success profile-payment-status__badge">Em dia</span>
-                    ) : effectivePaymentStatus?.status === 'pending' ? (
-                        <span className="badge-danger profile-payment-status__badge">Pendente</span>
-                    ) : (
-                        <span className="badge-secondary profile-payment-status__badge">Não registrado</span>
-                    )}
-                </div>
+                {canViewFinance && !hideLeftPaymentTeaser ? (
+                    <button
+                        type="button"
+                        className={`profile-payment-status profile-payment-status--${paymentStatusChrome.toneClass}${
+                            paymentSummaryLoading ? '' : ' profile-payment-status--clickable'
+                        }`}
+                        disabled={paymentSummaryLoading}
+                        onClick={() => setProfileTab('payments')}
+                        aria-label={`${paymentStatusChrome.title}. Abrir aba Pagamentos.`}
+                    >
+                        <div className="profile-payment-status__body">
+                            <div className="profile-payment-status__title">{paymentStatusChrome.title}</div>
+                            <div className="profile-payment-status__subtitle">{paymentStatusChrome.subtitle}</div>
+                        </div>
+                        <span
+                            className={`profile-payment-status__badge ${
+                                paymentStatusChrome.toneClass === 'paid'
+                                    ? 'badge-success'
+                                    : paymentStatusChrome.toneClass === 'pending'
+                                      ? 'badge-danger'
+                                      : 'badge-secondary'
+                            }`}
+                        >
+                            {paymentStatusChrome.badge}
+                        </span>
+                    </button>
+                ) : null}
 
                 {collectionAttempts.length > 0 ? (
                     <div className="profile-collection-card">
@@ -2736,14 +2743,28 @@ export default function StudentProfile() {
                     </div>
                 ) : null}
 
-                <button
-                    type="button"
-                    className="profile-checkin-btn"
-                    disabled={checkingIn || !leadId || !academyId || !attendanceReady}
-                    onClick={() => void handleCheckin()}
-                >
-                    {checkingIn ? 'Registrando...' : `+ Registrar ${terms.attendance.toLowerCase()}`}
-                </button>
+                {attendanceReady ? (
+                    <button
+                        type="button"
+                        className="profile-checkin-btn"
+                        disabled={checkingIn || !leadId || !academyId}
+                        onClick={() => void handleCheckin()}
+                    >
+                        {checkingIn ? 'Registrando...' : `+ Registrar ${terms.attendance.toLowerCase()}`}
+                    </button>
+                ) : (
+                    <StatusBanner
+                        variant="info"
+                        className="student-profile-attendance-setup-banner"
+                        action={{
+                            label: 'Abrir Recepção',
+                            onClick: () => navigate('/recepcao'),
+                        }}
+                    >
+                        Presença não configurada nesta academia — o check-in manual fica indisponível até a
+                        coleção de frequência estar pronta. Use a Recepção se a catraca já estiver ligada.
+                    </StatusBanner>
+                )}
 
                 <ProfileComunicacaoSection
                     waConnected={waConnected}
@@ -3175,6 +3196,9 @@ export default function StudentProfile() {
                         error={paymentsError}
                         onRetry={() => void loadPayments()}
                         onRegisterPayment={(presetType) => openPaymentModal(presetType)}
+                        onOpenHistoricalCoverage={
+                            canManagePayments ? () => setHistoricalCoverageOpen(true) : undefined
+                        }
                         onGoMensalidades={() => {
                             const search = String(student.name || '').trim() || undefined;
                             navigate(buildReceivablesPath({ section: 'mensalidades', search }));
@@ -3412,79 +3436,16 @@ export default function StudentProfile() {
             {leftColumn}
             {rightColumn}
 
-            {confirmDeleteOpen ? (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 80,
-                        background: 'rgba(15, 23, 42, 0.45)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 20,
-                        paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
-                    }}
-                    onClick={() => (deleteBusy ? undefined : setConfirmDeleteOpen(false))}
-                >
-                    <div
-                        style={{
-                            maxWidth: 400,
-                            width: '100%',
-                            borderRadius: 14,
-                            background: 'var(--surface)',
-                            padding: 24,
-                            boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                            <AlertTriangle size={28} color="var(--danger)" />
-                        </div>
-                        <h3 style={{ margin: 0, textAlign: 'center', fontSize: 18, fontWeight: 800 }}>Excluir {terms.student.toLowerCase()}?</h3>
-                        <p style={{ margin: '12px 0 0', textAlign: 'center', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                            Esta ação não pode ser desfeita. Todos os dados do {terms.student.toLowerCase()} serão removidos.
-                        </p>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-                            <button
-                                type="button"
-                                disabled={deleteBusy}
-                                onClick={() => setConfirmDeleteOpen(false)}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    borderRadius: 10,
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    fontWeight: 700,
-                                    cursor: deleteBusy ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'inherit',
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                disabled={deleteBusy}
-                                onClick={() => void runDeleteStudent()}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    borderRadius: 10,
-                                    border: 'none',
-                                    background: 'var(--danger)',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    cursor: deleteBusy ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'inherit',
-                                }}
-                            >
-                                {deleteBusy ? '…' : 'Excluir'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            <ConfirmDialog
+                open={confirmDeleteOpen}
+                title={`Excluir ${terms.student.toLowerCase()}?`}
+                description={`Esta ação não pode ser desfeita. Todos os dados do ${terms.student.toLowerCase()} serão removidos.`}
+                confirmLabel="Excluir"
+                confirmVariant="danger"
+                loading={deleteBusy}
+                onConfirm={() => void runDeleteStudent()}
+                onClose={() => !deleteBusy && setConfirmDeleteOpen(false)}
+            />
 
             {deactivateOpen && student ? (
                 <DeactivateStudentModal
@@ -3521,6 +3482,15 @@ export default function StudentProfile() {
                 busy={freezeBusy}
                 onClose={() => !freezeBusy && setFreezeModalOpen(false)}
                 onConfirm={handleConfirmFreeze}
+            />
+
+            <HistoricalCoverageModal
+                open={historicalCoverageOpen}
+                student={student}
+                payments={payments}
+                busy={historicalCoverageBusy}
+                onClose={() => !historicalCoverageBusy && setHistoricalCoverageOpen(false)}
+                onConfirm={handleHistoricalCoverageConfirm}
             />
 
             <StudentPaymentModal

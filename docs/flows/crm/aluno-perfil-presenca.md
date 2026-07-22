@@ -104,9 +104,13 @@ flowchart TD
 9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
 9e. [ ] Aba Pagamentos: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
+9e2. [ ] Owner/admin: **Cobertura histórica** no perfil — N meses (1–24) como `covered` / R$ 0 / sem Caixa; pula meses já pagos
 9f. [ ] Lista em linhas compactas (ações só ao expandir); default Mensalidades · 3 meses; sem lista duplicada do extrato
+9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba
+9h. [ ] Sem presença configurada: `StatusBanner` com ação **Abrir Recepção** (sem botão de check-in morto)
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
+11b. [ ] Excluir aluno — `ConfirmDialog` (mesmo padrão de excluir lançamento)
 12. [ ] Trocar academia — lista mostra só alunos da academia atual
 13. [ ] Aba **Frequência** — aluno trancado exibe banner «frequência não avaliada»
 14. [ ] Aba **Frequência** — aluno inativo exibe banner com histórico abaixo
@@ -182,6 +186,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-22 | — | Cobertura histórica no perfil (sem Caixa): checklist 9e2 |
 | 2026-06-25 | — | Espelho pagamento→Caixa: fee/other na reconciliação, OUTROS_RECEITA, cancel troco, badge No Caixa |
 | 2026-06-23 | — | Card financeiro passa a exibir desconto individual da matrícula quando houver |
 | 2026-06-15 | — | Criação inicial |

@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCoverageMonthSpecs,
+  buildHistoricalCoverageMonthSpecs,
+  previewHistoricalCoverage,
   resolveBundleMonthAction,
   groupStudentPaymentsForProfile,
   listCancellableCoveredMonths,
+  HISTORICAL_COVERED_REASON,
+  isHistoricalCoveragePayment,
 } from '../lib/bundleCoverage.js';
 
 describe('bundleCoverage', () => {
@@ -51,6 +55,38 @@ describe('bundleCoverage', () => {
     const { groups } = groupStudentPaymentsForProfile([child, anchor, plan]);
     expect(groups.some((g) => g.type === 'bundle')).toBe(true);
     expect(groups.filter((g) => g.type === 'single')).toHaveLength(1);
+  });
+
+  it('buildHistoricalCoverageMonthSpecs: todos covered, amount 0', () => {
+    const specs = buildHistoricalCoverageMonthSpecs({
+      startYm: '2026-01',
+      bundleMonths: 12,
+      note: 'pago em 2025',
+    });
+    expect(specs).toHaveLength(12);
+    expect(specs.every((s) => s.status === 'covered')).toBe(true);
+    expect(specs.every((s) => s.amount === 0)).toBe(true);
+    expect(specs.every((s) => s.covered_reason === HISTORICAL_COVERED_REASON)).toBe(true);
+    expect(specs[0].note).toContain('pago em 2025');
+    expect(buildHistoricalCoverageMonthSpecs({ startYm: '2026-01', bundleMonths: 0 })).toEqual([]);
+    expect(buildHistoricalCoverageMonthSpecs({ startYm: '2026-01', bundleMonths: 25 })).toEqual([]);
+  });
+
+  it('previewHistoricalCoverage conta skips de paid/partial', () => {
+    const specs = buildHistoricalCoverageMonthSpecs({ startYm: '2026-01', bundleMonths: 3 });
+    const existingByMonth = new Map([
+      ['2026-01', { status: 'paid' }],
+      ['2026-02', { status: 'pending' }],
+    ]);
+    const preview = previewHistoricalCoverage({ specs, existingByMonth });
+    expect(preview.monthsSkipped).toBe(1);
+    expect(preview.monthsToWrite).toBe(2);
+    expect(preview.total).toBe(3);
+  });
+
+  it('isHistoricalCoveragePayment', () => {
+    expect(isHistoricalCoveragePayment({ covered_reason: 'historical' })).toBe(true);
+    expect(isHistoricalCoveragePayment({ covered_reason: 'freeze' })).toBe(false);
   });
 
   it('listCancellableCoveredMonths filtra futuros', () => {

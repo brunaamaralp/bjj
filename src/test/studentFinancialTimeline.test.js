@@ -5,6 +5,7 @@ import {
   buildFinancialSummary,
   countTimelineHistory,
   filterTypeCounts,
+  profilePaymentStatusChrome,
   DEFAULT_TIMELINE_TYPE_FILTER,
   DEFAULT_TIMELINE_PERIOD_FILTER,
 } from '../lib/studentFinancialTimeline.js';
@@ -55,6 +56,25 @@ describe('studentFinancialTimeline', () => {
     expect(kinds).toContain('product');
     expect(items.filter((i) => i.kind === 'bundle')).toHaveLength(1);
     expect(items.filter((i) => i.kind === 'plan' && i.payment?.$id === 'c1')).toHaveLength(0);
+  });
+
+  it('buildFinancialTimelineItems marca cobertura histórica', () => {
+    const payments = [
+      {
+        $id: 'h1',
+        payment_category: 'bundle',
+        bundle_origin_id: 'h1',
+        bundle_months: 12,
+        reference_month: '2026-01',
+        amount: 0,
+        status: 'covered',
+        covered_reason: 'historical',
+      },
+    ];
+    const items = buildFinancialTimelineItems(payments, []);
+    expect(items[0].title).toMatch(/^Cobertura histórica/);
+    expect(items[0].subtitle).toMatch(/Migração/);
+    expect(items[0].historical).toBe(true);
   });
 
   it('não lista filhos bundle covered como itens avulsos', () => {
@@ -208,6 +228,31 @@ describe('studentFinancialTimeline', () => {
     });
     expect(overdue.situationTone).toBe('danger');
     expect(overdue.situationLabel).toMatch(/em atraso/i);
+  });
+
+  it('buildFinancialSummary Em dia sem lista de pagamentos (status API)', () => {
+    const paid = buildFinancialSummary({
+      student: { plan: 'Mensal', dueDay: 10 },
+      financeConfig: { plans: [{ name: 'Mensal', price: 200 }] },
+      payments: [],
+      sales: [],
+      paymentStatus: { status: 'paid' },
+    });
+    expect(paid.situationTone).toBe('success');
+    expect(paid.situationLabel).toBe('Em dia');
+  });
+
+  it('profilePaymentStatusChrome alinha badge com SituationHero', () => {
+    const chrome = profilePaymentStatusChrome({
+      situationLabel: 'Em dia (último: jun/2026)',
+      situationTone: 'success',
+      planLabel: 'Mensal · R$ 200,00',
+      dueLabel: 'Vence: dia 10',
+    });
+    expect(chrome.title).toMatch(/^Em dia/);
+    expect(chrome.badge).toBe('Em dia');
+    expect(chrome.toneClass).toBe('paid');
+    expect(chrome.subtitle).toMatch(/Mensal/);
   });
 
   it('defaults de filtro do perfil priorizam mensalidades recentes', () => {
