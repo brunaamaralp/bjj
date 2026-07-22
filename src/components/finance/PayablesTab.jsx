@@ -584,7 +584,7 @@ export default function PayablesTab({
 
   const kpiStrip =
     resolvedSection === PAYABLES_SECTIONS.VENCIDAS ? (
-      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+      <div className="finance-kpi receivables-tab__total-kpi">
         <p className="finance-kpi__label">Vencidas</p>
         <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.overdueAmount)}</p>
         <p className="finance-kpi__hint">
@@ -593,16 +593,16 @@ export default function PayablesTab({
       </div>
     ) : (
       <>
-        <div className="finance-kpi finance-kpi--compact">
+        <div className="finance-kpi finance-kpi--hero">
           <p className="finance-kpi__label">Em aberto (90 dias)</p>
           <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
         </div>
-        <div className="finance-kpi finance-kpi--compact">
+        <div className="finance-kpi">
           <p className="finance-kpi__label">Vence em 7 dias</p>
           <p className="finance-kpi__value">{fmtMoney(summary.dueSoonAmount)}</p>
           <p className="finance-kpi__hint">{summary.dueSoonCount} conta(s)</p>
         </div>
-        <div className="finance-kpi finance-kpi--compact">
+        <div className="finance-kpi">
           <p className="finance-kpi__label">Fixas ativas</p>
           <p className="finance-kpi__value">{summary.activeTemplates}</p>
         </div>

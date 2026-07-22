@@ -33,15 +33,17 @@
 }
 
 .payables-tab .finance-kpi-strip {
-  grid-template-columns: repeat(3, minmax(140px, 200px));
-  width: fit-content;
-  max-width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.payables-tab .receivables-tab__total-kpi {
+  max-width: none;
 }
 
 @media (max-width: 767px) {
   .payables-tab .finance-kpi-strip {
     grid-template-columns: 1fr;
-    width: 100%;
   }
 }
 
