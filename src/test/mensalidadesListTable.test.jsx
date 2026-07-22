@@ -233,6 +233,130 @@ describe('MensalidadesListTable', () => {
     expect(within(row).getByText('PagBank')).toBeInTheDocument();
   });
 
+  it('mostra coluna Pagador com alias priorizado sobre responsavel', () => {
+    const student = {
+      id: 'student-6',
+      name: 'Diego Alves',
+      plan: 'Mensal',
+      dueDay: 8,
+      payerAliases: [{ display: 'Mae Diego PIX', normalized: 'MAE DIEGO PIX', source: 'manual' }],
+      responsavel: 'Responsavel Ignorado',
+      parentName: 'Pai Ignorado',
+    };
+
+    render(
+      <MemoryRouter>
+        <MensalidadesListTable
+          loading={false}
+          displayedStudents={[student]}
+          hasStudentsWithPlan
+          hasActiveFilters={false}
+          onClearFilters={vi.fn()}
+          terms={{ student: 'Aluno' }}
+          paymentMap={{}}
+          currentMonth="2026-06"
+          financeConfig={{}}
+          getRowStatus={() => ({ status: 'none', dueDate: new Date('2026-06-08T12:00:00'), paidAt: null })}
+          startOfLocalDay={(date) => {
+            const copy = new Date(date);
+            copy.setHours(0, 0, 0, 0);
+            return copy.getTime();
+          }}
+          formatDdMm={(date) => date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+          parseYmdLocal={(value) => {
+            const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!match) return new Date(String(value));
+            return new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00`);
+          }}
+          fmtMoney={(value) => `R$ ${Number(value).toFixed(2)}`}
+          METHOD_LABELS={{}}
+          dueSortOrder={null}
+          setDueSortOrder={vi.fn()}
+          openPaymentModal={vi.fn()}
+          handleEstornar={vi.fn()}
+          configuredTurmas={[]}
+          canReverse
+          linkStudentProfile={false}
+          navRole="admin"
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Pagador' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Pagador' })).toHaveAttribute(
+      'title',
+      expect.stringMatching(/alias|responsável|pai/i)
+    );
+    const row = screen.getByRole('row', { name: /diego alves/i });
+    expect(within(row).getByText('Mae Diego PIX')).toBeInTheDocument();
+    expect(within(row).queryByText('Responsavel Ignorado')).not.toBeInTheDocument();
+    expect(
+      within(row).getByRole('button', { name: /registrar pagamento de diego alves/i })
+    ).toBeInTheDocument();
+  });
+
+  it('card mobile mostra valor pago e omite pagador vazio', () => {
+    const student = {
+      id: 'student-7',
+      name: 'Elena Costa',
+      plan: 'Mensal',
+      dueDay: 3,
+    };
+    const payment = {
+      $id: 'payment-7',
+      status: 'paid',
+      amount: 250,
+      method: 'pix',
+      paid_at: '2026-06-03T12:00:00.000Z',
+    };
+
+    const { container } = render(
+      <MemoryRouter>
+        <MensalidadesListTable
+          loading={false}
+          displayedStudents={[student]}
+          hasStudentsWithPlan
+          hasActiveFilters={false}
+          onClearFilters={vi.fn()}
+          terms={{ student: 'Aluno' }}
+          paymentMap={{ [student.id]: payment }}
+          currentMonth="2026-06"
+          financeConfig={{}}
+          getRowStatus={() => ({ status: 'paid', dueDate: new Date('2026-06-03T12:00:00'), paidAt: new Date('2026-06-03T12:00:00') })}
+          startOfLocalDay={(date) => {
+            const copy = new Date(date);
+            copy.setHours(0, 0, 0, 0);
+            return copy.getTime();
+          }}
+          formatDdMm={(date) => date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+          parseYmdLocal={(value) => {
+            const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!match) return new Date(String(value));
+            return new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00`);
+          }}
+          fmtMoney={(value) => `R$ ${Number(value).toFixed(2)}`}
+          METHOD_LABELS={{ pix: 'Pix' }}
+          dueSortOrder={null}
+          setDueSortOrder={vi.fn()}
+          openPaymentModal={vi.fn()}
+          handleEstornar={vi.fn()}
+          configuredTurmas={[]}
+          canReverse
+          linkStudentProfile={false}
+          navRole="admin"
+        />
+      </MemoryRouter>
+    );
+
+    const card = screen.getByRole('article', { name: /elena costa/i });
+    expect(within(card).getByText('R$ 250.00')).toBeInTheDocument();
+    expect(card.querySelector('.mensal-mobile-card__pagador')).toBeNull();
+    expect(
+      within(card).getByRole('button', { name: /estornar pagamento de elena costa/i })
+    ).toBeInTheDocument();
+    expect(container.querySelector('th[aria-sort="none"]')).toBeTruthy();
+  });
+
   it('renderiza aluno de plano isento com status Isento e sem acao de registrar', () => {
     const student = {
       id: 'student-2',

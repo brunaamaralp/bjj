@@ -48,4 +48,37 @@ describe('mensalidadesExport', () => {
     expect(ana.status).toBeTruthy();
     expect(studentTurma(students[0])).toBe('Adulto');
   });
+
+  it('exports pagador after aluno using alias > responsavel > parentName', () => {
+    const withPayer = [
+      {
+        id: '1',
+        name: 'Ana',
+        turma: 'Adulto',
+        plan: 'Mensal',
+        payerAliases: [{ display: 'Maria PIX', normalized: 'MARIA PIX', source: 'manual' }],
+        responsavel: 'Ignorado',
+      },
+      {
+        id: '2',
+        name: 'Bruno',
+        className: 'Kids',
+        plan: 'Trimestral',
+        responsavel: 'Pai Bruno',
+      },
+      {
+        id: '3',
+        name: 'Carla',
+        plan: 'Mensal',
+        parentName: 'Mae Carla',
+      },
+    ];
+    const rows = buildMensalidadesGridRows(withPayer, paymentMap, financeConfig, '2026-06');
+    const csv = mensalidadesGridToCsvRows(rows);
+    expect(csv.find((r) => r.aluno === 'Ana').pagador).toBe('Maria PIX');
+    expect(csv.find((r) => r.aluno === 'Bruno').pagador).toBe('Pai Bruno');
+    expect(csv.find((r) => r.aluno === 'Carla').pagador).toBe('Mae Carla');
+    const keys = Object.keys(csv[0]);
+    expect(keys.indexOf('pagador')).toBe(keys.indexOf('aluno') + 1);
+  });
 });

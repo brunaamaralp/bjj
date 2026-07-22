@@ -10,6 +10,7 @@ import {
   matchesMensalidadesStudentFilters,
   studentTurma,
 } from './mensalidadesFilters.js';
+import { resolveStudentPayerDisplayName } from './studentPayerAliases.js';
 
 export { studentTurma };
 
@@ -99,6 +100,7 @@ function planOrAccount(row) {
 export function mensalidadesGridToCsvRows(sortedRows, currentMonth = '', financeConfig = null) {
   return sortedRows.map((row) => ({
     aluno: row.student.name || '',
+    pagador: resolveStudentPayerDisplayName(row.student),
     turma: studentTurma(row.student),
     status: row.display?.label || '',
     valor_esperado: formatAmountBr(row.expected),

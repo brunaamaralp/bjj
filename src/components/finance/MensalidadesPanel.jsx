@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import ModalShell from '../shared/ModalShell.jsx';
 import PaymentFormErrorBanner from '../shared/PaymentFormErrorBanner.jsx';
 import PaymentModalFooterHint from '../shared/PaymentModalFooterHint.jsx';
@@ -16,7 +16,7 @@ import PaymentExceptionsView from './PaymentExceptionsView.jsx';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks';
 import useDebounce from '../../hooks/useDebounce';
 import { friendlyError, studentPaymentFriendlyError } from '../../lib/errorMessages';
-import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, CheckCircle2, Download } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarClock, Check, CheckCircle2, Download } from 'lucide-react';
 import PageHeader from '../layout/PageHeader.jsx';
 import MensalidadesListTable from './MensalidadesListTable.jsx';
 import { isRealPaymentException } from '../../lib/paymentExceptions.js';
@@ -88,6 +88,8 @@ import {
   matchesMensalidadesStatusFilter,
   matchesMensalidadesStudentFilters,
   parseMensalidadesFiltroParam,
+  toggleMensalidadesReceptionFilter,
+  MENSALIDADES_RECEPTION_FILTER_LABELS,
 } from '../../lib/mensalidadesFilters.js';
 import {
   buildExceptionStatusFilterOptions,
@@ -191,7 +193,6 @@ export default function MensalidadesPanel({
   const terms = useTerms();
   const { turmas: configuredTurmas } = useAcademyTurmas(academyId);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const reconStatementId = String(searchParams.get('recon_statement') || '').trim();
 
@@ -572,16 +573,9 @@ export default function MensalidadesPanel({
     return { dueToday, dueWeek, overdue, paid };
   }, [heavyMetricsReady, deferredStudents, paymentMap, currentMonth, getStatus, financeConfig]);
 
-  const toggleReceptionFilter = useCallback(
-    (next) => {
-      if (next === 'overdue' && sectionMode) {
-        navigate(buildReceivablesPath({ section: RECEIVABLES_SECTIONS.COBRANCA }));
-        return;
-      }
-      setFilter((cur) => (cur === next ? 'all' : next));
-    },
-    [sectionMode, navigate]
-  );
+  const toggleReceptionFilter = useCallback((next) => {
+    setFilter((cur) => toggleMensalidadesReceptionFilter(cur, next));
+  }, []);
 
   const filterCounts = useMemo(
     () =>
@@ -1183,6 +1177,28 @@ export default function MensalidadesPanel({
               filterCounts={filterCounts}
               reguaFilterChips={reguaFilterChips}
               collectionRules={collectionRules}
+              receptionPriorities={[
+                {
+                  id: 'due_today',
+                  label: MENSALIDADES_RECEPTION_FILTER_LABELS.due_today,
+                  count: receptionSummary.dueToday,
+                },
+                {
+                  id: 'due_week',
+                  label: MENSALIDADES_RECEPTION_FILTER_LABELS.due_week,
+                  count: receptionSummary.dueWeek,
+                },
+                {
+                  id: 'overdue',
+                  label: MENSALIDADES_RECEPTION_FILTER_LABELS.overdue,
+                  count: receptionSummary.overdue,
+                },
+                {
+                  id: 'paid_in_month',
+                  label: MENSALIDADES_RECEPTION_FILTER_LABELS.paid_in_month,
+                  count: receptionSummary.paid,
+                },
+              ]}
             />
           ) : null}
           {(viewMode === 'list' || viewMode === 'grid') && turmas.length > 0 ? (
@@ -1368,6 +1384,45 @@ export default function MensalidadesPanel({
 
       {viewMode === 'list' ? (
       <>
+      {!gridLoading ? (
+        <section
+          className="mensal-summary-block mensal-month-kpis mensal-month-kpis--top"
+          aria-label={`Resumo do mês · ${formatMonthTitleCapitalized(currentMonth)}`}
+        >
+          <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthKpis.expectedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Esperado</div>
+            </div>
+            <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthKpis.receivedTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Recebido</div>
+            </div>
+            <button
+              type="button"
+              className={[
+                'mensal-summary-card mensal-summary-card--static mensal-summary-card--pending',
+                filter === 'open' ? 'mensal-summary-card--filter-active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setFilter((cur) => (cur === 'open' ? 'all' : 'open'))}
+              aria-pressed={filter === 'open'}
+              aria-label="Filtrar alunos em aberto"
+            >
+              <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
+                {fmtMoney(monthOpenTotal)}
+              </div>
+              <div className="mensal-summary-card__label">Em aberto</div>
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="mensal-priorities-block" aria-label="Prioridades do dia">
         {gridLoading ? (
           <div className="mensal-priorities-strip mensal-priorities-strip--skeleton" aria-hidden>
@@ -1382,7 +1437,7 @@ export default function MensalidadesPanel({
                 key: 'due_today',
                 filterKey: 'due_today',
                 count: receptionSummary.dueToday,
-                label: 'Vencendo hoje',
+                label: MENSALIDADES_RECEPTION_FILTER_LABELS.due_today,
                 icon: Calendar,
                 tone: 'warn',
               },
@@ -1390,7 +1445,7 @@ export default function MensalidadesPanel({
                 key: 'due_week',
                 filterKey: 'due_week',
                 count: receptionSummary.dueWeek,
-                label: 'Vence em até 7 dias',
+                label: MENSALIDADES_RECEPTION_FILTER_LABELS.due_week,
                 icon: CalendarClock,
                 tone: 'warn',
               },
@@ -1398,7 +1453,7 @@ export default function MensalidadesPanel({
                 key: 'overdue',
                 filterKey: 'overdue',
                 count: receptionSummary.overdue,
-                label: 'Atraso · recepção',
+                label: MENSALIDADES_RECEPTION_FILTER_LABELS.overdue,
                 icon: AlertCircle,
                 tone: 'danger',
               },
@@ -1406,7 +1461,7 @@ export default function MensalidadesPanel({
                 key: 'paid_in_month',
                 filterKey: 'paid_in_month',
                 count: receptionSummary.paid,
-                label: 'Pagos no mês',
+                label: MENSALIDADES_RECEPTION_FILTER_LABELS.paid_in_month,
                 icon: CheckCircle2,
                 tone: 'success',
               },
@@ -1514,47 +1569,6 @@ export default function MensalidadesPanel({
               ? 'Atualizando pagamentos do mês…'
               : 'Carregando mais alunos…'}
         </p>
-      ) : null}
-
-      {!gridLoading ? (
-        <details className="mensal-collapsible-section">
-          <summary className="mensal-collapsible-section__summary">
-            <span>Resumo do mês · {formatMonthTitleCapitalized(currentMonth)}</span>
-            <ChevronDown size={16} className="mensal-collapsible-section__chevron" aria-hidden />
-          </summary>
-          <section className="mensal-summary-block mensal-month-kpis" aria-label="Resumo do mês">
-            <div className="mensal-summary-grid mensal-summary-grid--month-kpis">
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--total">
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthKpis.expectedTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Esperado</div>
-              </div>
-              <div className="mensal-summary-card mensal-summary-card--static mensal-summary-card--paid">
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthKpis.receivedTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Recebido</div>
-              </div>
-              <button
-                type="button"
-                className={[
-                  'mensal-summary-card mensal-summary-card--static mensal-summary-card--pending',
-                  filter === 'open' ? 'mensal-summary-card--filter-active' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => setFilter((cur) => (cur === 'open' ? 'all' : 'open'))}
-                aria-pressed={filter === 'open'}
-              >
-                <div className="mensal-summary-card__value mensal-summary-card__value--money finance-data">
-                  {fmtMoney(monthOpenTotal)}
-                </div>
-                <div className="mensal-summary-card__label">Em aberto</div>
-              </button>
-            </div>
-          </section>
-        </details>
       ) : null}
 
       </>

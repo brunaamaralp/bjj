@@ -8,11 +8,12 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-25 |
+| **última revisão** | 2026-07-22 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
+- [2026-07-22-mensalidades-coluna-pagador-design.md](../../superpowers/specs/2026-07-22-mensalidades-coluna-pagador-design.md)
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
 - [2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md](../../superpowers/specs/2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md)
 - [2026-06-15-financeiro-nav-non-owner-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-nav-non-owner-PRODUCT.md)
@@ -26,7 +27,7 @@
 
 ## Resumo
 
-O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento. Quando o aluno possui `students.discount_amount`, o valor esperado da cobrança passa a ser `plan.price - discount_amount`.
+O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). A grade lista **Pagador** ao lado do aluno (1º alias de quem paga → responsável → pai/mãe) para conferência; o CSV exporta a mesma coluna. Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento. Quando o aluno possui `students.discount_amount`, o valor esperado da cobrança passa a ser `plan.price - discount_amount`.
 
 ---
 
@@ -102,6 +103,7 @@ flowchart TD
 1. [ ] Abrir `/financeiro?tab=a-receber&section=mensalidades` — painel carrega sem `ErrorBanner` persistente
 2. [ ] Sub-aba **Visão geral** mostra resumo do mês e links para detalhes
 3. [ ] Sub-aba **Mensalidades** lista alunos do mês de referência
+3b. [ ] Coluna **Pagador** ao lado do aluno (alias → responsável → pai/mãe); CSV inclui `pagador`
 4. [ ] Filtro de status reduz a lista (ex.: só pendente ou só atraso na recepção)
 5. [ ] Chip **Pagos no mês** inclui pagos e cobertos; dropdown **Pago** só pagos efetivos
 6. [ ] Filtros de turma e plano funcionam na grade **Lista** e na aba **Resumo**
@@ -122,7 +124,9 @@ flowchart TD
 18. [ ] Trocar academia — lista só alunos da academia atual
 19. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
 20. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
-21. [ ] Deep link `?filtro=` (ex. `overdue`, `paid_in_month`, `covered`) aplica filtro ao abrir Mensalidades
+21. [ ] Deep link `?filtro=` (ex. `overdue`, `paid_in_month`, `covered`) aplica filtro na grade de Mensalidades (não redireciona para Cobrança)
+21b. [ ] Chip **Em atraso** filtra a lista; link **Abrir fila de cobrança** permanece separado
+21c. [ ] KPIs Esperado/Recebido/Em aberto visíveis acima da grade; Em aberto sincroniza com dropdown de status
 22. [ ] Grade carrega todos os alunos ativos (não só primeira página do store)
 
 ### Estados de erro conhecidos

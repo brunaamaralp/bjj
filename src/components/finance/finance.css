@@ -2585,7 +2585,7 @@
 .mensalidades-page .mensal-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 640px;
 }
 
 .mensalidades-page .mensal-table thead {
@@ -2606,7 +2606,7 @@
   padding: 12px 16px;
   font-size: var(--font-sm);
   color: var(--text-primary, var(--text, #1a1a1a));
-  border-top: 0.5px solid var(--border-light, #e8e8ef);
+  border-bottom: 1px solid var(--border-light, #e8e8ef);
   vertical-align: middle;
 }
 
@@ -2897,6 +2897,17 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 
 .mensal-month-kpis {
   margin-bottom: 16px;
+}
+
+.mensal-month-kpis--top {
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1100px) {
+  .mensalidades-page .mensal-table .mensal-col-pref {
+    display: none;
+  }
 }
 
 .mensal-collection-dashboard {
@@ -4844,11 +4855,15 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 }
 
 .mensal-row--zebra td {
-  background: rgba(0, 0, 0, 0.018);
+  background: color-mix(in srgb, var(--text, #1a1a1a) 3.5%, var(--surface, #fff));
 }
 
 .mensal-row--paid td {
-  opacity: 0.8;
+  color: var(--text-secondary, #5c5c6a);
+}
+
+.mensal-row--paid.mensal-row--zebra td {
+  background: color-mix(in srgb, var(--text, #1a1a1a) 2.5%, var(--surface, #fff));
 }
 
 .mensal-row--pending {
@@ -4857,6 +4872,14 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
 
 .mensal-row--none {
   box-shadow: inset 3px 0 0 var(--border-light);
+}
+
+.mensalidades-page .mensal-table tbody tr.mensal-row:hover td {
+  background: var(--surface-hover, #f4f4f8);
+}
+
+.mensalidades-page .mensal-table tbody tr.mensal-row--zebra:hover td {
+  background: color-mix(in srgb, var(--text, #1a1a1a) 6%, var(--surface, #fff));
 }
 
 .mensal-cell-empty {
@@ -5051,6 +5074,16 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   text-decoration: underline;
 }
 
+.mensal-cell-pagador {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(200px, 22vw);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
 .mensal-cell-pref {
   display: flex;
   flex-direction: column;
@@ -5117,6 +5150,27 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   font-size: var(--font-xs);
   color: var(--text-secondary);
   margin-top: 2px;
+}
+
+.mensal-mobile-card__pagador {
+  margin-top: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mensal-mobile-card__valor {
+  margin-top: 4px;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.mensal-mobile-card__valor--filled {
+  font-weight: 700;
+  color: var(--text);
 }
 
 .mensal-mobile-card__platform {

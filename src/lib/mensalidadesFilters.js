@@ -23,6 +23,21 @@ export const MENSALIDADES_RECEPTION_FILTER_IDS = [
   'paid_in_month',
 ];
 
+export const MENSALIDADES_RECEPTION_FILTER_LABELS = {
+  due_today: 'Vencendo hoje',
+  due_week: 'Vence em até 7 dias',
+  overdue: 'Em atraso',
+  paid_in_month: 'Pagos no mês',
+};
+
+/** Toggle de chip de prioridade: mesma chave → limpa para all. */
+export function toggleMensalidadesReceptionFilter(current, next) {
+  const cur = String(current || MENSALIDADES_FILTER_ALL);
+  const n = String(next || '');
+  if (!n || !MENSALIDADES_RECEPTION_FILTER_IDS.includes(n)) return cur;
+  return cur === n ? MENSALIDADES_FILTER_ALL : n;
+}
+
 const URL_FILTRO_KEYS = new Set([
   MENSALIDADES_FILTER_ALL,
   MENSALIDADES_FILTER_OPEN,

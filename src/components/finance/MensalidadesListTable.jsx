@@ -23,6 +23,18 @@ import { sortTurmaGroupKeys, studentTurmaGroupKey } from '../../lib/academyTurma
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
+import { resolveStudentPayerDisplayName } from '../../lib/studentPayerAliases.js';
+
+const MENSALIDADES_TABLE_COL_COUNT = 7;
+const PAGADOR_COLUMN_HINT =
+  'Quem costuma pagar: alias do extrato, responsável cadastral ou pai/mãe';
+
+function resolveRowValorCell({ payment, isExempt, fmtMoney }) {
+  const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
+  const hasValor = !isExempt && amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
+  const valorCell = isExempt ? 'Isento' : hasValor ? fmtMoney(amountNum) : '—';
+  return { amountNum, hasValor, valorCell };
+}
 
 function StatusBadge({ variant, children }) {
   const icons = {
@@ -251,9 +263,7 @@ export default function MensalidadesListTable({
       }
     }
 
-    const amountNum = payment && payment.status === 'paid' ? Number(payment.amount) : null;
-    const hasValor = !isExempt && amountNum != null && Number.isFinite(amountNum) && amountNum > 0;
-    const valorCell = isExempt ? 'Isento' : hasValor ? fmtMoney(amountNum) : '—';
+    const { hasValor, valorCell } = resolveRowValorCell({ payment, isExempt, fmtMoney });
 
     const prefM = resolveMensalidadePaymentMethod(student, payment);
     const prefA = resolveMensalidadePaymentAccount(student, payment);
@@ -312,6 +322,7 @@ export default function MensalidadesListTable({
       .join(' ');
 
     const displayName = String(student.name || '').trim() || '—';
+    const payerName = resolveStudentPayerDisplayName(student);
     const canRegister = !studentFrozen && !isPaid && !isExempt;
 
     return (
@@ -322,13 +333,20 @@ export default function MensalidadesListTable({
             <span className="mensal-cell-name__plan">{student.plan || '—'}</span>
           </div>
         </td>
+        <td className={payerName ? '' : 'mensal-cell-empty'}>
+          {payerName ? (
+            <span className="mensal-cell-pagador">{payerName}</span>
+          ) : (
+            <span className="mensal-cell-faint">—</span>
+          )}
+        </td>
         <td className={`${vencIsEmpty ? 'mensal-cell-empty' : ''} ${vencClassName}`.trim()}>
           {vencCell}
         </td>
         <td className={`mensal-cell-valor${hasValor ? ' mensal-cell-valor--filled' : ' mensal-cell-empty'}`}>
           {valorCell}
         </td>
-        <td>
+        <td className="mensal-col-pref">
           {prefM || prefA ? (
             <div className="mensal-cell-pref">
               {prefM ? <span>{METHOD_LABELS[prefM] || prefM}</span> : null}
@@ -357,6 +375,7 @@ export default function MensalidadesListTable({
                 onClick={() => requestEstornar(payment)}
                 disabled={reversingPaymentId === payment.$id || reverseBlocked}
                 title={reverseBlocked ? reverseBlockedTitle : undefined}
+                aria-label={`Estornar pagamento de ${displayName}`}
               >
                 {reversingPaymentId === payment.$id ? (
                   <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
@@ -370,8 +389,9 @@ export default function MensalidadesListTable({
                 type="button"
                 className="mensal-btn-pay mensal-btn-pay--compact"
                 onClick={() => openPaymentModal(student)}
+                aria-label={`Registrar pagamento de ${displayName}`}
               >
-                <Banknote size={14} strokeWidth={2} /> Registrar
+                <Banknote size={14} strokeWidth={2} aria-hidden /> Registrar
               </button>
             </div>
           ) : (
@@ -380,8 +400,9 @@ export default function MensalidadesListTable({
                 type="button"
                 className="mensal-btn-pay mensal-btn-pay--compact"
                 onClick={() => openPaymentModal(student)}
+                aria-label={`Registrar pagamento de ${displayName}`}
               >
-                <Banknote size={14} strokeWidth={2} /> Registrar
+                <Banknote size={14} strokeWidth={2} aria-hidden /> Registrar
               </button>
             </div>
           )}
@@ -434,6 +455,8 @@ export default function MensalidadesListTable({
 
     const rowTone = isPaid ? 'paid' : statusKey === 'pending' ? 'pending' : statusKey === 'none' || isExempt ? 'none' : 'default';
     const displayName = String(student.name || '').trim() || '—';
+    const payerName = resolveStudentPayerDisplayName(student);
+    const { hasValor, valorCell } = resolveRowValorCell({ payment, isExempt, fmtMoney });
     const canRegister = !studentFrozen && !isPaid && !isExempt;
     const paidTooltip =
       isPaid && payment
@@ -450,7 +473,11 @@ export default function MensalidadesListTable({
     }
 
     return (
-      <article key={student.id} className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}>
+      <article
+        key={student.id}
+        className={`mensal-mobile-card mensal-mobile-card--${rowTone}`}
+        aria-label={`${displayName}, ${badgeLabel}`}
+      >
         <div className="mensal-mobile-card__head">
           <div className="mensal-mobile-card__head-text">
             {renderStudentName(student, {
@@ -460,6 +487,16 @@ export default function MensalidadesListTable({
             })}
             <div className="mensal-mobile-card__meta">
               {student.plan || '—'} · {vencLabel}
+            </div>
+            {payerName ? (
+              <div className="mensal-mobile-card__pagador" title={PAGADOR_COLUMN_HINT}>
+                {payerName}
+              </div>
+            ) : null}
+            <div
+              className={`mensal-mobile-card__valor${hasValor ? ' mensal-mobile-card__valor--filled' : ''}`}
+            >
+              {valorCell}
             </div>
             <div className="mensal-mobile-card__platform">
               {prefM || prefA ? (
@@ -483,6 +520,7 @@ export default function MensalidadesListTable({
                 title={reverseBlocked ? reverseBlockedTitle : paidTooltip}
                 onClick={() => requestEstornar(payment)}
                 disabled={reversingPaymentId === payment.$id || reverseBlocked}
+                aria-label={`Estornar pagamento de ${displayName}`}
               >
                 {reversingPaymentId === payment.$id ? (
                   <Loader2 size={14} className="navi-async-btn__spin" aria-hidden />
@@ -490,8 +528,13 @@ export default function MensalidadesListTable({
                 Estornar
               </button>
             ) : !isPaid ? (
-              <button type="button" className="btn-primary mensal-mobile-pay" onClick={() => openPaymentModal(student)}>
-                <Banknote size={16} /> Registrar
+              <button
+                type="button"
+                className="btn-primary mensal-mobile-pay"
+                onClick={() => openPaymentModal(student)}
+                aria-label={`Registrar pagamento de ${displayName}`}
+              >
+                <Banknote size={16} aria-hidden /> Registrar
               </button>
             ) : null}
           </div>
@@ -501,7 +544,7 @@ export default function MensalidadesListTable({
   };
 
   if (loading) {
-    return <PageSkeleton variant="table" rows={8} columns={6} />;
+    return <PageSkeleton variant="table" rows={8} columns={MENSALIDADES_TABLE_COL_COUNT} />;
   }
 
   if (displayedStudents.length === 0) {
@@ -552,7 +595,7 @@ export default function MensalidadesListTable({
 
   const renderGroupHeaderRow = (groupKey, count, expanded) => (
     <tr className="mensal-group-row">
-      <td colSpan={6}>
+      <td colSpan={MENSALIDADES_TABLE_COL_COUNT}>
         <button
           type="button"
           className="mensal-group-toggle"
@@ -573,12 +616,24 @@ export default function MensalidadesListTable({
     <thead>
       <tr>
         <th>{terms.student}</th>
-        <th>
+        <th title={PAGADOR_COLUMN_HINT}>Pagador</th>
+        <th
+          aria-sort={
+            dueSortOrder === 'asc' ? 'ascending' : dueSortOrder === 'desc' ? 'descending' : 'none'
+          }
+        >
           <button
             type="button"
             className={`mensal-th-sort${dueSortOrder != null ? ' mensal-th-sort--active' : ''}`}
             onClick={() =>
               setDueSortOrder((prev) => (prev === null ? 'asc' : prev === 'asc' ? 'desc' : null))
+            }
+            aria-label={
+              dueSortOrder === 'asc'
+                ? 'Ordenar por vencimento, crescente. Clique para decrescente'
+                : dueSortOrder === 'desc'
+                  ? 'Ordenar por vencimento, decrescente. Clique para remover ordenação'
+                  : 'Ordenar por vencimento'
             }
           >
             <span>Vencimento</span>
@@ -594,7 +649,7 @@ export default function MensalidadesListTable({
           </button>
         </th>
         <th className="mensal-th-num">Valor</th>
-        <th>Conta / Plataforma</th>
+        <th className="mensal-col-pref">Conta / Plataforma</th>
         <th>Status</th>
         <th className="mensal-th-action">Ação</th>
       </tr>

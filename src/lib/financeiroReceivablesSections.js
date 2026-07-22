@@ -90,15 +90,5 @@ export function normalizeLegacyFinanceiroTab(searchParams) {
     };
   }
 
-  if (filtro === 'overdue') {
-    return {
-      tab: FINANCEIRO_SECTIONS.A_RECEBER,
-      section: RECEIVABLES_SECTIONS.COBRANCA,
-      search,
-      filtro: undefined,
-      changed: true,
-    };
-  }
-
   return { tab, section, search, filtro, changed: false };
 }

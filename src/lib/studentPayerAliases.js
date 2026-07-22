@@ -54,6 +54,19 @@ export function serializePayerAliases(aliases) {
   return JSON.stringify(safe).slice(0, 4096);
 }
 
+/** Nome para conferência: 1º alias → responsável → parentName. */
+export function resolveStudentPayerDisplayName(student) {
+  if (!student || typeof student !== 'object') return '';
+  const aliases = Array.isArray(student.payerAliases) ? student.payerAliases : [];
+  for (const alias of aliases) {
+    const display = String(alias?.display || '').trim();
+    if (display) return display;
+  }
+  const responsavel = String(student.responsavel || '').trim();
+  if (responsavel) return responsavel;
+  return String(student.parentName || '').trim();
+}
+
 export function aliasExists(aliases, normalized) {
   const key = normalizePayerName(normalized);
   if (!key) return false;

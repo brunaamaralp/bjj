@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import { buildReguaStageTooltip } from '../../lib/collectionRules.js';
 import { GRID_STATUS_LABELS } from '../../lib/paymentStatus.js';
+import { MENSALIDADES_RECEPTION_FILTER_LABELS } from '../../lib/mensalidadesFilters.js';
 
 export default function MensalidadesStatusFilter({
   filter,
@@ -9,6 +10,7 @@ export default function MensalidadesStatusFilter({
   filterCounts,
   reguaFilterChips,
   collectionRules,
+  receptionPriorities = [],
 }) {
   const rulesByDay = useMemo(() => {
     const map = new Map();
@@ -36,6 +38,17 @@ export default function MensalidadesStatusFilter({
   );
 
   const extraSections = useMemo(() => {
+    const sections = [];
+    if (receptionPriorities.length) {
+      sections.push({
+        label: 'Prioridades',
+        options: receptionPriorities.map((item) => ({
+          id: item.id,
+          label: item.label || MENSALIDADES_RECEPTION_FILTER_LABELS[item.id] || item.id,
+          count: item.count,
+        })),
+      });
+    }
     const reguaOptions = [...(reguaFilterChips || [])].map((chip) => {
       const day = Number(String(chip.id || '').replace('regua_', ''));
       const rule = rulesByDay.get(day);
@@ -44,9 +57,11 @@ export default function MensalidadesStatusFilter({
         title: rule ? buildReguaStageTooltip(rule) : `Etapa D+${day} da régua de cobrança`,
       };
     });
-    if (!reguaOptions.length) return [];
-    return [{ label: 'Régua de cobrança', options: reguaOptions }];
-  }, [reguaFilterChips, rulesByDay]);
+    if (reguaOptions.length) {
+      sections.push({ label: 'Régua de cobrança', options: reguaOptions });
+    }
+    return sections;
+  }, [receptionPriorities, reguaFilterChips, rulesByDay]);
 
   return (
     <CompactStatusFilter

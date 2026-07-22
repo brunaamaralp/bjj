@@ -4,6 +4,7 @@ import {
   matchesMensalidadesStatusFilter,
   matchesMensalidadesStudentFilters,
   parseMensalidadesFiltroParam,
+  toggleMensalidadesReceptionFilter,
 } from '../lib/mensalidadesFilters.js';
 
 vi.mock('../lib/collectionOverdue.js', () => ({
@@ -109,5 +110,12 @@ describe('mensalidadesFilters', () => {
         planFilter: 'Trimestral',
       })
     ).toBe(false);
+  });
+
+  it('toggleMensalidadesReceptionFilter limpa ao repetir e nunca navega', () => {
+    expect(toggleMensalidadesReceptionFilter('all', 'overdue')).toBe('overdue');
+    expect(toggleMensalidadesReceptionFilter('overdue', 'overdue')).toBe('all');
+    expect(toggleMensalidadesReceptionFilter('due_today', 'overdue')).toBe('overdue');
+    expect(toggleMensalidadesReceptionFilter('open', 'paid_in_month')).toBe('paid_in_month');
   });
 });

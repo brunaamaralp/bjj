@@ -51,12 +51,12 @@ describe('financeiroReceivablesSections', () => {
     expect(pay.get('pay_month')).toBe('2026-05');
   });
 
-  it('normalizeLegacyFinanceiroTab — filtro overdue vira cobranca', () => {
+  it('normalizeLegacyFinanceiroTab — filtro overdue permanece em mensalidades', () => {
     const input = new URLSearchParams('tab=a-receber&section=mensalidades&filtro=overdue');
     const out = normalizeLegacyFinanceiroTab(input);
-    expect(out.section).toBe(RECEIVABLES_SECTIONS.COBRANCA);
-    expect(out.changed).toBe(true);
-    expect(out.filtro).toBeUndefined();
+    expect(out.section).toBe(RECEIVABLES_SECTIONS.MENSALIDADES);
+    expect(out.filtro).toBe('overdue');
+    expect(out.changed).toBe(false);
   });
 
   it('buildReceivablesSearchParams — preserva search e filtro', () => {

@@ -4,6 +4,7 @@ import {
   parsePayerAliasesJson,
   appendPayerAlias,
   aliasExists,
+  resolveStudentPayerDisplayName,
   PAYER_ALIAS_MAX,
 } from '../lib/studentPayerAliases.js';
 
@@ -42,5 +43,44 @@ describe('studentPayerAliases', () => {
     const aliases = [{ display: 'Maria', normalized: 'MARIA', source: 'manual' }];
     expect(aliasExists(aliases, 'maria')).toBe(true);
     expect(aliasExists(aliases, 'joao')).toBe(false);
+  });
+
+  describe('resolveStudentPayerDisplayName', () => {
+    it('prioriza o primeiro alias com display', () => {
+      expect(
+        resolveStudentPayerDisplayName({
+          payerAliases: [
+            { display: '  ', normalized: 'X' },
+            { display: 'Pix Maria', normalized: 'PIX MARIA' },
+          ],
+          responsavel: 'Resp',
+          parentName: 'Pai',
+        })
+      ).toBe('Pix Maria');
+    });
+
+    it('usa responsavel quando nao ha alias', () => {
+      expect(
+        resolveStudentPayerDisplayName({
+          payerAliases: [],
+          responsavel: '  Ana Mae  ',
+          parentName: 'Outro',
+        })
+      ).toBe('Ana Mae');
+    });
+
+    it('usa parentName como terceiro fallback', () => {
+      expect(
+        resolveStudentPayerDisplayName({
+          responsavel: '',
+          parentName: 'Carlos Pai',
+        })
+      ).toBe('Carlos Pai');
+    });
+
+    it('retorna string vazia quando nao ha dados', () => {
+      expect(resolveStudentPayerDisplayName({})).toBe('');
+      expect(resolveStudentPayerDisplayName(null)).toBe('');
+    });
   });
 });

@@ -3,6 +3,7 @@
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
 - 2026-07-22: perfil — **Cobertura histórica** (owner/admin): meses `covered` R$0 sem Caixa (`aluno-perfil-presenca.md`).
+- 2026-07-22: mensalidades — `?filtro=overdue` e chip Em atraso filtram a grade (Cobrança só via link); KPIs do mês no topo; prioridades no dropdown de status; coluna Conta oculta &lt;1100px (`a-receber-mensalidades.md`).
 - 2026-07-22: mensalidades — coluna **Pagador** (alias → responsável → pai/mãe) na grade e no CSV (`a-receber-mensalidades.md`).
 - 2026-07-21: aba Presença — removida sub-aba **Retenção** da tablist; acesso via KPIs do hero ou `?section=retencao` (`hoje-dashboard.md`, `recepcao-controlid.md`).
 - 2026-06-23: fluxo de matrícula e financeiro alinhado para desconto individual recorrente em `students.discount_amount`; cálculo líquido propagado para primeira cobrança, mensalidades, inadimplência e card financeiro do perfil.
@@ -151,6 +152,7 @@ URL `?tab=` fora de `buildFinanceiroAllowedLeafTabs` → redirect em `Caixa.jsx`
 | 11 | Erro API (duplicata) no banner | ✅ Código + teste | `studentPaymentFriendlyError` em `appwriteErrors.test.js` |
 | 12 | Export CSV | ✅ Código + teste | `exportMensalidadesGridCsv`; coluna `pagador` após `aluno` |
 | 12b | Coluna Pagador na grade | ✅ Código + teste | `resolveStudentPayerDisplayName`, `MensalidadesListTable` |
+| 12c | Chip Em atraso filtra (não navega); `?filtro=overdue` na grade | ✅ Código + teste | `toggleMensalidadesReceptionFilter`, `normalizeLegacyFinanceiroTab` |
 | 13 | Dinheiro: valor recebido insuficiente | ✅ Teste | `mensalidadesPaymentForm.test.js` — `errors.cash_received` |
 | 14 | Nova venda plano (LeadCloseSaleModal) | ✅ Código | `NovaVendaPlanPanel` reutiliza mesma validação + `StudentPaymentModal` |
 | 15 | Visão geral: banner conta | ✅ Código | `VisaoGeralTab` → `FinanceBankAccountsSetupBanner` |

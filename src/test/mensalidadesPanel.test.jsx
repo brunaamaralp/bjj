@@ -42,13 +42,18 @@ vi.mock('../store/useLeadStore', () => ({
     }),
 }));
 
-vi.mock('../store/useStudentStore', () => ({
-  useStudentStore: (selector) =>
+vi.mock('../store/useStudentStore', () => {
+  const useStudentStore = (selector) =>
     selector({
       students: panelMocks.students,
       updateStudent: vi.fn(),
-    }),
-}));
+    });
+  useStudentStore.getState = () => ({
+    students: panelMocks.students,
+    updateStudent: vi.fn(),
+  });
+  return { useStudentStore };
+});
 
 vi.mock('../hooks/useToast', () => ({
   useToast: () => panelMocks.toast,
@@ -83,7 +88,13 @@ vi.mock('../lib/ensureAllStudentsLoaded.js', () => ({
 }));
 
 vi.mock('../lib/paymentStatus', () => ({
-  resolveGridDisplayStatus: () => ({ key: 'none' }),
+  resolveGridDisplayStatus: (student, _payment, _month, _today, financeConfig) => {
+    const planName = String(student?.plan || '');
+    const plan = (financeConfig?.plans || []).find((p) => p.name === planName);
+    if (plan?.isExempt) return { key: 'exempt', row: {} };
+    return { key: 'none', row: {} };
+  },
+  expectedAmountForStudent: () => 0,
 }));
 
 vi.mock('../components/finance/MonthlyPaymentGrid.jsx', () => ({
@@ -179,6 +190,9 @@ vi.mock('../lib/collectionOverdue.js', () => ({
   getPaymentRowStatus: () => ({ status: 'none', daysOverdue: 0 }),
   getReceptionDueBucket: () => null,
   openAmountForStudent: () => 0,
+  resolveMensalidadeDueDate: () => null,
+  studentDueDay: () => 1,
+  dueDateInMonth: () => null,
 }));
 
 vi.mock('../lib/bankAccounts.js', () => ({
