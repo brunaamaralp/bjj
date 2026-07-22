@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ArrowRight,
   BarChart2,
-  Landmark,
   RefreshCw,
   Wallet,
 } from 'lucide-react';
@@ -406,16 +405,10 @@ export default function VisaoGeralTab({
           eyebrow={`Posição em ${periodCtx.labelFromToBr.split(' (')[0]}`}
           className="financeiro-overview-card--banks"
         >
-          <div className="financeiro-overview-banks-intro">
-            <Landmark size={20} className="financeiro-overview-banks-intro__icon" aria-hidden />
-            <p className="text-small text-muted financeiro-overview-banks-intro__text">
-              Saldos liquidados na data final do intervalo ({periodCtx.labelFromToBr}). Entradas e
-              saídas nos detalhes referem-se ao movimento dentro desse período.
-            </p>
-          </div>
           <BankBalancesOverview
             academyId={academyId}
             embedded
+            compactLayout
             accountLinks
             refreshKey={refreshToken}
             compareAsOf={bankCompareAsOf}

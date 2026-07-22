@@ -126,10 +126,6 @@
   margin-top: 8px;
 }
 
-.finance-bank-balances--overview .finance-bank-balances__grid {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-}
-
 .finance-bank-balances--overview .finance-bank-balances__card {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -156,6 +152,17 @@
 
 .finance-bank-balances--compact .finance-bank-balances__grid--quad {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.finance-bank-balances--overview .finance-bank-balances__grid,
+.finance-bank-balances--overview .finance-bank-balances__grid--quad {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+
+@media (min-width: 900px) {
+  .finance-bank-balances--overview .finance-bank-balances__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .finance-bank-balances__card--compact {

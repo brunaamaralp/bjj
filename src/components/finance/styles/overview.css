@@ -48,27 +48,6 @@
   );
 }
 
-.financeiro-overview-banks-intro {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-card-bg) 78%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--color-accent) 18%, var(--border-light));
-}
-
-.financeiro-overview-banks-intro__icon {
-  flex-shrink: 0;
-  color: var(--color-accent-dark);
-  margin-top: 1px;
-}
-
-.financeiro-overview-banks-intro__text {
-  margin: 0;
-  line-height: 1.45;
-}
-
 .financeiro-overview-metrics--inline {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;

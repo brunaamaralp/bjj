@@ -62,6 +62,7 @@ function BankBalanceCard({
 
   if (compactLayout) {
     const HeroTag = selectable ? 'button' : 'div';
+    const hasDetails = children || accountLink;
     return (
       <article className={cardClass}>
         <HeroTag
@@ -75,10 +76,17 @@ function BankBalanceCard({
             {fmtMoney(balance)}
           </p>
         </HeroTag>
-        {children ? (
+        {hasDetails ? (
           <details className="finance-bank-balances__card-details">
             <summary className="finance-bank-balances__card-details-summary">Detalhes</summary>
-            <div className="finance-bank-balances__card-details-body">{children}</div>
+            <div className="finance-bank-balances__card-details-body">
+              {children}
+              {accountLink ? (
+                <Link to={accountLink} className="finance-bank-balances__card-action">
+                  Ver lançamentos <ArrowRight size={14} aria-hidden />
+                </Link>
+              ) : null}
+            </div>
           </details>
         ) : null}
       </article>
