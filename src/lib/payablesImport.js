@@ -2,6 +2,7 @@
  * Importação CSV de contas a pagar (contas fixas / pendentes).
  */
 import { resolveFinanceCategory, FINANCE_CATEGORIES } from './financeCategories.js';
+import { encodeAccountCategoryValue } from './financeAccountCategories.js';
 import { parseNumberCell } from './productImport.js';
 
 export const MAX_PAYABLES_IMPORT_ROWS = 200;
@@ -65,7 +66,16 @@ function parseBoolCell(raw) {
   return ['sim', 's', 'yes', 'y', '1', 'true', 'x'].includes(s);
 }
 
-export function buildPayablesImportPreviewRows(rows, columnMap) {
+function resolvePayableCategoryPersisted(raw, accounts = null) {
+  const cat =
+    resolveFinanceCategory(raw, accounts, { direction: 'out' }) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+  const categoryValue = cat.isAccountCategory
+    ? encodeAccountCategoryValue(cat.accountCode)
+    : cat.label;
+  return { cat, categoryValue };
+}
+
+export function buildPayablesImportPreviewRows(rows, columnMap, accounts = null) {
   const preview = [];
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];
@@ -88,12 +98,12 @@ export function buildPayablesImportPreviewRows(rows, columnMap) {
     if (!Number.isFinite(amount) || amount <= 0) errors.push('Valor inválido');
     if (!due) errors.push('Vencimento inválido (use AAAA-MM-DD ou DD/MM/AAAA)');
 
-    const cat = resolveFinanceCategory(categoryRaw) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+    const { categoryValue } = resolvePayableCategoryPersisted(categoryRaw, accounts);
 
     preview.push({
       rowIndex: i + 1,
       vendor,
-      category: cat.label,
+      category: categoryValue,
       amount,
       due_date: due,
       recurring,
@@ -161,12 +171,12 @@ export function collectPayablesImportExistingKeys(items = []) {
   return keys;
 }
 
-export function payableImportRowToPayload(row) {
-  const cat = resolveFinanceCategory(row.category) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+export function payableImportRowToPayload(row, accounts = null) {
+  const { cat, categoryValue } = resolvePayableCategoryPersisted(row.category, accounts);
   const payload = {
     direction: 'out',
     type: cat.type,
-    category: cat.label,
+    category: categoryValue,
     planName: row.vendor,
     gross: row.amount,
     due_date: row.due_date,

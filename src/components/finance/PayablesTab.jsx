@@ -24,9 +24,16 @@ import {
 import { todayYmdLocal, addDaysYmd } from '../../lib/financeForecastCore.js';
 import {
   FINANCE_CATEGORIES,
-  getUtilityExpenseCategories,
+  getCategoryOptionsByNature,
   resolveFinanceCategory,
 } from '../../lib/financeCategories.js';
+import { encodeAccountCategoryValue } from '../../lib/financeAccountCategories.js';
+import {
+  formatPayableCategoryLabel,
+  payableCategoryFilterOptions,
+} from '../../lib/payablesCategoryDisplay.js';
+import { useAccountingStore } from '../../store/useAccountingStore';
+import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
 import { currentCompetenceMonth } from '../../lib/financeCompetence.js';
 import { RECURRENCE_TYPES, normalizeRecurrenceDay, buildRecurrenceEndOptions } from '../../lib/financeRecurrence.js';
 import { maskCurrency, parseCurrencyBRL } from '../../lib/masks.js';
@@ -96,7 +103,7 @@ const VALID_SECTIONS = new Set(Object.values(PAYABLES_SECTIONS));
 
 const defaultForm = () => ({
   vendor: '',
-  category: FINANCE_CATEGORIES.LUZ.label,
+  category: FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
   gross: '',
   due_date: todayYmdLocal(),
   repeat_enabled: false,
@@ -159,21 +166,19 @@ export default function PayablesTab({
     return { from: today, to: addDaysYmd(today, 90) };
   }, []);
 
-  const categoryOptions = useMemo(() => {
-    const utils = getUtilityExpenseCategories();
-    const extra = [
-      FINANCE_CATEGORIES.ALUGUEL_ESPACO,
-      FINANCE_CATEGORIES.SALARIOS,
-      FINANCE_CATEGORIES.SISTEMAS,
-      FINANCE_CATEGORIES.OUTRAS_DESPESAS,
-    ];
-    const seen = new Set();
-    return [...utils, ...extra].filter((c) => {
-      if (seen.has(c.label)) return false;
-      seen.add(c.label);
-      return true;
-    });
-  }, []);
+  const chartAccounts = useAccountingStore((s) => s.accounts);
+  useEffect(() => {
+    if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
+  }, [academyId]);
+
+  const categoryOptionGroups = useMemo(
+    () => getCategoryOptionsByNature('out', chartAccounts),
+    [chartAccounts]
+  );
+  const categoryFilterOptions = useMemo(
+    () => payableCategoryFilterOptions(categoryOptionGroups),
+    [categoryOptionGroups]
+  );
 
   const vendorOptions = useMemo(
     () => activeFinanceVendors(financeConfig),
@@ -267,9 +272,18 @@ export default function PayablesTab({
       : data?.items || [];
     let rows = filterPayablesSearch(base, debouncedSearch);
     const cat = String(categoryFilter || '').trim();
-    if (cat) rows = rows.filter((it) => String(it.category || '').trim() === cat);
+    if (cat) {
+      rows = rows.filter((it) => {
+        const raw = String(it.category || '').trim();
+        if (raw === cat) return true;
+        return (
+          formatPayableCategoryLabel(raw, chartAccounts) ===
+          formatPayableCategoryLabel(cat, chartAccounts)
+        );
+      });
+    }
     return rows;
-  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch, categoryFilter]);
+  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch, categoryFilter, chartAccounts]);
 
   useEffect(() => {
     if (!highlightTxId || !items.length) return;
@@ -344,7 +358,7 @@ export default function PayablesTab({
     setEditingTxId(item.tx_id);
     setForm({
       vendor: item.vendor_label || '',
-      category: item.category || FINANCE_CATEGORIES.LUZ.label,
+      category: item.category || FINANCE_CATEGORIES.OUTRAS_DESPESAS.label,
       gross: maskCurrency(String(Math.round((Number(item.amount) || 0) * 100))),
       due_date: String(item.due_date || '').slice(0, 10) || todayYmdLocal(),
       repeat_enabled: false,
@@ -377,7 +391,12 @@ export default function PayablesTab({
       return;
     }
     setFormErrors({});
-    const cat = resolveFinanceCategory(form.category) || FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+    const cat =
+      resolveFinanceCategory(form.category, chartAccounts, { direction: 'out' }) ||
+      FINANCE_CATEGORIES.OUTRAS_DESPESAS;
+    const categoryValue = cat.isAccountCategory
+      ? encodeAccountCategoryValue(cat.accountCode)
+      : cat.label;
     const dueDay = due.split('-')[2];
     const recurrenceDay = normalizeRecurrenceDay(
       RECURRENCE_TYPES.MONTHLY,
@@ -393,7 +412,7 @@ export default function PayablesTab({
           payload: {
             direction: 'out',
             type: cat.type,
-            category: cat.label,
+            category: categoryValue,
             planName: vendor,
             gross: grossNum,
             note: String(form.note || '').trim(),
@@ -406,7 +425,7 @@ export default function PayablesTab({
         const payload = {
           direction: 'out',
           type: cat.type,
-          category: cat.label,
+          category: categoryValue,
           planName: vendor,
           gross: grossNum,
           note: String(form.note || '').trim(),
@@ -671,8 +690,8 @@ export default function PayablesTab({
               aria-label="Filtrar por categoria"
             >
               <option value="">Todas as categorias</option>
-              {categoryOptions.map((c) => (
-                <option key={c.label} value={c.label}>
+              {categoryFilterOptions.map((c) => (
+                <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
               ))}
@@ -731,7 +750,9 @@ export default function PayablesTab({
                         </span>
                       ) : null}
                     </td>
-                    <td className="text-small">{item.category || '—'}</td>
+                    <td className="text-small">
+                      {formatPayableCategoryLabel(item.category, chartAccounts)}
+                    </td>
                     <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
                     <td>
                       <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
@@ -871,18 +892,17 @@ export default function PayablesTab({
             </div>
             <div>
               <label htmlFor="payable-category">Categoria</label>
-              <select
+              <SearchableGroupedSelect
                 id="payable-category"
-                className="form-input"
                 value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              >
-                {categoryOptions.map((c) => (
-                  <option key={c.label} value={c.label}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                groups={categoryOptionGroups}
+                getOptionValue={(c) => c.value || c.label}
+                getOptionLabel={(c) => c.label}
+                getOptionTitle={(c) => c.title || ''}
+                placeholder="Digite para buscar categoria…"
+                emptyMessage="Nenhuma categoria encontrada para essa busca."
+                onChange={(value) => setForm((f) => ({ ...f, category: value }))}
+              />
             </div>
             <div>
               <label htmlFor="payable-gross">Valor (R$)</label>

@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useAccountingStore } from '../../store/useAccountingStore';
 import Papa from 'papaparse';
 import { FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import ModalShell from '../shared/ModalShell.jsx';
@@ -26,7 +27,7 @@ function fmtMoneyBr(value) {
   }
 }
 
-async function importPayablesRows(academyId, rows, onProgress) {
+async function importPayablesRows(academyId, rows, accounts, onProgress) {
   let cursor = 0;
   let ok = 0;
   let fail = 0;
@@ -39,7 +40,7 @@ async function importPayablesRows(academyId, rows, onProgress) {
       cursor += 1;
       const row = toImport[index];
       try {
-        await createFinanceTx({ academyId, payload: payableImportRowToPayload(row) });
+        await createFinanceTx({ academyId, payload: payableImportRowToPayload(row, accounts) });
         ok += 1;
       } catch {
         fail += 1;
@@ -56,6 +57,10 @@ async function importPayablesRows(academyId, rows, onProgress) {
 
 export default function ImportPayablesModal({ open, academyId, onClose, onImported }) {
   const toast = useToast();
+  const chartAccounts = useAccountingStore((s) => s.accounts);
+  useEffect(() => {
+    if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
+  }, [academyId]);
   const inputRef = useRef(null);
   const [preview, setPreview] = useState([]);
   const [parseError, setParseError] = useState('');
@@ -113,7 +118,8 @@ export default function ImportPayablesModal({ open, academyId, onClose, onImport
           }
           const built = buildPayablesImportPreviewRows(
             body.slice(0, MAX_PAYABLES_IMPORT_ROWS),
-            columnMap
+            columnMap,
+            chartAccounts
           );
           if (!academyId) {
             setPreview(built);
@@ -162,6 +168,7 @@ export default function ImportPayablesModal({ open, academyId, onClose, onImport
     const { ok, fail, failedRows } = await importPayablesRows(
       academyId,
       validRows,
+      chartAccounts,
       setImportProgress
     );
 
