@@ -110,7 +110,6 @@ export default function HistoricalCoverageModal({
       showCloseButton={!busy}
       maxWidth={440}
       className="navi-modal-overlay--form"
-      ariaLabelledBy={undefined}
       footer={
         <div className="payment-modal-footer__actions" style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="btn-outline" disabled={busy} onClick={handleClose} style={{ flex: 1 }}>
