@@ -2,6 +2,8 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-07-22: mensalidades — restaurados CSS de KPIs e dropdown de status; filtros search/filtro sincronizam com a URL sem reset em todo `searchParams` (`a-receber-mensalidades.md`).
+- 2026-07-22: Visão geral / A receber — meses cobertos por pacote anual (ou cobertura histórica) não entram como mensalidade em aberto (`a-receber-mensalidades.md`).
 - 2026-07-22: perfil — **Cobertura histórica** (owner/admin): meses `covered` R$0 sem Caixa (`aluno-perfil-presenca.md`).
 - 2026-07-22: mensalidades — `?filtro=overdue` e chip Em atraso filtram a grade (Cobrança só via link); KPIs do mês no topo; prioridades no dropdown de status; coluna Conta oculta &lt;1100px (`a-receber-mensalidades.md`).
 - 2026-07-22: mensalidades — coluna **Pagador** (alias → responsável → pai/mãe) na grade e no CSV (`a-receber-mensalidades.md`).

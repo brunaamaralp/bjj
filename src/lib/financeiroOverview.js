@@ -16,6 +16,10 @@ import { getPaymentRowStatus, openAmountForStudent } from './collectionOverdue.j
 import { isActiveStudent } from './studentStatus.js';
 import { buildClosingRows } from './monthlyClosing.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
+import {
+  buildPaidBundleCoveredMonthsByLead,
+  isMonthCoveredByPaidBundle,
+} from './bundleCoverage.js';
 
 export function currentMonthYm() {
   const d = new Date();
@@ -169,8 +173,16 @@ export function trimForecastForOverview(forecastBody, limit = OVERVIEW_FORECAST_
 
 /**
  * KPIs de mensalidades do mês (mesma base da página de mensalidades).
+ * @param {object} [opts]
+ * @param {Array} [opts.coveragePayments] — âncoras de pacote fora do mês (cobertura)
  */
-export function computeMensalidadesMonthKpis(students, payments, financeConfig, referenceMonth) {
+export function computeMensalidadesMonthKpis(
+  students,
+  payments,
+  financeConfig,
+  referenceMonth,
+  opts = {}
+) {
   const active = (students || []).filter(
     (s) => isActiveStudent(s) && String(s.plan || '').trim() && !isStudentOnExemptPlan(s, financeConfig)
   );
@@ -181,13 +193,23 @@ export function computeMensalidadesMonthKpis(students, payments, financeConfig, 
     payByLead[lid] = p;
   }
 
+  const coverageSource = Array.isArray(opts.coveragePayments)
+    ? opts.coveragePayments
+    : payments || [];
+  const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(coverageSource);
+
   let expectedTotal = 0;
   let receivedTotal = 0;
   let overdueCount = 0;
   let overdueOpen = 0;
 
   for (const s of active) {
-    const p = payByLead[s.id];
+    const leadId = String(s.id || s.$id || '').trim();
+    if (isMonthCoveredByPaidBundle(referenceMonth, bundleCoveredByLead.get(leadId))) {
+      continue;
+    }
+
+    const p = payByLead[s.id] || payByLead[leadId];
     const exp = expectedAmountForStudent(s, financeConfig, p);
     if (Number.isFinite(exp) && exp > 0) expectedTotal += exp;
     receivedTotal += receivedAmountForPayment(p) || 0;

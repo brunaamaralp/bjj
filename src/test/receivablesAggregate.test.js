@@ -44,6 +44,62 @@ describe('receivablesAggregate', () => {
     expect(items[0].source).toBe(RECEIVABLE_SOURCE.MENSALIDADE);
   });
 
+  it('buildMensalidadeReceivableItems — mês coberto por pacote anual pago não entra a receber', () => {
+    const students = [
+      { id: 'a', name: 'Ana', plan: 'Plano Anual', status: 'Matriculado', student_status: 'active' },
+    ];
+    // Âncora em outro mês; mês de referência sem doc (ou pending residual)
+    const coveragePayments = [
+      {
+        $id: 'anc-1',
+        lead_id: 'a',
+        payment_category: 'bundle',
+        bundle_origin_id: 'anc-1',
+        bundle_months: 12,
+        reference_month: '2026-01',
+        status: 'paid',
+        amount: 2400,
+      },
+    ];
+    const items = buildMensalidadeReceivableItems({
+      students,
+      payments: [{ lead_id: 'a', status: 'pending', expected_amount: 200, reference_month: '2026-06' }],
+      coveragePayments,
+      financeConfig,
+      referenceMonth: '2026-06',
+      today: new Date('2026-06-15T12:00:00'),
+    });
+    expect(items).toHaveLength(0);
+  });
+
+  it('buildMensalidadeReceivableItems — cobertura histórica (âncora covered) também exclui', () => {
+    const students = [
+      { id: 'a', name: 'Ana', plan: 'Plano Anual', status: 'Matriculado', student_status: 'active' },
+    ];
+    const coveragePayments = [
+      {
+        $id: 'anc-h',
+        lead_id: 'a',
+        payment_category: 'bundle',
+        bundle_origin_id: 'anc-h',
+        bundle_months: 12,
+        reference_month: '2026-01',
+        status: 'covered',
+        covered_reason: 'historical',
+        amount: 0,
+      },
+    ];
+    const items = buildMensalidadeReceivableItems({
+      students,
+      payments: [],
+      coveragePayments,
+      financeConfig,
+      referenceMonth: '2026-07',
+      today: new Date('2026-07-15T12:00:00'),
+    });
+    expect(items).toHaveLength(0);
+  });
+
   it('buildPendingTxReceivableItems — só entradas pendentes', () => {
     const items = buildPendingTxReceivableItems([
       { id: '1', status: 'pending', type: 'plan', gross: 100 },

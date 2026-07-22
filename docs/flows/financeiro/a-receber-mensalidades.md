@@ -124,6 +124,7 @@ flowchart TD
 18. [ ] Trocar academia — lista só alunos da academia atual
 19. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
 20. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
+20b. [ ] Aluno com plano anual / cobertura histórica cobrindo o mês **não** aparece em A receber nem nos KPIs de esperado/atraso da Visão geral
 21. [ ] Deep link `?filtro=` (ex. `overdue`, `paid_in_month`, `covered`) aplica filtro na grade de Mensalidades (não redireciona para Cobrança)
 21b. [ ] Chip **Em atraso** filtra a lista; link **Abrir fila de cobrança** permanece separado
 21c. [ ] KPIs Esperado/Recebido/Em aberto visíveis acima da grade; Em aberto sincroniza com dropdown de status
@@ -193,6 +194,8 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-22 | — | A receber / Visão geral respeitam cobertura por pacote anual e cobertura histórica |
+| 2026-07-22 | — | Fix: CSS de KPIs + dropdown de status restaurados em `finance.css`; sync `filtro`/`search` sem reset em todo `searchParams` |
 | 2026-06-25 | — | Filtros unificados (status/turma/plano em Lista e Resumo), `paid_in_month`, coberto/trancado, paginação completa de alunos, export em ambas as views |
 | 2026-06-23 | — | Mensalidades e projeções passam a usar `students.discount_amount` no valor esperado |
 | 2026-06-15 | — | Criação Fase 2A |

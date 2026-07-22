@@ -233,7 +233,17 @@ export function findAnchorPayment(payment, paymentsById) {
 
 function resolvePaidBundleAnchorMonths(payment) {
   const st = String(payment?.status || '').toLowerCase();
-  if (st !== 'paid') return null;
+  const historical =
+    String(payment?.covered_reason || '').trim().toLowerCase() === HISTORICAL_COVERED_REASON;
+  const isAnchor = isBundleAnchorPayment(payment) || Number(payment?.bundle_months) >= 2;
+  // Pacote pago clássico OU âncora de cobertura histórica (todos covered).
+  if (st === 'paid') {
+    /* ok */
+  } else if (st === 'covered' && isAnchor && (historical || Number(payment?.bundle_months) >= 1)) {
+    /* ok */
+  } else {
+    return null;
+  }
 
   const startYm = String(payment?.reference_month || '').trim().slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(startYm)) return null;

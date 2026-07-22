@@ -8,6 +8,10 @@ import {
 } from './paymentStatus.js';
 import { getPaymentRowStatus } from './collectionOverdue.js';
 import { txDirection } from './financeTxDisplay.js';
+import {
+  buildPaidBundleCoveredMonthsByLead,
+  isMonthCoveredByPaidBundle,
+} from './bundleCoverage.js';
 
 export const RECEIVABLE_SOURCE = {
   MENSALIDADE: 'mensalidade',
@@ -50,11 +54,13 @@ export function openMensalidadeAmount(student, payment, financeConfig) {
 
 /**
  * @param {object} params
+ * @param {Array} [params.coveragePayments] — pagamentos extras (ex.: âncoras de pacote em outros meses)
  * @returns {Array<object>}
  */
 export function buildMensalidadeReceivableItems({
   students = [],
   payments = [],
+  coveragePayments = null,
   financeConfig = {},
   referenceMonth,
   today = new Date(),
@@ -67,9 +73,17 @@ export function buildMensalidadeReceivableItems({
     payByLead[lid] = p;
   }
 
+  const coverageSource = Array.isArray(coveragePayments) ? coveragePayments : payments;
+  const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(coverageSource);
+
   const items = [];
   for (const s of active) {
-    const p = payByLead[s.id];
+    const leadId = String(s.id || s.$id || '').trim();
+    if (isMonthCoveredByPaidBundle(referenceMonth, bundleCoveredByLead.get(leadId))) {
+      continue;
+    }
+
+    const p = payByLead[s.id] || payByLead[leadId];
     const amount = openMensalidadeAmount(s, p, financeConfig);
     if (amount < 0.01) continue;
 
@@ -199,6 +213,7 @@ export function summarizeReceivables(items = []) {
 export function buildReceivablesSnapshot({
   students,
   payments,
+  coveragePayments = null,
   financeConfig,
   referenceMonth,
   pendingTransactions,
@@ -208,6 +223,7 @@ export function buildReceivablesSnapshot({
   const mensalidadeItems = buildMensalidadeReceivableItems({
     students,
     payments,
+    coveragePayments,
     financeConfig,
     referenceMonth,
     today,

@@ -6,6 +6,8 @@ import {
   resolveBundleMonthAction,
   groupStudentPaymentsForProfile,
   listCancellableCoveredMonths,
+  buildPaidBundleCoveredMonthsByLead,
+  isMonthCoveredByPaidBundle,
   HISTORICAL_COVERED_REASON,
   isHistoricalCoveragePayment,
 } from '../lib/bundleCoverage.js';
@@ -87,6 +89,34 @@ describe('bundleCoverage', () => {
   it('isHistoricalCoveragePayment', () => {
     expect(isHistoricalCoveragePayment({ covered_reason: 'historical' })).toBe(true);
     expect(isHistoricalCoveragePayment({ covered_reason: 'freeze' })).toBe(false);
+  });
+
+  it('buildPaidBundleCoveredMonthsByLead inclui pacote pago e histórico', () => {
+    const byLead = buildPaidBundleCoveredMonthsByLead([
+      {
+        $id: 'a1',
+        lead_id: 'L1',
+        payment_category: 'bundle',
+        bundle_origin_id: 'a1',
+        bundle_months: 3,
+        reference_month: '2026-01',
+        status: 'paid',
+      },
+      {
+        $id: 'h1',
+        lead_id: 'L2',
+        payment_category: 'bundle',
+        bundle_origin_id: 'h1',
+        bundle_months: 12,
+        reference_month: '2026-03',
+        status: 'covered',
+        covered_reason: 'historical',
+      },
+    ]);
+    expect(isMonthCoveredByPaidBundle('2026-02', byLead.get('L1'))).toBe(true);
+    expect(isMonthCoveredByPaidBundle('2026-04', byLead.get('L1'))).toBe(false);
+    expect(isMonthCoveredByPaidBundle('2026-07', byLead.get('L2'))).toBe(true);
+    expect(isMonthCoveredByPaidBundle('2027-03', byLead.get('L2'))).toBe(false);
   });
 
   it('listCancellableCoveredMonths filtra futuros', () => {
