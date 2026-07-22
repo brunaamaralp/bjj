@@ -6,6 +6,7 @@ import {
   buildPayablesSummaryItems,
   buildPayablesCatalog,
   selectPayablesItems,
+  selectPayablesVisaoPreview,
   classifyPayableStatus,
   mergePayableItems,
   PAYABLE_SOURCE,
@@ -271,5 +272,45 @@ describe('payablesAggregate', () => {
     const fixas = selectPayablesItems(catalog, 'contas-fixas');
     expect(fixas.some((it) => it.source === PAYABLE_SOURCE.TEMPLATE)).toBe(true);
     expect(fixas.some((it) => it.vendor_label === 'Vencida')).toBe(true);
+  });
+
+  it('selectPayablesVisaoPreview returns at most N upcoming rows', () => {
+    const catalog = buildPayablesCatalog({
+      pendingTransactions: [
+        {
+          id: 'p1',
+          status: 'pending',
+          direction: 'out',
+          gross: 100,
+          due_date: '2026-06-01',
+          planName: 'A',
+        },
+        {
+          id: 'p2',
+          status: 'pending',
+          direction: 'out',
+          gross: 50,
+          due_date: '2026-06-20',
+          planName: 'B',
+        },
+      ],
+      recurrenceTemplates: [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 200,
+          planName: 'CPFL',
+        },
+      ],
+      fromYmd: '2026-06-01',
+      toYmd: '2026-08-31',
+      today: '2026-06-16',
+    });
+
+    const preview = selectPayablesVisaoPreview(catalog, 8);
+    expect(preview.length).toBeLessThanOrEqual(8);
   });
 });

@@ -15,11 +15,10 @@ import {
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
 import { fetchPayablesCached, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
-import { PAYABLE_SOURCE, selectPayablesItems, filterPayablesSearch } from '../../lib/payablesAggregate.js';
+import { PAYABLE_SOURCE, selectPayablesItems, selectPayablesVisaoPreview, filterPayablesSearch } from '../../lib/payablesAggregate.js';
 import {
   PAYABLES_SECTIONS,
   PAYABLES_SECTION_LABELS,
-  buildPayablesPath,
 } from '../../lib/financeiroPayablesSections.js';
 import { todayYmdLocal, addDaysYmd } from '../../lib/financeForecastCore.js';
 import {
@@ -53,6 +52,7 @@ import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
+import PayablesVisaoPanel from './PayablesVisaoPanel.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
 
@@ -266,6 +266,7 @@ export default function PayablesTab({
   };
 
   const items = useMemo(() => {
+    if (resolvedSection === PAYABLES_SECTIONS.VISAO) return [];
     const catalog = data?.catalog;
     const base = catalog
       ? selectPayablesItems(catalog, resolvedSection)
@@ -284,6 +285,11 @@ export default function PayablesTab({
     }
     return rows;
   }, [data?.catalog, data?.items, resolvedSection, debouncedSearch, categoryFilter, chartAccounts]);
+
+  const visaoPreviewItems = useMemo(() => {
+    if (resolvedSection !== PAYABLES_SECTIONS.VISAO) return [];
+    return selectPayablesVisaoPreview(data?.catalog, 8);
+  }, [data?.catalog, resolvedSection]);
 
   useEffect(() => {
     if (!highlightTxId || !items.length) return;
@@ -673,7 +679,8 @@ export default function PayablesTab({
           </StatusBanner>
         ) : null}
 
-        {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS ? (
+        {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS &&
+        resolvedSection !== PAYABLES_SECTIONS.VISAO ? (
           <div className="finance-filters-bar finance-filters-bar--compact mb-3">
             <input
               type="search"
@@ -699,7 +706,14 @@ export default function PayablesTab({
           </div>
         ) : null}
 
-        {items.length === 0 && !error ? (
+        {resolvedSection === PAYABLES_SECTIONS.VISAO ? (
+          <PayablesVisaoPanel
+            summary={summary}
+            items={visaoPreviewItems}
+            formatCategory={(raw) => formatPayableCategoryLabel(raw, chartAccounts)}
+            loading={loading && !loadedOnce}
+          />
+        ) : items.length === 0 && !error ? (
           <EmptyState
             variant="compact"
             icon={TrendingDown}
@@ -829,16 +843,6 @@ export default function PayablesTab({
             </table>
           </div>
         )}
-
-        {resolvedSection === PAYABLES_SECTIONS.VISAO && items.length > 0 ? (
-          <p className="text-small text-muted mt-3">
-            <Link to={buildPayablesPath({ section: PAYABLES_SECTIONS.CONTAS_FIXAS })}>
-              Ver todas as contas fixas
-            </Link>
-            {' · '}
-            <Link to="/financeiro?tab=previsao">Abrir previsão de caixa</Link>
-          </p>
-        ) : null}
       </FinanceTabShell>
 
       {showFormModal ? (

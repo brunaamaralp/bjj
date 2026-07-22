@@ -352,6 +352,11 @@ export function buildPayablesCatalog({
   return { pending, templates, projected, summary, from, to };
 }
 
+export function selectPayablesVisaoPreview(catalog, limit = 8) {
+  const rows = mergePayableItems(catalog?.pending || [], catalog?.projected || []);
+  return rows.slice(0, Math.max(0, Number(limit) || 8));
+}
+
 export function selectPayablesItems(catalog, section = 'visao') {
   const s = String(section || '').trim().toLowerCase();
   const pending = catalog?.pending || [];

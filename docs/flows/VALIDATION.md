@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-07-22: A pagar — Visão geral ≠ Contas fixas: resumo + preview de 8 vencimentos vs fila operacional com busca/tabela (`a-pagar-contas-fixas.md`).
 - 2026-07-22: mensalidades — restaurados CSS de KPIs e dropdown de status; filtros search/filtro sincronizam com a URL sem reset em todo `searchParams` (`a-receber-mensalidades.md`).
 - 2026-07-22: Visão geral / A receber — meses cobertos por pacote anual (ou cobertura histórica) não entram como mensalidade em aberto (`a-receber-mensalidades.md`).
 - 2026-07-22: perfil — **Cobertura histórica** (owner/admin): meses `covered` R$0 sem Caixa (`aluno-perfil-presenca.md`).
