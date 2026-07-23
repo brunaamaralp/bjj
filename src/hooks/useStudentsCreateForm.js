@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { LEAD_ORIGIN } from '../store/useLeadStore';
+import { LEAD_ORIGIN, useLeadStore } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
 import { useUiStore } from '../store/useUiStore';
 import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
+import { snapshotPlanPriceFromCatalog } from '../lib/planBilling.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
@@ -112,6 +113,11 @@ export function useStudentsCreateForm({
           return;
         }
       }
+      const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
+      const leadStore = useLeadStore.getState();
+      const financeConfig =
+        leadStore.financeConfigAcademyId === academyId ? leadStore.financeConfig : null;
+      const planPrice = snapshotPlanPriceFromCatalog(financeConfig, planName);
       const created = await addStudent({
         name,
         phone: cleanPhone,
@@ -120,18 +126,19 @@ export function useStudentsCreateForm({
         type: profileTypeFromTurma(turma),
         origin: newStudent.origin || 'Cadastro manual',
         plan: planName,
+        ...(planPrice != null ? { planPrice } : {}),
         dueDay: new Date().getDate(),
         enrollmentDate: formatLocalYmd(new Date()),
         studentStatus: STUDENT_STATUS.ACTIVE,
         ...(belt ? { belt } : {}),
       });
-      const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
       await performEnrollment({
         lead: created,
         academyId,
         userId,
         plan: planName,
         source: 'direct',
+        financeConfig,
         permissionContext: {
           teamId: acadDoc.teamId || '',
           userId: userId || '',

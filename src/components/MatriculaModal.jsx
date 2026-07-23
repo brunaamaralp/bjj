@@ -242,6 +242,7 @@ export default function MatriculaModal({
       enrollmentDate,
       answers,
       mode,
+      financeConfig: resolvedFinanceConfig,
     });
     setEnrolledStudent(true);
     setEnrolledLeadId(String(leadId || lead?.id || '').trim());

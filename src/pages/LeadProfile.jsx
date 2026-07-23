@@ -1468,7 +1468,8 @@ const LeadProfile = () => {
         plan = '',
         enrollmentDate = '',
         discountAmount = 0,
-        discountType = 'none'
+        discountType = 'none',
+        enrollFinanceConfig = null
     ) => {
         let extraToast = '';
         try {
@@ -1484,6 +1485,7 @@ const LeadProfile = () => {
             discountAmount,
             discountType,
             enrollmentDate,
+            financeConfig: enrollFinanceConfig ?? financeConfig,
             academySettingsRaw,
             waAutomation: {
                 waOutbound: {
@@ -3022,10 +3024,17 @@ const LeadProfile = () => {
                     }
                     void refreshTimeline();
                 }}
-                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers }) => {
+                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers, financeConfig: enrollFinanceConfig }) => {
                     setMatriculaSubmitting(true);
                     try {
-                        await runEnrollment(answers, plan, enrollmentDate, discountAmount, discountType);
+                        await runEnrollment(
+                            answers,
+                            plan,
+                            enrollmentDate,
+                            discountAmount,
+                            discountType,
+                            enrollFinanceConfig
+                        );
                     } catch (e) {
                         toast.error(e, 'action');
                         throw e;

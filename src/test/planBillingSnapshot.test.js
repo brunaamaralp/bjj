@@ -4,6 +4,7 @@ import {
   snapshotPlanPriceFromCatalog,
   resolveStudentPlanBasePrice,
   resolveStudentPlanFinalPrice,
+  resolveEnrollmentPlanPrice,
 } from '../lib/planBilling.js';
 
 describe('plan price snapshot', () => {
@@ -57,5 +58,15 @@ describe('plan price snapshot', () => {
   it('exempt plan final price is 0 even with snapshot', () => {
     const student = { plan: 'Isento', plan_price: 99 };
     expect(resolveStudentPlanFinalPrice(student, financeConfig)).toBe(0);
+  });
+
+  it('resolveEnrollmentPlanPrice prefers lead snapshot', () => {
+    expect(
+      resolveEnrollmentPlanPrice({ plan_price: 190 }, financeConfig, 'Mensal')
+    ).toBe(190);
+  });
+
+  it('resolveEnrollmentPlanPrice falls back to catalog', () => {
+    expect(resolveEnrollmentPlanPrice({}, financeConfig, 'Mensal')).toBe(250);
   });
 });

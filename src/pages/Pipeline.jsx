@@ -2079,7 +2079,8 @@ const Pipeline = () => {
         plan = '',
         enrollmentDate = '',
         discountAmount = 0,
-        discountType = 'none'
+        discountType = 'none',
+        enrollFinanceConfig = null
     ) => {
         try {
             let extraToast = '';
@@ -2095,6 +2096,7 @@ const Pipeline = () => {
                 discountAmount,
                 discountType,
                 enrollmentDate,
+                financeConfig: enrollFinanceConfig ?? financeConfig,
                 academySettingsRaw,
                 waAutomation: { waOutbound, academyRaw: academyAutomationsRaw },
                 onToast: (msg) => {
@@ -3413,7 +3415,7 @@ const Pipeline = () => {
                         toast.show({ type: 'success', message: 'Pagamento registrado.' });
                     }
                 }}
-                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers }) => {
+                onEnroll={async ({ plan, enrollmentDate, discountAmount, discountType, answers, financeConfig: enrollFinanceConfig }) => {
                     if (!dragTargetLead) return;
                     setMatriculaSubmitting(true);
                     try {
@@ -3423,7 +3425,8 @@ const Pipeline = () => {
                             plan,
                             enrollmentDate,
                             discountAmount,
-                            discountType
+                            discountType,
+                            enrollFinanceConfig
                         );
                     } finally {
                         setMatriculaSubmitting(false);

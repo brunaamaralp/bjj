@@ -22,7 +22,12 @@ import {
   studentPhoneDuplicateError,
 } from './studentPhoneDuplicate.js';
 import { useStudentStore } from '../store/useStudentStore.js';
-import { DISCOUNT_TYPES, normalizeDiscountType } from './planBilling.js';
+import {
+  DISCOUNT_TYPES,
+  getStudentAgreedPlanPrice,
+  normalizeDiscountType,
+  resolveEnrollmentPlanPrice,
+} from './planBilling.js';
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -127,6 +132,7 @@ export async function performEnrollment({
   waAutomation = null,
   onToast = null,
   addToast = null,
+  financeConfig = null,
   /** 'funnel' | 'direct' — direct = cadastro manual em Students.jsx */
   source = 'funnel',
 }) {
@@ -138,6 +144,15 @@ export async function performEnrollment({
   }
 
   const planName = String(plan || lead?.plan || '').trim();
+  const leadStore = useLeadStore.getState();
+  const resolvedFinanceConfig =
+    financeConfig ||
+    (leadStore.financeConfigAcademyId === academyId ? leadStore.financeConfig : null);
+  const planPrice = resolveEnrollmentPlanPrice(
+    lead,
+    resolvedFinanceConfig,
+    planName || lead.plan
+  );
   const discountValue = Number(discountAmount);
   const normalizedDiscountAmount =
     Number.isFinite(discountValue) && discountValue > 0 ? Math.round(discountValue * 100) / 100 : 0;
@@ -160,6 +175,22 @@ export async function performEnrollment({
 
   if (source === 'direct') {
     student = lead;
+    // Cadastro já criou o aluno; se plan_price ainda falta, grava o snapshot agora.
+    if (planPrice != null && getStudentAgreedPlanPrice(lead) == null) {
+      try {
+        await useStudentStore.getState().updateStudent(leadId, {
+          ...(planName ? { plan: planName } : {}),
+          planPrice,
+        });
+        student = {
+          ...lead,
+          ...(planName ? { plan: planName } : {}),
+          planPrice,
+        };
+      } catch (e) {
+        console.warn('[performEnrollment] direct planPrice snapshot:', e?.message || e);
+      }
+    }
     await addStudentLifecycleEvent({
       studentId: leadId,
       academyId,
@@ -186,10 +217,10 @@ export async function performEnrollment({
         ? { ...(lead.customAnswers && typeof lead.customAnswers === 'object' ? lead.customAnswers : {}), ...answersPatch }
         : undefined;
 
-    const academyList = useLeadStore.getState().academyList || [];
+    const academyList = leadStore.academyList || [];
     const acadDoc = academyList.find((a) => a.id === academyId) || {};
-    const teamId = String(acadDoc.teamId || useLeadStore.getState().teamId || '').trim();
-    const sessionUserId = String(userId || useLeadStore.getState().userId || '').trim();
+    const teamId = String(acadDoc.teamId || leadStore.teamId || '').trim();
+    const sessionUserId = String(userId || leadStore.userId || '').trim();
     const perms = buildLeadDocumentPermissions({ teamId, userId: sessionUserId });
 
     try {
@@ -205,6 +236,7 @@ export async function performEnrollment({
           studentStatus: 'active',
           ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
           ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
+          ...(planPrice != null ? { planPrice } : {}),
         },
         permissions: perms,
       });
