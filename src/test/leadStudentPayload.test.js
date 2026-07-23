@@ -73,6 +73,28 @@ describe('leadStudentPayload', () => {
     expect(payload.discount_amount).toBe(0);
   });
 
+  it('includes plan_price when provided', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      phone: '11999999999',
+      academyId: 'a1',
+      plan: 'Mensal',
+      plan_price: 200,
+    });
+    expect(payload.plan_price).toBe(200);
+  });
+
+  it('includes plan_price from planPrice camelCase', () => {
+    const payload = buildStudentPayloadFromDoc({
+      name: 'Ana',
+      phone: '11999999999',
+      academyId: 'a1',
+      plan: 'Mensal',
+      planPrice: 180.5,
+    });
+    expect(payload.plan_price).toBe(180.5);
+  });
+
   it('does not persist age or is_first_experience on students payload', () => {
     const payload = buildStudentPayloadFromDoc({
       name: 'Ana',

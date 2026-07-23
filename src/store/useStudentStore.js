@@ -156,6 +156,17 @@ function updatesToStudentPatch(updates) {
     copyIf('source_origin', String(u.sourceOrigin ?? u.origin ?? '').trim().slice(0, 128));
   }
   if (u.plan !== undefined) copyIf('plan', u.plan);
+  if (u.planPrice !== undefined || u.plan_price !== undefined) {
+    const raw = u.planPrice !== undefined ? u.planPrice : u.plan_price;
+    if (raw === 0 || raw === '0') {
+      copyIf('plan_price', 0);
+    } else if (raw != null && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) {
+        copyIf('plan_price', Math.round(n * 100) / 100);
+      }
+    }
+  }
   if (u.discountAmount !== undefined) {
     const n = Number(u.discountAmount);
     copyIf('discount_amount', Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0);

@@ -101,6 +101,20 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     exit_date: String(d.exit_date ?? d.exitDate ?? '').trim().slice(0, 10) || null,
   };
 
+  const hasPlanPriceSnake = Object.prototype.hasOwnProperty.call(d, 'plan_price');
+  const hasPlanPriceCamel = Object.prototype.hasOwnProperty.call(d, 'planPrice');
+  if (hasPlanPriceSnake || hasPlanPriceCamel) {
+    const raw = hasPlanPriceCamel ? d.planPrice : d.plan_price;
+    if (raw === 0 || raw === '0') {
+      payload.plan_price = 0;
+    } else if (raw != null && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) {
+        payload.plan_price = Math.round(n * 100) / 100;
+      }
+    }
+  }
+
   if (turma) payload.turma = turma;
   if (dueDay != null) payload.due_day = dueDay;
   if (

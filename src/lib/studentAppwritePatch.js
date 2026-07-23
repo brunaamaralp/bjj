@@ -3,6 +3,7 @@ import { parseUnknownAttributeFromMessage } from './appwriteErrors.js';
 /** Atributos opcionais em students — podem não existir até provisionar. */
 export const OPTIONAL_STUDENT_PATCH_ATTRS = [
   'email',
+  'plan_price',
   'discount_amount',
   'discount_type',
   'preferred_payment_method',

@@ -70,6 +70,12 @@ export function mapAppwriteDocToStudent(doc) {
     createdAt: doc.$createdAt,
     convertedAt: doc.converted_at || doc.convertedAt || null,
     plan: doc.plan || '',
+    planPrice: (() => {
+      const raw = doc.plan_price ?? doc.planPrice;
+      if (raw == null || raw === '') return null;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+    })(),
     discountAmount,
     discountType,
     dueDay,
