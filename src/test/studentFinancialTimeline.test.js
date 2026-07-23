@@ -185,6 +185,25 @@ describe('studentFinancialTimeline', () => {
     expect(typeCounts.plan).toBeGreaterThanOrEqual(1);
   });
 
+  it('buildFinancialSummary usa plan_price acordado em vez do catálogo', () => {
+    const summary = buildFinancialSummary({
+      student: {
+        plan: 'Mensal',
+        plan_price: 180,
+        dueDay: 10,
+        discount_type: 'fixed',
+        discount_amount: 30,
+      },
+      financeConfig: { plans: [{ name: 'Mensal', price: 250 }] },
+      payments: [],
+      sales: [],
+      paymentStatus: { status: 'none' },
+    });
+    expect(summary.planLabel).toMatch(/180/);
+    expect(summary.planLabel).not.toMatch(/250/);
+    expect(summary.finalLabel).toMatch(/150/);
+  });
+
   it('buildFinancialSummary destaca plano isento como sem cobranca mensal', () => {
     const summary = buildFinancialSummary({
       student: { plan: 'Bolsista', dueDay: 10 },

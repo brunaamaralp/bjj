@@ -28,6 +28,26 @@ import {
   normalizeDiscountType,
   resolveEnrollmentPlanPrice,
 } from './planBilling.js';
+import { loadMergedFinanceConfigForAcademy } from './prefetchFinanceConfig.js';
+
+const PLAN_PRICE_SNAPSHOT_MISSING_TOAST =
+  'Não foi possível gravar o valor do plano; verifique a config financeira.';
+
+function financeConfigHasPlans(cfg) {
+  return Array.isArray(cfg?.plans) && cfg.plans.length > 0;
+}
+
+function warnPlanPriceSnapshotMissing({ addToast, onToast }) {
+  if (typeof addToast === 'function') {
+    addToast({ type: 'warning', message: PLAN_PRICE_SNAPSHOT_MISSING_TOAST });
+    return;
+  }
+  if (typeof onToast === 'function') {
+    onToast(PLAN_PRICE_SNAPSHOT_MISSING_TOAST);
+    return;
+  }
+  console.warn(`[performEnrollment] ${PLAN_PRICE_SNAPSHOT_MISSING_TOAST}`);
+}
 
 /**
  * Efeitos pós-matrícula compartilhados (funil e cadastro direto na lista).
@@ -145,14 +165,25 @@ export async function performEnrollment({
 
   const planName = String(plan || lead?.plan || '').trim();
   const leadStore = useLeadStore.getState();
-  const resolvedFinanceConfig =
+  let resolvedFinanceConfig =
     financeConfig ||
     (leadStore.financeConfigAcademyId === academyId ? leadStore.financeConfig : null);
+  if (planName && !financeConfigHasPlans(resolvedFinanceConfig) && academyId) {
+    try {
+      const loaded = await loadMergedFinanceConfigForAcademy(academyId);
+      if (financeConfigHasPlans(loaded)) resolvedFinanceConfig = loaded;
+    } catch (e) {
+      console.warn('[performEnrollment] financeConfig reload:', e?.message || e);
+    }
+  }
   const planPrice = resolveEnrollmentPlanPrice(
     lead,
     resolvedFinanceConfig,
     planName || lead.plan
   );
+  if (planName && planPrice == null && !financeConfigHasPlans(resolvedFinanceConfig)) {
+    warnPlanPriceSnapshotMissing({ addToast, onToast });
+  }
   const discountValue = Number(discountAmount);
   const normalizedDiscountAmount =
     Number.isFinite(discountValue) && discountValue > 0 ? Math.round(discountValue * 100) / 100 : 0;

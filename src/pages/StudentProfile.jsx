@@ -155,6 +155,13 @@ function formatAgreedPlanPriceInput(value) {
     return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace('.', ',');
 }
 
+/** Seed edit input from agreed snapshot, or catalog when pre-backfill student has none. */
+function seedPlanPriceInput(student, financeConfig) {
+    const agreed = getStudentAgreedPlanPrice(student);
+    if (agreed != null) return formatAgreedPlanPriceInput(agreed);
+    return formatAgreedPlanPriceInput(snapshotPlanPriceFromCatalog(financeConfig, student?.plan));
+}
+
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
     try {
@@ -614,7 +621,7 @@ export default function StudentProfile() {
                 student.discountAmount,
                 normalizeDiscountType(student)
             ),
-            planPriceInput: formatAgreedPlanPriceInput(student),
+            planPriceInput: seedPlanPriceInput(student, financeConfig),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -631,6 +638,18 @@ export default function StudentProfile() {
         // Sincronizar só ao mudar de aluno (id), não a cada atualização do objeto na store.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- student fields read intentionally when id changes
     }, [student?.id]);
+
+    // Pre-backfill: when financeConfig arrives later, seed empty agreed-price input from catalog.
+    useEffect(() => {
+        if (!student || editingData) return;
+        if (getStudentAgreedPlanPrice(student) != null) return;
+        const catalog = snapshotPlanPriceFromCatalog(financeConfig, student.plan);
+        if (catalog == null) return;
+        setDataForm((p) => {
+            if (parsePlanPriceInput(p.planPriceInput) != null) return p;
+            return { ...p, planPriceInput: formatAgreedPlanPriceInput(catalog) };
+        });
+    }, [student, financeConfig, editingData]);
 
     useEffect(() => {
         if (!emergencySameAsRegistered || !editingData) return;
@@ -1075,7 +1094,7 @@ export default function StudentProfile() {
                 student.discountAmount,
                 normalizeDiscountType(student)
             ),
-            planPriceInput: formatAgreedPlanPriceInput(student),
+            planPriceInput: seedPlanPriceInput(student, financeConfig),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1089,7 +1108,7 @@ export default function StudentProfile() {
         );
         setEditingData(false);
         setPayerAliases(Array.isArray(student.payerAliases) ? student.payerAliases : []);
-    }, [student, academyTurmas]);
+    }, [student, academyTurmas, financeConfig]);
 
     const handlePayerAliasesChange = useCallback(
         async (nextAliases) => {

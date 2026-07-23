@@ -15,12 +15,13 @@ import { openAmountForStudent } from './collectionOverdue.js';
 import { isFreezeActive, formatFreezeDateBr } from './planFreeze.js';
 import { paymentTimelineBadge } from './paymentStatus.js';
 import {
-  calcFinalPrice,
   formatDiscountSummaryLabel,
   getStudentDiscountAmount,
   isExemptPlan,
   normalizeDiscountType,
   resolveStudentPlan,
+  resolveStudentPlanBasePrice,
+  resolveStudentPlanFinalPrice,
 } from './planBilling.js';
 
 export const TIMELINE_FILTER_TYPES = {
@@ -222,10 +223,10 @@ export function buildFinancialSummary({
 }) {
   const planName = String(student?.plan || '').trim();
   const match = resolveStudentPlan(student, financeConfig);
-  const planPrice = Number(match?.price);
+  const planPrice = resolveStudentPlanBasePrice(student, financeConfig);
   const discountAmount = getStudentDiscountAmount(student);
   const discountType = normalizeDiscountType(student);
-  const finalPlanPrice = calcFinalPrice(planPrice, student);
+  const finalPlanPrice = resolveStudentPlanFinalPrice(student, financeConfig);
   const planIsExempt = isExemptPlan(match);
   const planLabel = planName
     ? planIsExempt

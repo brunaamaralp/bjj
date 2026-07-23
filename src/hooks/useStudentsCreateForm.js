@@ -6,6 +6,7 @@ import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { snapshotPlanPriceFromCatalog } from '../lib/planBilling.js';
+import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { formatLocalYmd } from '../lib/studentEnrollmentDate.js';
@@ -14,6 +15,10 @@ import {
   normalizeBeltValue,
   resolveBeltOptions,
 } from '../lib/beltGradesConfig.js';
+
+function financeConfigHasPlans(cfg) {
+  return Array.isArray(cfg?.plans) && cfg.plans.length > 0;
+}
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
@@ -115,8 +120,16 @@ export function useStudentsCreateForm({
       }
       const acadDoc = (academyList || []).find((a) => a.id === academyId) || {};
       const leadStore = useLeadStore.getState();
-      const financeConfig =
+      let financeConfig =
         leadStore.financeConfigAcademyId === academyId ? leadStore.financeConfig : null;
+      if (!financeConfigHasPlans(financeConfig) && academyId) {
+        try {
+          const loaded = await loadMergedFinanceConfigForAcademy(academyId);
+          if (financeConfigHasPlans(loaded)) financeConfig = loaded;
+        } catch (cfgErr) {
+          console.warn('[useStudentsCreateForm] financeConfig reload:', cfgErr?.message || cfgErr);
+        }
+      }
       const planPrice = snapshotPlanPriceFromCatalog(financeConfig, planName);
       const created = await addStudent({
         name,
@@ -144,6 +157,7 @@ export function useStudentsCreateForm({
           userId: userId || '',
         },
         academySettingsRaw: acadDoc.settings,
+        addToast,
         onToast: (msg) => addToast({ type: 'info', message: msg }),
       });
       addToast({ type: 'success', message: `${terms.student} cadastrado com sucesso.` });
