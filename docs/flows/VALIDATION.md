@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-07-23: A pagar — KPI compacto único (como A receber); Visão só com próximos vencimentos (sem métricas duplicadas); subnav com Importar/Nova/Atualizar (`a-pagar-contas-fixas.md`).
 - 2026-07-22: A receber → Visão geral — exclui espelho `student_payment`/templates do total; deep link `?tx=` busca o lançamento mesmo fora do período (`a-receber-mensalidades.md`).
 - 2026-07-22: A pagar — Visão geral ≠ Contas fixas: resumo + preview de 8 vencimentos vs fila operacional com busca/tabela (`a-pagar-contas-fixas.md`).
 - 2026-07-22: mensalidades — restaurados CSS de KPIs e dropdown de status; filtros search/filtro sincronizam com a URL sem reset em todo `searchParams` (`a-receber-mensalidades.md`).

@@ -37,49 +37,20 @@ function statusBadgeClass(status) {
   return 'finance-badge-pendente';
 }
 
+/**
+ * Visão geral de A pagar — só próximos vencimentos (KPIs ficam na faixa do shell).
+ */
 export default function PayablesVisaoPanel({
-  summary,
   items = [],
   formatCategory,
   loading = false,
 }) {
-  const s = summary || {
-    overdueCount: 0,
-    overdueAmount: 0,
-    dueSoonCount: 0,
-    dueSoonAmount: 0,
-    activeTemplates: 0,
-  };
-
   if (loading && items.length === 0) {
     return <PageSkeleton variant="compact" />;
   }
 
   return (
     <div className="payables-visao-panel">
-      <div className="financeiro-overview-metrics mb-3">
-        <div className="financeiro-overview-metric">
-          <span className="financeiro-overview-metric__label">Vencidas</span>
-          <span className="financeiro-overview-metric__value finance-value-negative">
-            {fmtMoney(s.overdueAmount)}
-          </span>
-          <span className="text-small text-muted">
-            {s.overdueCount} conta{s.overdueCount !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="financeiro-overview-metric">
-          <span className="financeiro-overview-metric__label">Vence em 7 dias</span>
-          <span className="financeiro-overview-metric__value">{fmtMoney(s.dueSoonAmount)}</span>
-          <span className="text-small text-muted">
-            {s.dueSoonCount} conta{s.dueSoonCount !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="financeiro-overview-metric">
-          <span className="financeiro-overview-metric__label">Fixas ativas</span>
-          <span className="financeiro-overview-metric__value">{s.activeTemplates}</span>
-        </div>
-      </div>
-
       {items.length === 0 ? (
         <EmptyState
           variant="compact"

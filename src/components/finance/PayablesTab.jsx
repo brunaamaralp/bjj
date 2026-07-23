@@ -608,7 +608,7 @@ export default function PayablesTab({
 
   const kpiStrip =
     resolvedSection === PAYABLES_SECTIONS.VENCIDAS ? (
-      <div className="finance-kpi receivables-tab__total-kpi">
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
         <p className="finance-kpi__label">Vencidas</p>
         <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.overdueAmount)}</p>
         <p className="finance-kpi__hint">
@@ -616,21 +616,28 @@ export default function PayablesTab({
         </p>
       </div>
     ) : (
-      <>
-        <div className="finance-kpi finance-kpi--hero">
-          <p className="finance-kpi__label">Em aberto (90 dias)</p>
-          <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
-        </div>
-        <div className="finance-kpi">
-          <p className="finance-kpi__label">Vence em 7 dias</p>
-          <p className="finance-kpi__value">{fmtMoney(summary.dueSoonAmount)}</p>
-          <p className="finance-kpi__hint">{summary.dueSoonCount} conta(s)</p>
-        </div>
-        <div className="finance-kpi">
-          <p className="finance-kpi__label">Fixas ativas</p>
-          <p className="finance-kpi__value">{summary.activeTemplates}</p>
-        </div>
-      </>
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+        <p className="finance-kpi__label">Em aberto (90 dias)</p>
+        <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
+        {summary.overdueCount > 0 ? (
+          <p className="finance-kpi__hint">
+            {summary.overdueCount} vencida{summary.overdueCount !== 1 ? 's' : ''} ·{' '}
+            {fmtMoney(summary.overdueAmount)}
+          </p>
+        ) : summary.dueSoonCount > 0 ? (
+          <p className="finance-kpi__hint">
+            {summary.dueSoonCount} vence{summary.dueSoonCount !== 1 ? 'm' : ''} em 7 dias
+          </p>
+        ) : summary.activeTemplates > 0 ? (
+          <p className="finance-kpi__hint">
+            {summary.activeTemplates === 1
+              ? '1 conta fixa ativa'
+              : `${summary.activeTemplates} contas fixas ativas`}
+          </p>
+        ) : (
+          <p className="finance-kpi__hint">Nenhuma conta programada na janela</p>
+        )}
+      </div>
     );
 
   const subNav = (
@@ -653,13 +660,9 @@ export default function PayablesTab({
           onClick={() => setShowImportModal(true)}
         >
           <FileSpreadsheet size={14} aria-hidden />
-          Importar CSV
+          <span className="receivables-tab__refresh-label">Importar CSV</span>
         </button>
-        <button
-          type="button"
-          className="btn-primary btn-sm"
-          onClick={openNewForm}
-        >
+        <button type="button" className="btn-primary btn-sm" onClick={openNewForm}>
           <Plus size={14} aria-hidden />
           Nova conta
         </button>
@@ -708,7 +711,6 @@ export default function PayablesTab({
 
         {resolvedSection === PAYABLES_SECTIONS.VISAO ? (
           <PayablesVisaoPanel
-            summary={summary}
             items={visaoPreviewItems}
             formatCategory={(raw) => formatPayableCategoryLabel(raw, chartAccounts)}
             loading={loading && !loadedOnce}
