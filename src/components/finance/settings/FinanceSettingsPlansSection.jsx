@@ -48,6 +48,10 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
                 onUpdate(idx, { price: Number.isFinite(n) ? n : 0 });
               }}
             />
+            <p className="text-small text-muted">
+              Este é o preço de lista para novas matrículas. Alunos já matriculados mantêm o valor
+              acordado no perfil; alterar aqui não reajusta a base antiga.
+            </p>
           </div>
           <div className="form-group">
             <label>Meta semanal de check-ins</label>
