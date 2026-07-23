@@ -23,8 +23,8 @@ export const INTEGRACOES_SETTINGS_ITEMS = [
   {
     id: INTEGRACOES_SETTINGS_SECTIONS.CATRACA,
     label: 'Catraca',
-    panelTitle: 'Control iD — catraca',
-    hint: 'Reconhecimento facial e liberação de acesso na recepção. Requer hardware e servidor local na academia.',
+    panelTitle: 'Catraca — Control iD',
+    hint: 'Hardware na porta: reconhecimento facial e liberação. Requer servidor local na academia. A operação diária fica em Recepção → Presença.',
   },
   {
     id: INTEGRACOES_SETTINGS_SECTIONS.AUTENTIQUE,

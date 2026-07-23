@@ -55,7 +55,7 @@ export function receptionCommercialSubtitle() {
 }
 
 export function receptionPresenceSubtitle() {
-  return 'Catraca ao vivo e retenção por frequência';
+  return 'Entradas ao vivo e retenção por frequência';
 }
 
 export function toastAttendedSuccess(isFirstOfDay) {

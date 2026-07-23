@@ -4,10 +4,12 @@ import {
   buildRecepcaoHubTabItems,
   buildRecepcaoLegacyRedirectPath,
   buildRecepcaoRetencaoPath,
+  buildRecepcaoPresenceSubTabs,
   isRecepcaoCatracaHistoricoSection,
   isRecepcaoCatracaRetencaoSection,
   resolveRecepcaoCatracaSection,
   RECEPCAO_CATRACA_SECTION_LIVE,
+  RECEPCAO_CATRACA_SECTION_HISTORICO,
   RECEPCAO_CATRACA_SECTION_RETENCAO,
   RECEPCAO_TAB_CATRACA,
   RECEPCAO_TAB_EXPERIMENTAIS,
@@ -63,5 +65,17 @@ describe('recepcaoHubTabs', () => {
   it('isRecepcaoCatracaRetencaoSection', () => {
     expect(isRecepcaoCatracaRetencaoSection('retencao')).toBe(true);
     expect(isRecepcaoCatracaRetencaoSection('historico')).toBe(false);
+  });
+
+  it('buildRecepcaoPresenceSubTabs — Ao vivo + Histórico; Retenção se attendance', () => {
+    expect(buildRecepcaoPresenceSubTabs({ attendanceReady: false }).map((t) => t.id)).toEqual([
+      RECEPCAO_CATRACA_SECTION_LIVE,
+      RECEPCAO_CATRACA_SECTION_HISTORICO,
+    ]);
+    expect(buildRecepcaoPresenceSubTabs({ attendanceReady: true }).map((t) => t.id)).toEqual([
+      RECEPCAO_CATRACA_SECTION_LIVE,
+      RECEPCAO_CATRACA_SECTION_HISTORICO,
+      RECEPCAO_CATRACA_SECTION_RETENCAO,
+    ]);
   });
 });

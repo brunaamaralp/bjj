@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { DoorOpen, History } from 'lucide-react';
+import { DoorOpen, History, Users } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import RecepcaoLivePanel from '../attendance/RecepcaoLivePanel.jsx';
@@ -8,15 +8,25 @@ import RecepcaoPresenceHero from './RecepcaoPresenceHero.jsx';
 import { useAcademyControlId } from '../../hooks/useAcademyControlId.js';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { isAttendanceConfigured } from '../../lib/attendance.js';
+import { fetchControlIdAttendance } from '../../lib/controlidApi.js';
+import { countRealFeedEntries } from '../../lib/recepcaoLiveFeed.js';
+import { todayStartIso } from '../attendance/controlIdAttendanceUtils.js';
 import {
   RECEPCAO_CATRACA_SECTION_HISTORICO,
   RECEPCAO_CATRACA_SECTION_LIVE,
   RECEPCAO_CATRACA_SECTION_RETENCAO,
+  buildRecepcaoPresenceSubTabs,
 } from '../../lib/recepcaoHubTabs.js';
 
 const ControlIdAttendancePanel = lazy(
   () => import('../attendance/ControlIdAttendancePanel.jsx')
 );
+
+const TAB_ICONS = {
+  [RECEPCAO_CATRACA_SECTION_LIVE]: DoorOpen,
+  [RECEPCAO_CATRACA_SECTION_HISTORICO]: History,
+  [RECEPCAO_CATRACA_SECTION_RETENCAO]: Users,
+};
 
 /**
  * Aba Presença em / — feed ao vivo, histórico e retenção por frequência.
@@ -33,6 +43,7 @@ export default function RecepcaoCatracaTab({
   const liveRef = useRef(null);
   const retentionRef = useRef(null);
   const [heroSummary, setHeroSummary] = useState(undefined);
+  const [entriesToday, setEntriesToday] = useState(null);
   const [isPresenceDesktop, setIsPresenceDesktop] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 960px)').matches
   );
@@ -46,16 +57,43 @@ export default function RecepcaoCatracaTab({
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  const handleEntriesTodayChange = useCallback((count) => {
+    setEntriesToday(typeof count === 'number' && Number.isFinite(count) ? count : 0);
+  }, []);
+
+  useEffect(() => {
+    if (!academyId || !integrationReady) {
+      setEntriesToday(null);
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await fetchControlIdAttendance(academyId, {
+          start: todayStartIso(),
+          limit: 100,
+        });
+        if (cancelled) return;
+        setEntriesToday(countRealFeedEntries(data.records || []));
+      } catch {
+        /* LivePanel atualiza quando montar */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId, integrationReady]);
+
   const showLive = catracaSection === RECEPCAO_CATRACA_SECTION_LIVE;
   const showHistorico = catracaSection === RECEPCAO_CATRACA_SECTION_HISTORICO;
   const showRetencao = catracaSection === RECEPCAO_CATRACA_SECTION_RETENCAO;
 
   const desktopSplitLive =
-    isPresenceDesktop && showLive && !showHistorico && attendanceReady && integrationReady;
+    isPresenceDesktop && showLive && attendanceReady && integrationReady;
 
   const retentionVisible =
     Boolean(desktopSplitLive) ||
-    Boolean(!desktopSplitLive && showRetencao && attendanceReady) ||
+    Boolean(showRetencao && attendanceReady) ||
     Boolean(!integrationReady && attendanceReady && !showRetencao);
 
   const handleRetentionDataLoaded = useCallback((body) => {
@@ -67,7 +105,12 @@ export default function RecepcaoCatracaTab({
   }, [retentionVisible]);
 
   const scrollToLive = () => {
-    liveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!showLive) {
+      onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_LIVE);
+    }
+    requestAnimationFrame(() => {
+      liveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const scrollToRetention = () => {
@@ -108,35 +151,38 @@ export default function RecepcaoCatracaTab({
     );
   }
 
-  const subTabs = integrationReady ? (
-    <div className="mensal-page-tabs recepcao-presence-tabs" role="tablist" aria-label="Presença">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={showLive || showRetencao}
-        className={`mensal-page-tab${showLive || showRetencao ? ' mensal-page-tab--active' : ''}`}
-        onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_LIVE)}
-      >
-        <DoorOpen size={14} aria-hidden />
-        Ao vivo
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={showHistorico}
-        className={`mensal-page-tab${showHistorico ? ' mensal-page-tab--active' : ''}`}
-        onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_HISTORICO)}
-      >
-        <History size={14} aria-hidden />
-        Histórico
-      </button>
-    </div>
-  ) : null;
+  const presenceTabs = integrationReady
+    ? buildRecepcaoPresenceSubTabs({ attendanceReady })
+    : [];
+
+  const subTabs =
+    presenceTabs.length > 0 ? (
+      <div className="mensal-page-tabs recepcao-presence-tabs" role="tablist" aria-label="Presença">
+        {presenceTabs.map((tab) => {
+          const Icon = TAB_ICONS[tab.id] || DoorOpen;
+          const selected = catracaSection === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={`mensal-page-tab${selected ? ' mensal-page-tab--active' : ''}`}
+              onClick={() => onCatracaSectionChange?.(tab.id)}
+            >
+              <Icon size={14} aria-hidden />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
 
   return (
     <div className="recepcao-catraca-tab">
       <RecepcaoPresenceHero
         integrationReady={integrationReady}
+        entriesToday={integrationReady ? entriesToday : null}
         onScrollToLive={scrollToLive}
         onScrollToRetention={scrollToRetention}
         summaryOverride={retentionVisible ? heroSummary : undefined}
@@ -154,12 +200,12 @@ export default function RecepcaoCatracaTab({
         </StatusBanner>
       ) : null}
 
-      {!desktopSplitLive ? subTabs : null}
+      {subTabs}
 
       {desktopSplitLive ? (
         <div className="recepcao-presence-grid">
           <div ref={liveRef} className="recepcao-presence-grid__live">
-            <RecepcaoLivePanel />
+            <RecepcaoLivePanel onEntriesTodayChange={handleEntriesTodayChange} />
           </div>
           <div ref={retentionRef} className="recepcao-presence-grid__retention">
             <AttendanceAtRiskSection
@@ -172,7 +218,7 @@ export default function RecepcaoCatracaTab({
 
       {!desktopSplitLive && showLive && integrationReady ? (
         <div ref={liveRef}>
-          <RecepcaoLivePanel />
+          <RecepcaoLivePanel onEntriesTodayChange={handleEntriesTodayChange} />
         </div>
       ) : null}
 
@@ -193,18 +239,6 @@ export default function RecepcaoCatracaTab({
       {!integrationReady && attendanceReady && !showRetencao ? (
         <div ref={retentionRef}>
           <AttendanceAtRiskSection onDataLoaded={handleRetentionDataLoaded} />
-        </div>
-      ) : null}
-
-      {desktopSplitLive ? (
-        <div className="recepcao-presence-historico-link">
-          <button
-            type="button"
-            className="link-subtle text-small"
-            onClick={() => onCatracaSectionChange?.(RECEPCAO_CATRACA_SECTION_HISTORICO)}
-          >
-            Ver histórico de check-ins →
-          </button>
         </div>
       ) : null}
     </div>

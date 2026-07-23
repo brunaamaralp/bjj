@@ -1,3 +1,4 @@
+import '../../styles/controlid-panels.css';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Clock, DoorOpen, ExternalLink, Filter, RefreshCw, Users } from 'lucide-react';
@@ -117,142 +118,107 @@ export default function ControlIdAttendancePanel({
   return (
     <div className={`controlid-attendance-panel${compact ? ' controlid-attendance-panel--compact' : ''} ${className}`.trim()}>
       {!compact && (
-        <div className="controlid-attendance-panel__toolbar" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <div className="controlid-attendance-panel__toolbar">
           {isConfigured && (
             <>
               {showReceptionLink && (
-                <Link
-                  to="/recepcao"
-                  className="btn-outline"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                >
-                  <DoorOpen size={14} />
-                  Modo recepção
-                  <ExternalLink size={12} />
+                <Link to="/?tab=catraca" className="btn-outline controlid-attendance-panel__tool-btn">
+                  <DoorOpen size={14} aria-hidden />
+                  Presença ao vivo
+                  <ExternalLink size={12} aria-hidden />
                 </Link>
               )}
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary controlid-attendance-panel__tool-btn"
                 onClick={() => setReleaseOpen(true)}
                 disabled={releasing}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
               >
-                <DoorOpen size={14} />
+                <DoorOpen size={14} aria-hidden />
                 {releasing ? 'Liberando…' : 'Liberar catraca'}
               </button>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary controlid-attendance-panel__tool-btn"
                 onClick={() => void handleSyncAll()}
                 disabled={syncing}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
               >
-                <Users size={14} className={syncing ? 'animate-spin' : ''} />
+                <Users size={14} className={syncing ? 'controlid-spin' : ''} aria-hidden />
                 {syncing ? 'Sincronizando…' : 'Sincronizar todos'}
               </button>
             </>
           )}
           <button
             type="button"
-            className="btn-secondary"
+            className={`btn-secondary controlid-attendance-panel__tool-btn${!isConfigured ? ' controlid-attendance-panel__tool-btn--push' : ''}`}
             onClick={() => void load()}
             disabled={loading}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, marginLeft: isConfigured ? undefined : 'auto' }}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'controlid-spin' : ''} aria-hidden />
             {loading ? 'Carregando…' : 'Atualizar'}
           </button>
         </div>
       )}
 
       {compact && (
-        <div className="controlid-attendance-panel__toolbar" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div className="controlid-attendance-panel__toolbar">
           {isConfigured && showReceptionLink && (
-            <Link to="/recepcao" className="btn-outline" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <DoorOpen size={14} /> Recepção ao vivo
+            <Link to="/?tab=catraca" className="btn-outline controlid-attendance-panel__tool-btn">
+              <DoorOpen size={14} aria-hidden /> Presença ao vivo
             </Link>
           )}
-          <button type="button" className="btn-secondary" onClick={() => void load()} disabled={loading} style={{ fontSize: 13, marginLeft: 'auto' }}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Atualizar
+          <button
+            type="button"
+            className="btn-secondary controlid-attendance-panel__tool-btn controlid-attendance-panel__tool-btn--push"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            <RefreshCw size={14} className={loading ? 'controlid-spin' : ''} aria-hidden /> Atualizar
           </button>
         </div>
       )}
 
       {isConfigured ? (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            padding: '8px 14px',
-            borderRadius: 8,
-            background: 'var(--success-light)',
-            border: '1px solid var(--success)',
-            marginBottom: 16,
-            fontSize: 13,
-            color: 'var(--success)',
-            fontWeight: 600,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+        <div className="controlid-attendance-panel__status controlid-attendance-panel__status--ok">
+          <div className="controlid-attendance-panel__status-row">
+            <span className="controlid-attendance-panel__status-dot" aria-hidden />
             Catraca configurada — {controlId.device_ip || controlId.ip}
           </div>
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', paddingLeft: 16 }}>
+          <span className="controlid-attendance-panel__status-sync">
             Última sync de alunos: {formatControlIdLastSync(controlId.last_sync)}
           </span>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 14px',
-            borderRadius: 8,
-            background: 'var(--warning-light)',
-            border: '1px solid var(--warning)',
-            marginBottom: 16,
-            fontSize: 13,
-            color: 'var(--warning)',
-          }}
-        >
-          <DoorOpen size={14} />
+        <div className="controlid-attendance-panel__status controlid-attendance-panel__status--warn">
+          <DoorOpen size={14} aria-hidden />
           Catraca não configurada. Configure em{' '}
-          <Link
-            to="/integracoes?tab=catraca"
-            style={{ color: 'var(--warning)', fontWeight: 600, textDecoration: 'underline' }}
-          >
+          <Link to="/integracoes?tab=catraca" className="controlid-attendance-panel__status-link">
             Integrações
           </Link>
           .
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Filter size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+      <div
+        className="controlid-attendance-panel__filters"
+        role="radiogroup"
+        aria-label="Período do histórico"
+      >
+        <Filter size={14} className="controlid-attendance-panel__filter-icon" aria-hidden />
         {DATE_RANGES.map((r) => (
           <button
             key={r.id}
             type="button"
+            role="radio"
+            aria-checked={range === r.id}
+            className="controlid-range-chip"
             onClick={() => changeRange(r.id)}
-            style={{
-              padding: '4px 12px',
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 600,
-              border: `1px solid ${range === r.id ? 'var(--purple)' : 'var(--border)'}`,
-              background: range === r.id ? 'var(--purple-light)' : 'transparent',
-              color: range === r.id ? 'var(--purple)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
           >
             {r.label}
           </button>
         ))}
         {records.length > 0 && (
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+          <span className="controlid-attendance-panel__count">
             {records.length} registro{records.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -274,24 +240,11 @@ export default function ControlIdAttendancePanel({
           role="status"
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="controlid-attendance-groups">
           {groups.map((group) => (
             <div key={group.date}>
-              <h3
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--text-muted)',
-                  marginBottom: 8,
-                  paddingBottom: 6,
-                  borderBottom: '1px solid var(--border-light)',
-                }}
-              >
-                {group.label || group.date}
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <h3 className="controlid-attendance-group__label">{group.label || group.date}</h3>
+              <div className="controlid-attendance-group__rows">
                 {group.records.map((rec) => (
                   <AttendanceRow key={rec.$id} rec={rec} />
                 ))}
@@ -313,80 +266,29 @@ export default function ControlIdAttendancePanel({
 function AttendanceRow({ rec }) {
   const name = rec.student_name || '—';
   const initial = avatarInitial(name);
-  const source = rec.source === 'manual' ? 'Manual' : 'Catraca';
-  const sourceColor = rec.source === 'manual' ? 'var(--text-muted)' : 'var(--success)';
+  const isManual = rec.source === 'manual';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 10px',
-        borderRadius: 8,
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-    >
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: '50%',
-          background: 'var(--purple-light)',
-          color: 'var(--purple)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 700,
-          fontSize: 14,
-          flexShrink: 0,
-        }}
-      >
-        {initial}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontWeight: 600,
-            fontSize: 14,
-            color: 'var(--text)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {name}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-          {rec.student_id ? (
-            <Link
-              to={`/student/${rec.student_id}`}
-              style={{ color: 'inherit', textDecoration: 'none' }}
-              onClick={(e) => e.stopPropagation()}
-            >
+    <div className="controlid-attendance-row">
+      <div className="controlid-attendance-row__avatar">{initial}</div>
+      <div className="controlid-attendance-row__body">
+        <div className="controlid-attendance-row__name">{name}</div>
+        {rec.student_id ? (
+          <div className="controlid-attendance-row__profile">
+            <Link to={`/student/${rec.student_id}`} onClick={(e) => e.stopPropagation()}>
               ver perfil →
             </Link>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-secondary)', flexShrink: 0 }}>
-        <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+      <div className="controlid-attendance-row__time">
+        <Clock size={13} className="controlid-attendance-row__time-icon" aria-hidden />
         {formatDateTime(rec.checked_in_at)}
       </div>
       <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          padding: '2px 8px',
-          borderRadius: 999,
-          background: rec.source === 'manual' ? 'var(--surface-hover)' : 'var(--success-light)',
-          color: sourceColor,
-          flexShrink: 0,
-        }}
+        className={`controlid-attendance-row__source${isManual ? ' controlid-attendance-row__source--manual' : ''}`}
       >
-        {source}
+        {isManual ? 'Manual' : 'Catraca'}
       </span>
     </div>
   );

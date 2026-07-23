@@ -2850,7 +2850,7 @@ export default function StudentProfile() {
                         className="student-profile-attendance-setup-banner"
                         action={{
                             label: 'Abrir Recepção',
-                            onClick: () => navigate('/recepcao'),
+                            onClick: () => navigate('/?tab=catraca'),
                         }}
                     >
                         Presença não configurada nesta academia — o check-in manual fica indisponível até a

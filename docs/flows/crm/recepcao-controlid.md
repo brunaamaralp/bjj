@@ -9,7 +9,7 @@
 | **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico` |
 | **pré-requisitos** | Academia com alunos; hardware Control iD na rede local; servidor/ponte na recepção (quando aplicável) |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-17 |
+| **última revisão** | 2026-07-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:** [2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md](../superpowers/specs/2026-06-17-catraca-gaps-prioridade-alta-PRODUCT.md)
@@ -55,24 +55,25 @@ flowchart TD
 | 3 | Catraca | Salvar | `saveControlIdConfig` | Config persistida por academia |
 | 4 | `/?tab=catraca` | `RecepcaoCatracaTab` | Abrir aba Catraca na Recepção | Sub-abas **Ao vivo** (default) e **Histórico** |
 | 5 | Ao vivo | `RecepcaoLivePanel` | Ver status dispositivo | Online / offline / não configurado |
-| 6 | Ao vivo | **Liberar catraca** (header em `Dashboard.jsx` ou painel) | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed |
+| 6 | Ao vivo | **Liberar catraca** (painel ao vivo) | Motivo obrigatório → `releaseControlIdGate` | Toast; entrada manual no feed |
 | 7 | Ao vivo | Feed entradas hoje | Poll automático | Novos registros com hora e link ao perfil |
 | 8 | `?section=historico` | `ControlIdAttendancePanel` | Trocar período | Hoje, 7 dias, 30 dias, etc. |
-| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Ver retenção por frequência / alunos em risco | KPIs do hero ou `?section=retencao` (sem sub-aba Retenção); filtros turma/**Faixa/Evolução** |
+| 8b | Catraca → Retenção | `AttendanceAtRiskSection` | Aba **Retenção** ou KPIs do hero | Fila de retenção; filtros turma/**Faixa/Evolução** |
 | 8c | Catraca (sem Control iD) | `AttendanceAtRiskSection` | Presença só manual (`VITE_APPWRITE_ATTENDANCE_COL_ID`) | Banner info + fila de retenção; feed ao vivo indisponível |
 | 9 | Histórico | Atualizar / sync | `syncAllControlId` | Toast com contagem sincronizada |
-| 10 | Histórico | Liberar catraca | Mesmo endpoint de release | Liberação remota |
-| 11 | `/` Recepção | Botão **Liberar catraca** no header | Só visível na aba `?tab=catraca` com integração ativa | `ConfirmDialog` + `releaseControlIdGate` |
+| 10 | Histórico | Liberar catraca | Mesmo endpoint de release (toolbar do histórico) | Liberação remota |
+| 11 | `/` Recepção | CTA **Liberar catraca** | Só no painel Ao vivo e na toolbar do Histórico (não no header da página) | `ControlIdReleaseDialog` + `releaseControlIdGate` |
 | 12 | `/student/:id` | Foto Control iD | Sincronizar rosto | `StudentControlIdPhoto` quando integração ativa |
 
 ### Abas da catraca (`RecepcaoCatracaTab`)
 
 | Sub-aba | Query | Conteúdo |
 |---|---|---|
-| Ao vivo (default) | `/?tab=catraca` | Status, liberar porta, feed do dia; no desktop, fila de retenção ao lado |
+| Ao vivo (default) | `/?tab=catraca` | Status, liberar porta, feed do dia; no desktop (≥960px), fila de retenção ao lado |
 | Histórico | `/?tab=catraca&section=historico` | Lista agrupada por data, filtros, sync em massa |
+| Retenção | `/?tab=catraca&section=retencao` | KPIs/fila de retenção (tab visível quando presença manual/`ATTENDANCE` configurada) |
 
-Retenção (`/?tab=catraca&section=retencao`) abre via KPIs do hero (Em risco / Sumidos) ou deep link — **sem** sub-aba própria na tablist.
+Tablist **sempre visível** com integração ativa (também no desktop split). Retenção também abre via KPIs do hero (Em risco / Sumidos).
 
 ---
 
@@ -112,7 +113,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 1. [ ] Abrir `/?tab=catraca` na Recepção (ou `/recepcao`, que redireciona)
 2. [ ] Status **Online** com IP visível quando polling OK
 3. [ ] Entrada na catraca aparece no feed em até um ciclo de poll (~intervalo configurado no painel)
-4. [ ] **Liberar catraca** habilitado só com integração configurada; exige motivo (3–500 caracteres)
+4. [ ] **Liberar catraca** no painel Ao vivo (e toolbar do Histórico); exige motivo (3–500 caracteres)
 5. [ ] Clique em «ver perfil» abre `/student/:id`
 6. [ ] Aba **Histórico** carrega registros do período
 7. [ ] Troca de academia recarrega feed e status
@@ -170,7 +171,7 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 ## Variações e atalhos
 
-- **Recepção:** botão «Liberar catraca» no header **somente** na aba `?tab=catraca` (`controlIdCfg.enabled && isCatracaTab`)
+- **Recepção:** CTA «Liberar catraca» no painel Ao vivo e na toolbar do Histórico (não no header da página)
 - **Alunos:** `ControlIdAttendancePanel` em `view=presenca` com link «Modo recepção» → `/?tab=catraca`
 - **Legado:** `/recepcao` → `/?tab=catraca`; `/presenca` → histórico canônico
 - **Dev:** `VITE_CONTROLID_API_BASE` aponta para ponte local
@@ -182,6 +183,10 @@ APIs usam `ensureAcademyAccess` + JWT; dados isolados por `academyId`.
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | CSS painéis; radiogroup período; dirty state + beforeunload no setup |
+| 2026-07-23 | — | Glossário Presença/Catraca; wizard setup 3 passos; release Esc/focus trap; links canônicos; foto sem emoji |
+| 2026-07-23 | — | Sub-aba Retenção; tablist sempre visível; badge sync status+ação; feed ignoradas distintas; offline com retry |
+| 2026-07-23 | — | Liberar catraca só no painel/histórico (removeu duplicata do header); KPI Entradas hoje alimentado pelo feed |
 | 2026-06-17 | — | Rotas canônicas `/?tab=catraca`; alinhado ao hub Recepção em [hoje-dashboard.md](hoje-dashboard.md) |
 | 2026-06-17 | — | P2: seções na config, badge bloqueado, última sync no histórico |
 | 2026-06-17 | — | P0/P1: sync ignora inadimplentes, feed de entradas ignoradas, release para recepcionista |

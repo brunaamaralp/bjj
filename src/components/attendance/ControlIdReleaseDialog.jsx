@@ -1,9 +1,10 @@
 import '../../styles/confirm-dialog.css';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DoorOpen } from 'lucide-react';
 import AsyncButton from '../shared/AsyncButton.jsx';
 import FieldError from '../shared/FieldError.jsx';
+import useDialogFocus from '../../hooks/useDialogFocus.js';
 import {
   CONTROLID_RELEASE_REASON_MAX,
   CONTROLID_RELEASE_REASON_SUGGESTIONS,
@@ -14,6 +15,10 @@ import {
 function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
   const [reason, setReason] = useState('');
   const [fieldError, setFieldError] = useState('');
+  const handleClose = useCallback(() => {
+    if (!loading) onClose?.();
+  }, [loading, onClose]);
+  const dialogRef = useDialogFocus(true, handleClose);
 
   const trimmed = normalizeReleaseReason(reason);
   const canConfirm = trimmed.length >= 3 && trimmed.length <= CONTROLID_RELEASE_REASON_MAX;
@@ -32,16 +37,17 @@ function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
     <div
       className="navi-confirm-overlay"
       role="presentation"
-      onClick={() => {
-        if (!loading) onClose?.();
-      }}
+      onClick={handleClose}
+      style={{ overscrollBehavior: 'contain' }}
     >
       <div
+        ref={dialogRef}
         className="navi-confirm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="controlid-release-title"
-        style={{ textAlign: 'left', maxWidth: 420 }}
+        tabIndex={-1}
+        style={{ textAlign: 'left', maxWidth: 420, overscrollBehavior: 'contain' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -64,6 +70,7 @@ function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
           </label>
           <textarea
             id="controlid-release-reason"
+            name="controlid_release_reason"
             className="form-input"
             rows={3}
             value={reason}
@@ -71,9 +78,10 @@ function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
               setReason(e.target.value);
               if (fieldError) setFieldError('');
             }}
-            placeholder="Ex.: visitante aguardando aula experimental"
+            placeholder="Ex.: visitante aguardando aula experimental…"
             maxLength={CONTROLID_RELEASE_REASON_MAX}
             disabled={loading}
+            autoComplete="off"
             style={{ resize: 'vertical', minHeight: 72 }}
           />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
@@ -97,7 +105,7 @@ function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
         </div>
 
         <div className="navi-confirm-actions">
-          <button type="button" className="btn-outline" onClick={onClose} disabled={loading}>
+          <button type="button" className="btn-outline" onClick={handleClose} disabled={loading}>
             Cancelar
           </button>
           <AsyncButton variant="primary" loading={loading} onClick={submit} disabled={loading || !canConfirm}>
@@ -113,6 +121,15 @@ function ControlIdReleaseForm({ loading = false, onClose, onConfirm }) {
  * Confirma liberação manual da catraca com motivo obrigatório.
  */
 export default function ControlIdReleaseDialog({ open, loading = false, onClose, onConfirm }) {
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(

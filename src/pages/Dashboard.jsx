@@ -28,7 +28,6 @@ import {
     List,
     Check,
     CheckCircle2,
-    DoorOpen,
     Loader2,
     Users,
     CheckSquare,
@@ -73,7 +72,6 @@ import {
 import { touchFollowupStreak } from '../lib/dashboardFollowupStreak.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import { useControlIdMonitor } from '../hooks/useControlIdMonitor.js';
-import { releaseControlIdGate } from '../lib/controlidApi.js';
 import { friendlyError } from '../lib/errorMessages.js';
 import { Link } from 'react-router-dom';
 import NaviLogo from '../components/NaviLogo.jsx';
@@ -88,7 +86,6 @@ import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ModalShell from '../components/shared/ModalShell.jsx';
-import ControlIdReleaseDialog from '../components/attendance/ControlIdReleaseDialog.jsx';
 import ReportSectionHeading from '../components/reports/shared/ReportSectionHeading.jsx';
 import SkeletonCard from '../components/shared/SkeletonCard.jsx';
 import DashboardHeroKpi from '../components/dashboard/DashboardHeroKpi.jsx';
@@ -241,8 +238,6 @@ const Dashboard = () => {
     const [controlIdFetchEnabled, setControlIdFetchEnabled] = useState(false);
     const controlIdCfg = useAcademyControlId(academyId, { fetch: controlIdFetchEnabled });
     useControlIdMonitor(academyId, controlIdFetchEnabled && controlIdCfg.enabled && isCatracaTab);
-    const [gateReleaseOpen, setGateReleaseOpen] = useState(false);
-    const [gateReleasing, setGateReleasing] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [academyWa, setAcademyWa] = useState({
         name: '',
@@ -1181,21 +1176,6 @@ const Dashboard = () => {
         }
     };
 
-    const confirmGateRelease = async (reason) => {
-        if (!academyId || gateReleasing) return;
-        setGateReleasing(true);
-        try {
-            const data = await releaseControlIdGate(academyId, { reason });
-            if (!data.sucesso) throw new Error(data.erro || 'Falha ao liberar catraca');
-            addToast({ type: 'success', message: 'Catraca liberada.' });
-            setGateReleaseOpen(false);
-        } catch (e) {
-            addToast({ type: 'error', message: friendlyError(e, 'action') });
-        } finally {
-            setGateReleasing(false);
-        }
-    };
-
     const markTaskAsDone = async (task) => {
         const taskId = String(task?.id || '').trim();
         if (!taskId || isUpdatingTask(taskId)) return;
@@ -1370,16 +1350,6 @@ const Dashboard = () => {
                 subtitle={receptionSubtitle}
                 actions={
                     <>
-                        {controlIdCfg.enabled && controlIdCfg.configured && isCatracaTab && (
-                            <button
-                                type="button"
-                                className="btn-secondary reception-gate-release-btn"
-                                onClick={() => setGateReleaseOpen(true)}
-                            >
-                                <DoorOpen size={18} aria-hidden />
-                                Liberar catraca
-                            </button>
-                        )}
                         <button type="button" className="btn-primary reception-header-new-lead" onClick={() => dispatchOpenNewLeadModal()}>
                             <Plus size={20} strokeWidth={2.25} />{' '}
                             {`Novo ${(() => {
@@ -1830,13 +1800,6 @@ const Dashboard = () => {
                 open={followUpMicroToastOpen}
                 message={followupMicroToastMessage()}
                 onClose={() => setFollowUpMicroToastOpen(false)}
-            />
-
-            <ControlIdReleaseDialog
-                open={gateReleaseOpen}
-                loading={gateReleasing}
-                onConfirm={(reason) => void confirmGateRelease(reason)}
-                onClose={() => !gateReleasing && setGateReleaseOpen(false)}
             />
 
             <FollowupOutcomeDialog

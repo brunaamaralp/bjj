@@ -71,8 +71,12 @@
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+@media (prefers-reduced-motion: reduce) {
+  .recepcao-live-panel *,
+  .recepcao-live-panel *::before,
+  .recepcao-live-panel *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

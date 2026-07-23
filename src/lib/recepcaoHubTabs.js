@@ -92,3 +92,18 @@ export function buildRecepcaoLegacyRedirectPath({ historico = false, retencao = 
 export function buildRecepcaoRetencaoPath() {
   return buildRecepcaoLegacyRedirectPath({ retencao: true });
 }
+
+/**
+ * Sub-abas da Presença (Ao vivo / Histórico / Retenção).
+ * @param {{ attendanceReady?: boolean }} [opts]
+ */
+export function buildRecepcaoPresenceSubTabs({ attendanceReady = false } = {}) {
+  const tabs = [
+    { id: RECEPCAO_CATRACA_SECTION_LIVE, label: 'Ao vivo' },
+    { id: RECEPCAO_CATRACA_SECTION_HISTORICO, label: 'Histórico' },
+  ];
+  if (attendanceReady) {
+    tabs.push({ id: RECEPCAO_CATRACA_SECTION_RETENCAO, label: 'Retenção' });
+  }
+  return tabs;
+}

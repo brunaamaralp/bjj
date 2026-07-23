@@ -1,6 +1,7 @@
+import '../../styles/controlid-panels.css';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DoorOpen, Loader2, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { DoorOpen, Loader2, RefreshCw, Wifi, WifiOff, Ban } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLeadStore } from '../../store/useLeadStore';
@@ -14,8 +15,10 @@ import {
 import { avatarInitial, todayStartIso } from './controlIdAttendanceUtils.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import ControlIdReleaseDialog from './ControlIdReleaseDialog.jsx';
+import StatusBanner from '../shared/StatusBanner.jsx';
 import { summarizeReleaseReason } from '../../../lib/controlidRelease.js';
 import { controlIdIgnoreReasonLabel } from '../../lib/controlidDisplay.js';
+import { countRealFeedEntries } from '../../lib/recepcaoLiveFeed.js';
 
 const POLL_INTERVAL_MS = 6000;
 const MAX_FEED_ITEMS = 30;
@@ -30,13 +33,15 @@ function formatTime(iso) {
 
 /**
  * Feed ao vivo da recepção + liberar catraca.
+ * @param {{ onEntriesTodayChange?: (count: number) => void }} [props]
  */
-export default function RecepcaoLivePanel() {
+export default function RecepcaoLivePanel({ onEntriesTodayChange } = {}) {
   const { academyId } = useLeadStore();
   const addToast = useUiStore((s) => s.addToast);
   const controlId = useAcademyControlId(academyId);
 
   const [feed, setFeed] = useState([]);
+  const [feedReady, setFeedReady] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [polling, setPolling] = useState(false);
@@ -45,6 +50,12 @@ export default function RecepcaoLivePanel() {
   const pollTimer = useRef(null);
   const mountedRef = useRef(true);
   const knownIds = useRef(new Set());
+  const entriesToday = countRealFeedEntries(feed);
+
+  useEffect(() => {
+    if (!feedReady) return;
+    onEntriesTodayChange?.(entriesToday);
+  }, [entriesToday, onEntriesTodayChange, feedReady]);
 
   const loadToday = useCallback(async () => {
     if (!academyId) return;
@@ -58,6 +69,8 @@ export default function RecepcaoLivePanel() {
       if (mountedRef.current) setFeed(recs);
     } catch {
       /* silencioso no load inicial */
+    } finally {
+      if (mountedRef.current) setFeedReady(true);
     }
   }, [academyId]);
 
@@ -176,110 +189,73 @@ export default function RecepcaoLivePanel() {
 
   return (
     <div className="recepcao-live-panel">
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div className="controlid-live__status-row">
         <DeviceStatus
           configured={isConfigured}
           online={deviceOnline}
           polling={polling}
           ip={controlId.device_ip || controlId.ip}
         />
-        {feed.filter((r) => !r._isManual).length > 0 && (
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              padding: '3px 10px',
-              borderRadius: 999,
-              background: 'var(--purple-light)',
-              color: 'var(--purple)',
-            }}
-          >
-            {feed.filter((r) => !r._isManual).length} hoje
-          </span>
+        {entriesToday > 0 && (
+          <span className="controlid-live__count-badge">{entriesToday} hoje</span>
         )}
       </div>
 
-      <div style={{ marginBottom: 28 }}>
+      {isConfigured && deviceOnline === false ? (
+        <StatusBanner
+          variant="warning"
+          className="reception-section"
+          onRetry={() => void doPoll()}
+          retryLabel="Tentar de novo"
+          action={{ href: '/integracoes?tab=catraca', label: 'Abrir Integrações' }}
+        >
+          Catraca offline — confira o servidor na recepção e a rede local.
+        </StatusBanner>
+      ) : null}
+
+      <div className="controlid-live__release-wrap">
         <button
           type="button"
           onClick={() => setReleaseOpen(true)}
           disabled={releasing || !isConfigured}
-          className="recepcao-live-panel__release-btn"
-          style={{
-            width: '100%',
-            padding: '18px 24px',
-            borderRadius: 16,
-            border: 'none',
-            background: isConfigured ? 'var(--v500)' : 'var(--border)',
-            color: isConfigured ? '#fff' : 'var(--text-muted)',
-            fontSize: 18,
-            fontWeight: 700,
-            cursor: isConfigured ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            boxShadow: isConfigured ? '0 4px 16px rgba(124,58,237,0.25)' : 'none',
-          }}
+          className="controlid-live__release-btn"
         >
           {releasing ? (
-            <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} />
+            <Loader2 size={22} className="controlid-spin" aria-hidden />
           ) : (
-            <DoorOpen size={22} />
+            <DoorOpen size={22} aria-hidden />
           )}
           {releasing ? 'Liberando…' : 'Liberar catraca'}
         </button>
         {!isConfigured && (
-          <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-            Configure a catraca em{' '}
-            <Link to="/integracoes?tab=catraca" style={{ color: 'var(--purple)', fontWeight: 600 }}>
-              Integrações
-            </Link>
-            .
+          <p className="controlid-live__release-hint">
+            Configure a catraca em <Link to="/integracoes?tab=catraca">Integrações</Link>.
           </p>
         )}
       </div>
 
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <h2 style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', margin: 0 }}>Entradas hoje</h2>
-          {isConfigured && (
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: 'var(--success)',
-                flexShrink: 0,
-                animation: 'pulse 2s infinite',
-              }}
-              title="Monitorando ao vivo"
-            />
+        <div className="controlid-live__feed-head">
+          <h2 className="controlid-live__feed-title">Entradas hoje</h2>
+          {isConfigured && deviceOnline !== false && (
+            <span className="controlid-live__live-dot" title="Monitorando ao vivo" aria-hidden />
           )}
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+          <span className="controlid-live__feed-meta">
             {lastPoll ? `Atualizado ${format(lastPoll, 'HH:mm:ss')}` : 'Aguardando…'}
           </span>
         </div>
 
         {feed.length === 0 ? (
-          <div
-            style={{
-              padding: '40px 24px',
-              textAlign: 'center',
-              background: 'var(--surface)',
-              borderRadius: 12,
-              border: '1px dashed var(--border)',
-            }}
-          >
-            <DoorOpen size={32} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
-            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
+          <div className="controlid-live__empty">
+            <DoorOpen size={32} className="controlid-live__empty-icon" aria-hidden />
+            <p>
               {isConfigured
                 ? 'Nenhuma entrada registrada hoje. O feed atualiza automaticamente.'
                 : 'Configure a catraca para ver o feed ao vivo.'}
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="controlid-live__feed-list">
             {feed.map((rec, idx) => (
               <FeedEntry key={rec.$id} rec={rec} isNew={idx === 0} />
             ))}
@@ -299,31 +275,31 @@ export default function RecepcaoLivePanel() {
 function DeviceStatus({ configured, online, polling, ip }) {
   if (!configured) {
     return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
-        <WifiOff size={14} />
+      <span className="controlid-live__device controlid-live__device--muted">
+        <WifiOff size={14} aria-hidden />
         Não configurado
       </span>
     );
   }
   if (online === null) {
     return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
-        {polling ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={14} />}
+      <span className="controlid-live__device controlid-live__device--muted">
+        {polling ? <Loader2 size={14} className="controlid-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
         {ip || 'Conectando…'}
       </span>
     );
   }
   if (online) {
     return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
-        <Wifi size={14} />
+      <span className="controlid-live__device controlid-live__device--online">
+        <Wifi size={14} aria-hidden />
         {ip || 'Online'}
       </span>
     );
   }
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--danger)', fontWeight: 600 }}>
-      <WifiOff size={14} />
+    <span className="controlid-live__device controlid-live__device--offline">
+      <WifiOff size={14} aria-hidden />
       Offline
     </span>
   );
@@ -339,66 +315,41 @@ function FeedEntry({ rec, isNew }) {
       ? controlIdIgnoreReasonLabel(rec.ignore_reason)
       : '';
 
+  const entryClass = [
+    'controlid-feed-entry',
+    isIgnored ? 'controlid-feed-entry--ignored' : '',
+    isNew && !isIgnored ? 'controlid-feed-entry--new' : '',
+    isManual ? 'controlid-feed-entry--manual' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const avatarClass = [
+    'controlid-feed-entry__avatar',
+    isManual ? 'controlid-feed-entry__avatar--manual' : '',
+    isIgnored ? 'controlid-feed-entry__avatar--ignored' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '10px 14px',
-        borderRadius: 10,
-        background: 'var(--surface)',
-        border: `1px solid ${isNew ? (isIgnored ? 'var(--warning)' : 'var(--success)') : 'var(--border-light)'}`,
-        animation: isNew ? 'slideIn 0.3s ease' : 'none',
-      }}
-    >
-      <div
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: '50%',
-          background: isManual ? 'var(--warning-light)' : isIgnored ? 'var(--warning-light)' : 'var(--purple-light)',
-          color: isManual ? 'var(--warning)' : isIgnored ? 'var(--warning)' : 'var(--purple)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 700,
-          fontSize: 15,
-          flexShrink: 0,
-        }}
-      >
-        {isManual ? <DoorOpen size={18} /> : isIgnored ? '!' : avatarInitial(name)}
+    <div className={entryClass}>
+      <div className={avatarClass}>
+        {isManual ? <DoorOpen size={18} aria-hidden /> : isIgnored ? <Ban size={18} aria-hidden /> : avatarInitial(name)}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: 15,
-            color: 'var(--text)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {name}
-        </div>
-        {reasonSummary ? (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.35 }}>
-            {reasonSummary}
-          </div>
-        ) : null}
-        {rec.student_id && !rec._isManual && (
-          <Link to={`/student/${rec.student_id}`} style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none' }}>
+      <div className="controlid-feed-entry__body">
+        <div className="controlid-feed-entry__name">{name}</div>
+        {reasonSummary ? <div className="controlid-feed-entry__reason">{reasonSummary}</div> : null}
+        {rec.student_id && !isManual ? (
+          <Link to={`/student/${rec.student_id}`} className="controlid-feed-entry__profile">
             ver perfil →
           </Link>
-        )}
+        ) : null}
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-          {formatTime(rec.checked_in_at)}
-        </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
-          {isManual ? 'manual' : isIgnored ? 'ignorada' : 'catraca'}
+      <div className="controlid-feed-entry__time-wrap">
+        <div className="controlid-feed-entry__time">{formatTime(rec.checked_in_at)}</div>
+        <div className="controlid-feed-entry__source">
+          {isManual ? 'manual' : isIgnored ? 'não contou' : 'catraca'}
         </div>
       </div>
     </div>

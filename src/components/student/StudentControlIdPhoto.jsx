@@ -189,6 +189,8 @@ export default function StudentControlIdPhoto({
             <img
               src={photoUrl}
               alt=""
+              width={96}
+              height={96}
               loading="lazy"
               decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -204,8 +206,10 @@ export default function StudentControlIdPhoto({
             className="btn-secondary"
             disabled={uploading || disabled}
             onClick={() => inputRef.current?.click()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
           >
-            {uploading ? 'Enviando…' : '📷 Enviar foto'}
+            <Camera size={16} aria-hidden />
+            {uploading ? 'Enviando…' : 'Enviar foto'}
           </button>
           <ul className="text-small text-muted" style={{ marginTop: 10, paddingLeft: 18, lineHeight: 1.5 }}>
             <li>Rosto centralizado</li>
