@@ -89,6 +89,16 @@ describe('paymentStatus', () => {
     expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(180);
   });
 
+  it('openAmountForStudent prefers plan_price snapshot over catalog', () => {
+    const discountedStudent = {
+      plan: 'Mensal',
+      plan_price: 180,
+      discount_type: 'fixed',
+      discount_amount: 0,
+    };
+    expect(openAmountForStudent(discountedStudent, null, financeConfig)).toBe(180);
+  });
+
   it('openAmountForStudent uses expected_amount when payment amount is zero (materialized pending)', () => {
     const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
     expect(

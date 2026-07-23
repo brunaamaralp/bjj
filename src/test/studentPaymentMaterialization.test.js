@@ -175,6 +175,12 @@ describe('computeExpectedAmountForMaterialization', () => {
     );
     expect(amount).toBe(180);
   });
+
+  it('computeExpectedAmountForMaterialization uses plan_price snapshot', () => {
+    const student = { plan: 'Mensal', plan_price: 180, student_status: 'active' };
+    const cfg = { plans: [{ name: 'Mensal', price: 250 }] };
+    expect(computeExpectedAmountForMaterialization(student, cfg)).toBe(180);
+  });
 });
 
 describe('computeDueDateForMaterialization', () => {

@@ -134,9 +134,54 @@ export function resolveStudentPlan(student, financeConfig, payment = null) {
   return findPlanByName(financeConfig, planName);
 }
 
+export function getStudentAgreedPlanPrice(student = {}) {
+  const hasSnake = Object.prototype.hasOwnProperty.call(student || {}, 'plan_price');
+  const hasCamel = Object.prototype.hasOwnProperty.call(student || {}, 'planPrice');
+  if (!hasSnake && !hasCamel) return null;
+  const raw = hasSnake ? student.plan_price : student.planPrice;
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+export function snapshotPlanPriceFromCatalog(financeConfig, planName) {
+  const plan = findPlanByName(financeConfig, planName);
+  if (!plan) return null;
+  if (plan.isExempt === true) return 0;
+  const n = Number(plan.price);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+export function resolveStudentPlanBasePrice(student, financeConfig, payment = null) {
+  const plan = resolveStudentPlan(student, financeConfig, payment);
+  if (isExemptPlan(plan)) return 0;
+  const snap = getStudentAgreedPlanPrice(student);
+  if (snap != null) return snap;
+  const n = Number(plan?.price);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+}
+
 export function resolveStudentPlanFinalPrice(student, financeConfig, payment = null) {
   const plan = resolveStudentPlan(student, financeConfig, payment);
-  return calcFinalPrice(plan?.price, student);
+  if (isExemptPlan(plan)) return 0;
+  const base = resolveStudentPlanBasePrice(student, financeConfig, payment);
+  return calcFinalPrice(base, student);
+}
+
+export function resolveEnrollmentPlanPrice(lead, financeConfig, planName) {
+  const fromLead = getStudentAgreedPlanPrice(lead);
+  if (fromLead != null) return fromLead;
+  return snapshotPlanPriceFromCatalog(financeConfig, planName);
+}
+
+export function parsePlanPriceInput(value) {
+  const raw = String(value ?? '').replace(',', '.').trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
 }
 
 export function isStudentOnExemptPlan(student, financeConfig, payment = null) {
