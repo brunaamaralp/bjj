@@ -145,9 +145,10 @@ describe('paymentStatus', () => {
   });
 
   it('caixa mirror rules', () => {
-    expect(shouldMirrorPaymentToCaixa('awaiting')).toBe(true);
-    expect(shouldMirrorPaymentToCaixa('pending')).toBe(true);
+    expect(shouldMirrorPaymentToCaixa('awaiting')).toBe(false);
+    expect(shouldMirrorPaymentToCaixa('pending')).toBe(false);
     expect(shouldMirrorPaymentToCaixa('paid')).toBe(true);
+    expect(shouldMirrorPaymentToCaixa('partial')).toBe(true);
     expect(shouldMirrorPaymentToCaixa('covered')).toBe(false);
     expect(shouldMirrorPaymentToCaixa('frozen')).toBe(false);
     expect(mirrorGrossForPayment('partial', 80, 200)).toBe(80);

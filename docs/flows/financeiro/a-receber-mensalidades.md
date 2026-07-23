@@ -125,6 +125,8 @@ flowchart TD
 19. [ ] Plano marcado como isento em `section=planos` faz o aluno aparecer como **Isento**, com valor `Isento`, vencimento `—` e sem CTA de cobrança
 20. [ ] Aluno isento não entra em régua, inadimplência nem nos KPIs financeiros de mensalidades
 20b. [ ] Aluno com plano anual / cobertura histórica cobrindo o mês **não** aparece em A receber nem nos KPIs de esperado/atraso da Visão geral
+20c. [ ] Espelho de mensalidade no Caixa (`origin_type: student_payment`) **não** aparece como “Lançamento pendente” na Visão geral
+20d. [ ] Em item de lançamento na Visão, **Abrir** abre o detalhe do TX mesmo se estiver fora do período da aba Lançamentos
 21. [ ] Deep link `?filtro=` (ex. `overdue`, `paid_in_month`, `covered`) aplica filtro na grade de Mensalidades (não redireciona para Cobrança)
 21b. [ ] Chip **Em atraso** filtra a lista; link **Abrir fila de cobrança** permanece separado
 21c. [ ] KPIs Esperado/Recebido/Em aberto visíveis acima da grade; Em aberto sincroniza com dropdown de status
@@ -194,6 +196,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-22 | — | A receber / Visão geral: cobertura de pacote; exclui espelho de mensalidade; deep link `?tx=` resolve fora do período |
 | 2026-07-22 | — | A receber / Visão geral respeitam cobertura por pacote anual e cobertura histórica |
 | 2026-07-22 | — | Fix: CSS de KPIs + dropdown de status restaurados em `finance.css`; sync `filtro`/`search` sem reset em todo `searchParams` |
 | 2026-06-25 | — | Filtros unificados (status/turma/plano em Lista e Resumo), `paid_in_month`, coberto/trancado, paginação completa de alunos, export em ambas as views |

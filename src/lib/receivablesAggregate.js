@@ -12,6 +12,7 @@ import {
   buildPaidBundleCoveredMonthsByLead,
   isMonthCoveredByPaidBundle,
 } from './bundleCoverage.js';
+import { isAccrualLedgerTx } from './financeLedgerRegime.js';
 
 export const RECEIVABLE_SOURCE = {
   MENSALIDADE: 'mensalidade',
@@ -25,8 +26,28 @@ export const RECEIVABLE_SOURCE_LABELS = {
   [RECEIVABLE_SOURCE.VENDA]: 'Venda a receber',
 };
 
+const STUDENT_PAYMENT_MIRROR_ORIGINS = new Set(['student_payment', 'student_payment_troco']);
+
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
+}
+
+/**
+ * Entrada pendente que deve contar em A receber (não espelho de mensalidade / template / accrual).
+ * Espelhos de student_payment já entram pela linha de mensalidade — contar de novo duplica.
+ */
+export function isReceivablePendingInflowTx(tx) {
+  if (!tx) return false;
+  const st = String(tx.status || '').toLowerCase();
+  if (st !== 'pending') return false;
+  if (tx.is_recurrence_template === true) return false;
+  if (isAccrualLedgerTx(tx)) return false;
+  const origin = String(tx.origin_type || tx.originType || '').toLowerCase();
+  if (STUDENT_PAYMENT_MIRROR_ORIGINS.has(origin)) return false;
+  const dir = txDirection(tx);
+  const type = String(tx.type || '').toLowerCase();
+  if (dir === 'out' || type === 'expense') return false;
+  return Math.abs(Number(tx.gross) || 0) >= 0.01;
 }
 
 function ymdFromDate(d) {
@@ -143,16 +164,9 @@ export function buildMensalidadeReceivableItems({
 export function buildPendingTxReceivableItems(transactions = []) {
   const items = [];
   for (const tx of transactions) {
-    const st = String(tx?.status || '').toLowerCase();
-    if (st !== 'pending') continue;
-
-    const dir = txDirection(tx);
-    const type = String(tx?.type || '').toLowerCase();
-    if (dir === 'out' || type === 'expense') continue;
+    if (!isReceivablePendingInflowTx(tx)) continue;
 
     const amount = roundMoney(Math.abs(Number(tx.gross) || 0));
-    if (amount < 0.01) continue;
-
     const txId = String(tx.id || tx.$id || '').trim();
     const cm = String(tx.competence_month || '').trim();
     const dueDate =

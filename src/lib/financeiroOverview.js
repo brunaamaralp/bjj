@@ -99,11 +99,12 @@ export function overviewPeriodContext(referenceMonth) {
 }
 
 /** Deep link para Lançamentos com período e conta opcional. */
-export function buildMovimentacoesPeriodPath({ from, to, conta } = {}) {
+export function buildMovimentacoesPeriodPath({ from, to, conta, status } = {}) {
   const params = new URLSearchParams({ tab: 'movimentacoes' });
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   if (conta) params.set('conta', conta);
+  if (status) params.set('status', status);
   return `/financeiro?${params.toString()}`;
 }
 

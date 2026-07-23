@@ -3,6 +3,7 @@ import './finance.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   listFinanceTx,
+  getFinanceTx,
   createFinanceTx,
   patchFinanceTx,
   reverseFinanceTx,
@@ -367,6 +368,7 @@ export default function TransacoesTab({
   const highlightRowRef = useRef(null);
   const txFormSnapshotRef = useRef('');
   const highlightDrawerOpenedRef = useRef('');
+  const highlightFetchAttemptedRef = useRef('');
 
   useEffect(() => {
     if (!academyId) return;
@@ -512,14 +514,42 @@ export default function TransacoesTab({
   }, [debouncedTxSearch, setSearchParams]);
 
   useEffect(() => {
+    highlightFetchAttemptedRef.current = '';
+    highlightDrawerOpenedRef.current = '';
+  }, [highlightTxId]);
+
+  useEffect(() => {
     if (!highlightTxId || txLoading) return;
     if (highlightDrawerOpenedRef.current === highlightTxId) return;
+
     const tx = transactions.find((t) => String(t.id) === highlightTxId);
     if (tx) {
       highlightDrawerOpenedRef.current = highlightTxId;
       setDetailTx(tx);
+      return;
     }
-  }, [highlightTxId, transactions, txLoading]);
+
+    // Deep link de A receber / estoque: TX fora do período filtrado — busca por id.
+    if (!academyId || highlightFetchAttemptedRef.current === highlightTxId) return;
+    highlightFetchAttemptedRef.current = highlightTxId;
+    let cancelled = false;
+    void getFinanceTx({ academyId, id: highlightTxId })
+      .then((row) => {
+        if (cancelled || !row?.id) return;
+        highlightDrawerOpenedRef.current = highlightTxId;
+        setDetailTx(row);
+        setTransactions((prev) => {
+          if (prev.some((t) => String(t.id) === String(row.id))) return prev;
+          return [row, ...prev];
+        });
+      })
+      .catch(() => {
+        /* not found / sem acesso — lista segue sem destaque */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [highlightTxId, transactions, txLoading, academyId]);
 
   const bankAccountLabels = useMemo(
     () => listBankAccountLabels(financeConfig),

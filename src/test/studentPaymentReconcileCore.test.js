@@ -11,14 +11,14 @@ describe('studentPaymentReconcileCore', () => {
     expect(needs).toBe(true);
   });
 
-  it('pending without tx id needs mirror repair', async () => {
+  it('pending without tx id does not need mirror repair', async () => {
     const needs = await paymentNeedsMirrorRepair({
       status: 'pending',
       payment_category: 'plan',
       financial_tx_id: '',
       expected_amount: 200,
     });
-    expect(needs).toBe(true);
+    expect(needs).toBe(false);
   });
 
   it('includes fee paid without tx id', async () => {

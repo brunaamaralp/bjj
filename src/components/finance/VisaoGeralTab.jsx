@@ -112,6 +112,15 @@ export default function VisaoGeralTab({
     () => buildMovimentacoesPeriodPath({ from: periodCtx.from, to: periodCtx.to }),
     [periodCtx.from, periodCtx.to]
   );
+  const movimentacoesPendingPath = useMemo(
+    () =>
+      buildMovimentacoesPeriodPath({
+        from: periodCtx.from,
+        to: periodCtx.to,
+        status: 'pending',
+      }),
+    [periodCtx.from, periodCtx.to]
+  );
 
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -355,10 +364,6 @@ export default function VisaoGeralTab({
       }
     >
 
-      <StatusBanner variant="info" className="financeiro-overview-period-banner mb-3" role="status">
-        <strong>Referência:</strong> {periodCtx.monthTitle} · {periodCtx.labelFromToBr}
-      </StatusBanner>
-
       {summary?.truncated ? (
         <StatusBanner variant="warning" className="mb-3">
           Período com mais de 2.500 lançamentos — totais podem estar incompletos. Reduza o intervalo de datas.
@@ -494,7 +499,7 @@ export default function VisaoGeralTab({
                 <span>
                   <strong>{pendingTxCount}</strong> lançamento(s) pendente(s)
                 </span>
-                <Link to={movimentacoesPeriodPath}>Ver</Link>
+                <Link to={movimentacoesPendingPath}>Ver</Link>
               </li>
             ) : null}
             {showPayablesPreview && !payablesFailed && payablesOverdueCount > 0 ? (

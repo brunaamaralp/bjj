@@ -28,6 +28,19 @@ export async function listFinanceTx({ academyId, from, to, cursor, regime, limit
   return body;
 }
 
+/** Busca um lançamento por id (deep link de A receber / estoque / etc.). */
+export async function getFinanceTx({ academyId, id }) {
+  const txId = String(id || '').trim();
+  if (!txId) throw new Error('id_required');
+  const params = new URLSearchParams({ id: txId });
+  const res = await authedFetch(`/api/finance-tx?${params}`, {
+    headers: await financeHeaders(academyId),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar lançamento');
+  return body.transaction || body.transactions?.[0] || null;
+}
+
 export async function createFinanceTx({ academyId, payload }) {
   const res = await authedFetch('/api/finance-tx', {
     method: 'POST',

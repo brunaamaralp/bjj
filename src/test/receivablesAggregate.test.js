@@ -146,6 +146,30 @@ describe('receivablesAggregate', () => {
     expect(items[0].source).toBe(RECEIVABLE_SOURCE.LANCAMENTO);
   });
 
+  it('buildPendingTxReceivableItems — ignora espelho de mensalidade e template', () => {
+    const items = buildPendingTxReceivableItems([
+      {
+        id: 'm1',
+        status: 'pending',
+        type: 'plan',
+        gross: 200,
+        origin_type: 'student_payment',
+        planName: 'Mensalidade',
+      },
+      {
+        id: 't1',
+        status: 'pending',
+        type: 'other',
+        gross: 90,
+        is_recurrence_template: true,
+        planName: 'Recorrente',
+      },
+      { id: 'ok', status: 'pending', type: 'other', gross: 50, planName: 'Avulso', origin_type: 'manual' },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('tx:ok');
+  });
+
   it('buildDeferredSaleReceivableItems', () => {
     const items = buildDeferredSaleReceivableItems([
       { $id: 'v1', status: 'pendente', total: 120, deferred: true, cliente_nome: 'Cliente X' },
@@ -175,5 +199,61 @@ describe('receivablesAggregate', () => {
     const empty = summarizeReceivables([]);
     expect(empty.total).toBe(0);
     expect(empty.count).toBe(0);
+  });
+
+  it('A receber Visão — mês coberto + espelho de mensalidade não entram', () => {
+    const snapshot = buildReceivablesSnapshot({
+      students: [
+        {
+          id: 'a',
+          name: 'Ana',
+          plan: 'Plano Anual',
+          status: 'Matriculado',
+          student_status: 'active',
+        },
+      ],
+      payments: [
+        { lead_id: 'a', status: 'pending', expected_amount: 200, reference_month: '2026-07' },
+      ],
+      coveragePayments: [
+        {
+          $id: 'anc-h',
+          lead_id: 'a',
+          payment_category: 'bundle',
+          bundle_origin_id: 'anc-h',
+          bundle_months: 12,
+          reference_month: '2026-01',
+          status: 'covered',
+          covered_reason: 'historical',
+          amount: 0,
+        },
+      ],
+      pendingTransactions: [
+        {
+          id: 'mirror',
+          status: 'pending',
+          type: 'plan',
+          gross: 200,
+          origin_type: 'student_payment',
+          planName: 'Mensalidade Ana',
+        },
+        {
+          id: 'avulso',
+          status: 'pending',
+          type: 'other',
+          gross: 40,
+          origin_type: 'manual',
+          planName: 'Taxa avulsa',
+        },
+      ],
+      deferredSales: [],
+      financeConfig: { plans: [{ name: 'Plano Anual', price: 200 }] },
+      referenceMonth: '2026-07',
+      today: new Date('2026-07-15T12:00:00'),
+    });
+    expect(snapshot.items.map((i) => i.id)).toEqual(['tx:avulso']);
+    expect(snapshot.summary.total).toBe(40);
+    expect(snapshot.summary.bySource[RECEIVABLE_SOURCE.MENSALIDADE]).toBe(0);
+    expect(snapshot.summary.bySource[RECEIVABLE_SOURCE.LANCAMENTO]).toBe(40);
   });
 });

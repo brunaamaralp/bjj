@@ -299,7 +299,9 @@ export function focusFirstPaymentStatusPopoverError(errors) {
 export function shouldMirrorPaymentToCaixa(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'covered' || s === 'frozen' || s === 'cancelled') return false;
-  return s === 'paid' || s === 'partial' || s === 'pending' || s === 'awaiting';
+  // Pendente/aguardando não geram lançamento no Caixa (evita duplicar A receber).
+  // paid/partial → espelho; autoSettle=false deixa o TX pending até liquidar no banco.
+  return s === 'paid' || s === 'partial';
 }
 
 export function mirrorGrossForPayment(status, paidAmount, expectedAmount) {
