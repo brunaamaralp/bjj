@@ -1157,17 +1157,20 @@ export default function StudentProfile() {
                 return;
             }
 
+            let nextAgreed = null;
             if (isActiveStudent(student) && canViewFinance) {
-                const agreed =
-                    parsePlanPriceInput(dataForm.planPriceInput) ??
-                    getStudentAgreedPlanPrice(student) ??
-                    Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
+                nextAgreed = parsePlanPriceInput(dataForm.planPriceInput);
+                if (nextAgreed == null) {
+                    toast.show({ type: 'error', message: 'Informe um valor acordado válido.' });
+                    setSavingData(false);
+                    return;
+                }
                 const discountNum = parseDiscountAmountInput(
                     dataForm.discountAmountInput,
                     dataForm.discountType
                 );
                 const discountErr = validateEnrollmentDiscount(
-                    agreed,
+                    nextAgreed,
                     dataForm.discountType,
                     discountNum
                 );
@@ -1193,7 +1196,6 @@ export default function StudentProfile() {
 
             const planChanged =
                 String(dataForm.plan || '').trim() !== String(student.plan || '').trim();
-            const nextAgreed = parsePlanPriceInput(dataForm.planPriceInput);
             const currentAgreed = getStudentAgreedPlanPrice(student);
             const priceChanged = nextAgreed != null && nextAgreed !== currentAgreed;
             if (
@@ -1234,9 +1236,7 @@ export default function StudentProfile() {
                               dataForm.discountAmountInput,
                               dataForm.discountType
                           ),
-                          ...(parsePlanPriceInput(dataForm.planPriceInput) != null
-                              ? { planPrice: parsePlanPriceInput(dataForm.planPriceInput) }
-                              : {}),
+                          planPrice: nextAgreed,
                       }
                     : {}),
                 ...(shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)
@@ -2066,20 +2066,21 @@ export default function StudentProfile() {
                 <ProfileInlineField
                     {...common}
                     editValue={editValue}
-                    renderEditor={({ draft, setDraft, commitEdit, disabled: saving }) => (
+                    renderEditor={({ draft, setDraft, commitEdit, cancelEdit, disabled: saving }) => (
                         <PlanSelect
                             id={`student-inline-${field.key}`}
                             financeConfig={financeConfig}
                             value={draft}
                             onChange={(v) => {
-                                setDraft(v);
                                 const snap = snapshotPlanPriceFromCatalog(financeConfig, v);
                                 const current = getStudentAgreedPlanPrice(student);
                                 if (snap !== current) {
-                                    pendingInlinePlanCommitRef.current = { commitEdit, draft: v };
+                                    // Keep draft on current plan until confirm; cancel restores via cancelEdit.
+                                    pendingInlinePlanCommitRef.current = { commitEdit, cancelEdit, draft: v };
                                     setPlanPriceConfirm({ kind: 'inline', draft: v });
                                     return;
                                 }
+                                setDraft(v);
                                 void commitEdit(v);
                             }}
                             className="student-profile-data-input"
@@ -3649,7 +3650,9 @@ export default function StudentProfile() {
                 }}
                 onClose={() => {
                     if (savingData) return;
+                    const pending = pendingInlinePlanCommitRef.current;
                     pendingInlinePlanCommitRef.current = null;
+                    if (pending?.cancelEdit) pending.cancelEdit();
                     setPlanPriceConfirm(null);
                 }}
             />
