@@ -8,11 +8,12 @@
 | **rotas** | `/financeiro?tab=a-receber`, `/financeiro?tab=a-receber&section=mensalidades` |
 | **pré-requisitos** | Módulo `finance` ativo; planos configurados; conta bancária em Minha academia → Financeiro → Recebimento |
 | **status** | revisado (código) |
-| **última revisão** | 2026-07-22 |
+| **última revisão** | 2026-07-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
+- [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — valor esperado usa `plan_price` quando presente
 - [2026-07-22-mensalidades-coluna-pagador-design.md](../../superpowers/specs/2026-07-22-mensalidades-coluna-pagador-design.md)
 - [2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md](../../superpowers/specs/2026-06-15-mensalidades-parcelamento-taxas-PRODUCT.md)
 - [2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md](../../superpowers/specs/2026-06-15-taxas-cartao-metodos-canonicos-PRODUCT.md)
@@ -27,7 +28,7 @@
 
 ## Resumo
 
-O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). A grade lista **Pagador** ao lado do aluno (1º alias de quem paga → responsável → pai/mãe) para conferência; o CSV exporta a mesma coluna. Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento. Quando o aluno possui `students.discount_amount`, o valor esperado da cobrança passa a ser `plan.price - discount_amount`.
+O operador acessa **A receber → Mensalidades**, filtra alunos por status do mês (em dia, atraso, exceções), registra pagamento com método e taxas (PIX, dinheiro, cartão, parcelas no crédito). A grade lista **Pagador** ao lado do aluno (1º alias de quem paga → responsável → pai/mãe) para conferência; o CSV exporta a mesma coluna. Em cartão, se houver mais de um **meio de captura** ativo, escolhe **Recebido via** (maquininha/link). Formas desativadas na config não aparecem no modal. Alunos cujo plano está marcado como **isento** em Minha academia → Financeiro → Planos aparecem com status **Isento**, sem vencimento e sem ação de registrar pagamento. Valor esperado: se o aluno tem `students.plan_price`, usa esse snapshot menos `discount_amount`; senão, preço de catálogo do plano menos desconto.
 
 ---
 
@@ -108,7 +109,7 @@ flowchart TD
 5. [ ] Chip **Pagos no mês** inclui pagos e cobertos; dropdown **Pago** só pagos efetivos
 6. [ ] Filtros de turma e plano funcionam na grade **Lista** e na aba **Resumo**
 7. [ ] Busca por nome parcial encontra aluno
-8. [ ] Abrir modal de pagamento — valor esperado pré-preenchido usa o plano líquido (`plano - desconto`) quando o aluno tiver desconto individual
+8. [ ] Abrir modal de pagamento — valor esperado pré-preenchido: `plan_price` (ou catálogo) líquido de desconto individual
 9. [ ] PIX — total sem parcelas; confirmar → toast sucesso
 10. [ ] Cartão crédito 3x — campo parcelas visível; total com taxa do meio/conta
 10b. [ ] Cartão com 2 meios — **Recebido via** obrigatório; sem seleção → `FieldError`
@@ -196,6 +197,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | Valor esperado: `plan_price` snapshot quando presente; senão catálogo (− desconto) |
 | 2026-07-22 | — | A receber / Visão geral: cobertura de pacote; exclui espelho de mensalidade; deep link `?tx=` resolve fora do período |
 | 2026-07-22 | — | A receber / Visão geral respeitam cobertura por pacote anual e cobertura histórica |
 | 2026-07-22 | — | Fix: CSS de KPIs + dropdown de status restaurados em `finance.css`; sync `filtro`/`search` sem reset em todo `searchParams` |

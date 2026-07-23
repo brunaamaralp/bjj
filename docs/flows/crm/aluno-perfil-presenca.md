@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-07-16 |
+| **última revisão** | 2026-07-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -16,6 +16,7 @@
 - [docs/contracts-autentique.md](../contracts-autentique.md) — assinatura digital de contratos
 - [config/empresa-horarios-turmas.md](../config/empresa-horarios-turmas.md) — catálogo de turmas (`classes`) usado no select Turma
 - [2026-07-16-student-profile-payments-status-first-design.md](../../superpowers/specs/2026-07-16-student-profile-payments-status-first-design.md) — aba Pagamentos status-first
+- [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — **Valor acordado** (`plan_price`); troca de plano atualiza snapshot
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
@@ -62,10 +63,10 @@ flowchart TD
 | 4 | `/students` | Toolbar | Importar / exportar planilha | Planilha processada; toasts de progresso |
 | 5 | `/recepcao` | `Recepcao.jsx` | Abrir recepção (link interno ou menu) | Painel ao vivo + histórico Control iD |
 | 6 | `/students?tab=contratos` | `ContractsPageContent` | Tab Contratos (módulo finance) | Lista de contratos da academia |
-| 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status, badges e resumo do plano com desconto individual quando existir |
+| 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status, badges, resumo do plano, campo **Valor acordado** (`plan_price`) e desconto individual quando existir |
 | 8 | `/student/:id` | Seção financeira | Registrar pagamento / produto | `StudentPaymentModal` (+ **Recebido via** em cartão) |
 | 9 | `/student/:id` | Presença | Check-in manual | Evento de presença na timeline |
-| 10 | `/student/:id` | Plano | Trancar / retomar plano | `PlanFreezeModal`; histórico de trancamentos |
+| 10 | `/student/:id` | Plano | Trancar / retomar / trocar plano | `PlanFreezeModal`; troca de plano atualiza `plan_price` com confirmação se o valor mudar |
 | 11 | `/student/:id` | Menu ações | Desativar ou reativar aluno | Status atualizado; confirmação via `ConfirmDialog` |
 | 12 | `/student/:id` | Contratos (chip/seção) | Criar contrato Autentique | `CreateContractModal` |
 
@@ -89,7 +90,8 @@ flowchart TD
 4. [ ] Clicar aluno → `/student/:id` com nome e plano corretos
 4b. [ ] **Cadastrar aluno** (modal na lista): com graduações ativas, campo **Faixa/Evolução** opcional; valor persiste no perfil
 4c. [ ] Com graduações ativas e aluno com faixa preenchida: subtexto do card na lista exibe graduação (entre turma e telefone)
-5. [ ] Editar telefone, **turma** ou plano → salvar → toast de sucesso; dados persistem após reload
+5. [ ] Editar telefone, **turma** ou plano → salvar → toast de sucesso; dados persistem após reload; trocar plano atualiza **Valor acordado** (`plan_price`) com confirmação se o valor mudar
+5a. [ ] Campo **Valor acordado** editável (owner/admin) — altera snapshot sem mudar o catálogo de planos
 5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (select inline após turma)
 5c. [ ] Sem graduações configuradas: campo **Faixa/Evolução** ausente no perfil (exceto aluno com valor legado — somente leitura + banner)
 5d. [ ] Seção **Quem costuma pagar**: campo de adicionar nome visível sem precisar de “Editar tudo”; aliases persistem ao adicionar/remover
@@ -116,7 +118,7 @@ flowchart TD
 14. [ ] Aba **Frequência** — aluno inativo exibe banner com histórico abaixo
 15. [ ] Aluno **em contato** (retenção) — banner com «Voltar para a fila» na aba Frequência
 16. [ ] Se o plano do aluno estiver marcado como isento em Financeiro → Planos, o perfil mostra badge **Plano isento** e o card financeiro mostra **Isento**, sem cobrança mensal
-17. [ ] Se `discount_amount > 0`, o card financeiro mostra plano original, desconto aplicado e valor final cobrado
+17. [ ] Card financeiro usa **Valor acordado** (`plan_price`) quando presente; se `discount_amount > 0`, mostra base, desconto e valor final cobrado
 
 ### Estados de erro conhecidos
 
@@ -186,6 +188,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | **Valor acordado** (`plan_price`); troca de plano atualiza snapshot com confirmação |
 | 2026-07-22 | — | Cobertura histórica no perfil (sem Caixa): checklist 9e2 |
 | 2026-06-25 | — | Espelho pagamento→Caixa: fee/other na reconciliação, OUTROS_RECEITA, cancel troco, badge No Caixa |
 | 2026-06-23 | — | Card financeiro passa a exibir desconto individual da matrícula quando houver |

@@ -8,7 +8,7 @@
 | **rotas** | `/empresa?tab=financeiro`, `/empresa?tab=financeiro&section=<slug>` |
 | **pré-requisitos** | Módulo `finance` ativo na academia; papel owner ou admin |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-28 |
+| **última revisão** | 2026-07-23 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -18,6 +18,7 @@
 - [2026-06-17-formas-recebimento-meios-captura-PRODUCT.md](../../superpowers/specs/2026-06-17-formas-recebimento-meios-captura-PRODUCT.md) — formas ativas + meios de captura (Fase 2)
 
 - [2026-06-28-taxas-recebedor-bandeira-PRODUCT.md](../../superpowers/specs/2026-06-28-taxas-recebedor-bandeira-PRODUCT.md) — recebedores (PagBank, Asaas…) e bandeira no pagamento
+- [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — preço de lista vs `plan_price` do aluno
 
 **Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees feeReceivers resolveFeeReceiver`
 
@@ -64,7 +65,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
-| 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço, repasse de taxas, contratos opcionais |
+| 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço de **lista** (default para novas matrículas), repasse de taxas, contratos opcionais; alunos existentes usam `plan_price` no perfil |
 | 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; **Salvar** no modal persiste na academia |
 | 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações; preview | `paymentMethodSettings` |
 | 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; vínculo a recebedor de taxas | `captureMethods[]` |
@@ -113,8 +114,8 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 ### Checklist passo a passo — owner
 
 1. [ ] `/empresa?tab=financeiro` abre com sidebar e seção **Planos** (default)
-2. [ ] Adicionar plano com nome e preço → barra **Alterações não salvas** aparece
-3. [ ] Salvar → toast sucesso; plano persiste após reload
+2. [ ] Adicionar plano com nome e preço de lista → barra **Alterações não salvas** aparece
+3. [ ] Salvar → toast sucesso; plano persiste após reload; editar preço de lista **não** altera `plan_price` de alunos já matriculados
 3b. [ ] Plano com nome vazio + Salvar → hint na barra fixa; link **Ir para Planos de mensalidade**; persistência bloqueada
 4. [ ] **Contas bancárias** (`#contas`): adicionar banco/PIX, saldo inicial
 4b. [ ] **Formas de recebimento**: ativar/desativar forma; conta padrão; toggles de automação; preview «Se você registrar hoje»; coluna OK
@@ -173,7 +174,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 | Cena | Tela | Narração sugerida | Gancho de valor |
 |---|---|---|---|
 | 1 | Empresa → Financeiro | "Antes de cobrar, configuro o financeiro em um só lugar." | Setup centralizado |
-| 2 | Planos | "Crio o plano com preço — o vencimento fica no cadastro do aluno." | Clareza operacional |
+| 2 | Planos | "Crio o plano com preço de lista — novas matrículas usam esse valor; alunos já matriculados mantêm o acordado no perfil." | Clareza operacional |
 | 3 | Recebimento | "Cadastro onde o dinheiro cai — PIX e banco nos comprovantes." | Rastreabilidade |
 | 3b | Formas + meios | "Ativo PIX e cartão; cadastro cada maquininha com taxa e prazo de crédito." | Conciliação e previsão corretas |
 | 4 | Taxas | "Se repasso taxa de cartão, defino aqui uma vez." | Menos erro no caixa |
@@ -201,6 +202,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | Planos: preço = lista; alunos usam `plan_price` (spec snapshot) |
 | 2026-06-15 | — | Criação Fase 2B |
 | 2026-06-16 | — | Validação pré-save, link para seção com erro, conta incompleta no modal Recebimento |
 | 2026-06-17 | — | Fase 2: meios de captura (`captureMethods`), preview na forma, matriz taxas/prazos |

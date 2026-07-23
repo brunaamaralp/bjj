@@ -8,7 +8,7 @@
 | **rotas** | `/pipeline`, `/lead/:id`, `/experimental/:token` (público), modal **Novo lead** (global) |
 | **pré-requisitos** | Usuário autenticado; estágios do funil configurados em Minha academia |
 | **status** | revisado |
-| **última revisão** | 2026-07-06 |
+| **última revisão** | 2026-07-23 |
 
 **Specs relacionadas:**
 
@@ -18,6 +18,7 @@
 - [2026-06-11-conversa-cadastro-lead-ia-design.md](../superpowers/specs/2026-06-11-conversa-cadastro-lead-ia-design.md) — cadastro via conversa
 - [2026-07-06-public-experimental-booking-PRODUCT.md](../superpowers/specs/2026-07-06-public-experimental-booking-PRODUCT.md) — agendamento público de experimental (reagendamento por telefone)
 - [2026-06-17-lead-child-display-names.md](../superpowers/plans/2026-06-17-lead-child-display-names.md) — exibição aluno vs responsável no funil e perfil
+- [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — matrícula grava `plan_price` do plano escolhido
 
 **Harness relacionado:** `npm test -- enrollmentFlow performEnrollment publicExperimental`
 
@@ -72,7 +73,7 @@ flowchart TD
 | 6c | `/lead/:id` | Aba Conversa | WA offline com histórico | Banner com link **Reconectar** → `/agente-ia`; thread read-only |
 | 7 | `/lead/:id` | Botão matricular | Iniciar matrícula | Modal com plano, **desconto individual (R$)**, data e pagamento opcional (`MatriculaPaymentStep`) |
 | 8 | Modal matrícula | Pagamento opcional | Forma + **Recebido via** (cartão) | `registerEnrollmentPayment` com `capture_method_id` |
-| 9 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno; lead marcado matriculado |
+| 9 | Modal matrícula | `executeMatricula` | Confirmar | `performEnrollment` cria aluno com `plan_price` do plano escolhido; lead marcado matriculado |
 | 10 | `/pipeline` | Filtros (período, estágio) | Refinar visualização | Lista/kanban filtrados; contadores atualizados |
 | 11 | `/lead/:id` | Resumo IA (se ativo) | Gerar/atualizar resumo | Cache de histórico exibido no perfil |
 
@@ -106,7 +107,7 @@ flowchart TD
 7c. [ ] Com WA offline e histórico — banner no painel com **Reconectar**; composer desabilitado
 8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável e permite informar desconto individual por aluno
 8b. [ ] Informar desconto válido — preview mostra valor do plano, desconto e valor cobrado final em tempo real
-9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students`
+9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students` com `plan_price` do plano escolhido
 10. [ ] Abrir perfil do aluno `/student/:id` — vínculo com lead preservado; `belt` do lead (se existir via import/NL) copiado na conversão
 11. [ ] Exportar planilha (menu pipeline) — arquivo gerado sem dados de outra academia
 
@@ -185,6 +186,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | Matrícula grava `plan_price` (snapshot do plano escolhido) |
 | 2026-07-06 | — | Link público `/experimental/:token` para agendar experimental; reagendamento por telefone |
 | 2026-06-23 | — | Matrícula passa a aceitar desconto individual recorrente com preview do valor final |
 | 2026-06-19 | — | Matrícula online: toggle askBelt + campo graduação no formulário público |
