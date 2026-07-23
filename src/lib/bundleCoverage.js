@@ -268,6 +268,16 @@ export function buildPaidBundleCoveredMonthsByLead(payments = []) {
     const lid = String(raw?.lead_id || raw?.leadId || '').trim();
     if (!lid) continue;
 
+    if (!byLead.has(lid)) byLead.set(lid, new Set());
+    const covered = byLead.get(lid);
+
+    // Filho (ou mês isolado) já marcado covered — cobre aquele mês mesmo sem a âncora na lista.
+    const st = String(raw?.status || '').toLowerCase();
+    const ym = String(raw?.reference_month || '').trim().slice(0, 7);
+    if (st === 'covered' && /^\d{4}-\d{2}$/.test(ym)) {
+      covered.add(ym);
+    }
+
     const anchor =
       isBundleAnchorPayment(raw) || Number(raw?.bundle_months) >= 2
         ? raw
@@ -277,10 +287,8 @@ export function buildPaidBundleCoveredMonthsByLead(payments = []) {
     const spec = resolvePaidBundleAnchorMonths(anchor);
     if (!spec) continue;
 
-    if (!byLead.has(lid)) byLead.set(lid, new Set());
-    const covered = byLead.get(lid);
-    for (const ym of enumerateCoverageMonths(spec.startYm, spec.months)) {
-      covered.add(ym);
+    for (const month of enumerateCoverageMonths(spec.startYm, spec.months)) {
+      covered.add(month);
     }
   }
 

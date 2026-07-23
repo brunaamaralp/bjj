@@ -40,12 +40,8 @@
 }
 
 .financeiro-overview-card--banks {
-  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--finance-card-border, var(--border-light)));
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--color-accent-surface) 42%, var(--color-card-bg)) 0%,
-    var(--color-card-bg) 52%
-  );
+  border-color: var(--finance-card-border, var(--color-card-border));
+  background: var(--color-card-bg);
 }
 
 .financeiro-overview-metrics--inline {

@@ -52,6 +52,34 @@ export function openMensalidadeAmount(student, payment, financeConfig) {
   return roundMoney(Math.max(0, expected - received));
 }
 
+/** Prioridade ao haver mais de um doc no mesmo lead/mês (ex.: pending + covered). */
+export function paymentSettlementRank(payment) {
+  const st = String(payment?.status || '').toLowerCase();
+  if (st === 'covered' || st === 'paid' || st === 'frozen') return 4;
+  if (st === 'partial') return 3;
+  if (st === 'pending' || st === 'awaiting') return 2;
+  if (st === 'cancelled') return 1;
+  return 0;
+}
+
+/** Prefere quitado/coberto sobre pendente quando há duplicata. */
+export function preferSettledPayment(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return paymentSettlementRank(b) > paymentSettlementRank(a) ? b : a;
+}
+
+/** @param {Array} payments */
+export function indexPaymentsByLeadPreferSettled(payments = []) {
+  const payByLead = {};
+  for (const p of payments || []) {
+    const lid = String(p?.lead_id || p?.leadId || '').trim();
+    if (!lid) continue;
+    payByLead[lid] = preferSettledPayment(payByLead[lid], p);
+  }
+  return payByLead;
+}
+
 /**
  * @param {object} params
  * @param {Array} [params.coveragePayments] — pagamentos extras (ex.: âncoras de pacote em outros meses)
@@ -66,14 +94,12 @@ export function buildMensalidadeReceivableItems({
   today = new Date(),
 }) {
   const active = students.filter((s) => isActiveStudent(s) && String(s.plan || '').trim());
-  const payByLead = {};
-  for (const p of payments) {
-    const lid = String(p.lead_id || '').trim();
-    if (!lid) continue;
-    payByLead[lid] = p;
-  }
+  const payByLead = indexPaymentsByLeadPreferSettled(payments);
 
-  const coverageSource = Array.isArray(coveragePayments) ? coveragePayments : payments;
+  // Âncoras + docs do mês (cobertos) — evita perder cobertura se a lista de âncoras veio incompleta.
+  const coverageSource = Array.isArray(coveragePayments)
+    ? [...coveragePayments, ...(payments || [])]
+    : payments;
   const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(coverageSource);
 
   const items = [];

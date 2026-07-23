@@ -6,6 +6,8 @@ import {
   buildDeferredSaleReceivableItems,
   summarizeReceivables,
   buildReceivablesSnapshot,
+  preferSettledPayment,
+  indexPaymentsByLeadPreferSettled,
   RECEIVABLE_SOURCE,
 } from '../lib/receivablesAggregate.js';
 
@@ -98,6 +100,39 @@ describe('receivablesAggregate', () => {
       today: new Date('2026-07-15T12:00:00'),
     });
     expect(items).toHaveLength(0);
+  });
+
+  it('buildMensalidadeReceivableItems — prefer covered quando há pending duplicado no mês', () => {
+    const students = [
+      { id: 'a', name: 'Ana', plan: 'Plano Anual', status: 'Matriculado', student_status: 'active' },
+    ];
+    const items = buildMensalidadeReceivableItems({
+      students,
+      payments: [
+        { lead_id: 'a', status: 'pending', expected_amount: 200, reference_month: '2026-07' },
+        {
+          $id: 'cov',
+          lead_id: 'a',
+          status: 'covered',
+          payment_category: 'bundle',
+          reference_month: '2026-07',
+          amount: 0,
+        },
+      ],
+      financeConfig,
+      referenceMonth: '2026-07',
+      today: new Date('2026-07-15T12:00:00'),
+    });
+    expect(items).toHaveLength(0);
+  });
+
+  it('preferSettledPayment / indexPaymentsByLeadPreferSettled', () => {
+    const map = indexPaymentsByLeadPreferSettled([
+      { lead_id: 'a', status: 'pending', expected_amount: 200 },
+      { lead_id: 'a', status: 'covered', amount: 0 },
+    ]);
+    expect(map.a.status).toBe('covered');
+    expect(preferSettledPayment({ status: 'pending' }, { status: 'paid' }).status).toBe('paid');
   });
 
   it('buildPendingTxReceivableItems — só entradas pendentes', () => {

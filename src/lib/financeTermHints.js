@@ -7,7 +7,7 @@ export const FINANCE_TERM_HINTS = {
     'Valor esperado com base em mensalidades e lançamentos recorrentes ainda não recebidos.',
   realizado: 'Valor efetivamente recebido ou pago até hoje.',
   saldoAtualBancario:
-    'Saldo consolidado das contas bancárias cadastradas na data de referência do mês selecionado.',
+    'Soma dos saldos liquidados das contas bancárias cadastradas na data de referência. Lançamentos sem conta (“Não alocado”) não entram neste total — são só pendências de classificação.',
   saldoPeriodoVisaoGeral:
     'Entradas menos saídas liquidadas no intervalo do mês selecionado (1º dia até hoje ou fim do mês).',
   saldoContaNaData:

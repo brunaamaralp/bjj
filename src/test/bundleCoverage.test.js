@@ -119,6 +119,21 @@ describe('bundleCoverage', () => {
     expect(isMonthCoveredByPaidBundle('2027-03', byLead.get('L2'))).toBe(false);
   });
 
+  it('buildPaidBundleCoveredMonthsByLead — filho covered cobre o mês sem âncora na lista', () => {
+    const byLead = buildPaidBundleCoveredMonthsByLead([
+      {
+        $id: 'child',
+        lead_id: 'L3',
+        payment_category: 'bundle',
+        bundle_origin_id: 'missing-anchor',
+        reference_month: '2026-07',
+        status: 'covered',
+      },
+    ]);
+    expect(isMonthCoveredByPaidBundle('2026-07', byLead.get('L3'))).toBe(true);
+    expect(isMonthCoveredByPaidBundle('2026-08', byLead.get('L3'))).toBe(false);
+  });
+
   it('listCancellableCoveredMonths filtra futuros', () => {
     const payments = [
       { $id: '1', status: 'covered', bundle_origin_id: 'a', reference_month: '2026-06' },

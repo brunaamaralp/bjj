@@ -29,9 +29,20 @@ function buildLancamentosAccountPath(label, unallocated, periodFrom, periodTo) {
   });
 }
 
+function formatUnallocatedCount(count) {
+  const n = Math.max(0, Number(count) || 0);
+  return n === 1 ? '1 lançamento' : `${n} lançamentos`;
+}
+
+/** Soma só contas bancárias reais — exclui o líquido fictício de “Não alocado”. */
+function sumAccountsBalance(payload) {
+  return (payload?.accounts || []).reduce((sum, row) => sum + (Number(row?.balance) || 0), 0);
+}
+
 function BankBalanceCard({
   label,
   balance,
+  heroText = null,
   muted = false,
   unallocated = false,
   selected = false,
@@ -59,34 +70,49 @@ function BankBalanceCard({
   const accountLink = accountLinks
     ? buildLancamentosAccountPath(label, unallocated, periodFrom, periodTo)
     : null;
+  const primaryValue = heroText != null ? heroText : fmtMoney(balance);
+  const primaryClass = [
+    'finance-bank-balances__card-balance',
+    compactLayout ? ' finance-bank-balances__card-balance--hero' : '',
+    unallocated ? ' finance-bank-balances__card-balance--count' : '',
+  ]
+    .filter(Boolean)
+    .join('');
 
   if (compactLayout) {
-    const HeroTag = selectable ? 'button' : 'div';
-    const hasDetails = children || accountLink;
+    const linked = Boolean(accountLink) && !selectable;
+    const HeroTag = selectable ? 'button' : linked ? Link : 'div';
+    const heroProps = selectable
+      ? { type: 'button', onClick, 'aria-pressed': selected }
+      : linked
+        ? {
+            to: accountLink,
+            'aria-label': unallocated
+              ? 'Ver lançamentos sem conta bancária para alocar'
+              : `Ver lançamentos de ${label}`,
+          }
+        : {};
     return (
       <article className={cardClass}>
-        <HeroTag
-          type={selectable ? 'button' : undefined}
-          className="finance-bank-balances__card-hero"
-          onClick={selectable ? onClick : undefined}
-          aria-pressed={selectable ? selected : undefined}
-        >
-          <h3 className="finance-bank-balances__card-title">{label}</h3>
-          <p className="finance-bank-balances__card-balance finance-bank-balances__card-balance--hero">
-            {fmtMoney(balance)}
-          </p>
+        <HeroTag className="finance-bank-balances__card-hero" {...heroProps}>
+          <div className="finance-bank-balances__card-head">
+            <h3 className="finance-bank-balances__card-title">{label}</h3>
+            {unallocated ? (
+              <span className="finance-bank-balances__card-badge">Sem conta</span>
+            ) : null}
+          </div>
+          <p className={primaryClass}>{primaryValue}</p>
+          {linked ? (
+            <span className="finance-bank-balances__card-action finance-bank-balances__card-action--inline">
+              {unallocated ? 'Ver para alocar' : 'Ver lançamentos'}
+              <ArrowRight size={14} aria-hidden />
+            </span>
+          ) : null}
         </HeroTag>
-        {hasDetails ? (
+        {children ? (
           <details className="finance-bank-balances__card-details">
-            <summary className="finance-bank-balances__card-details-summary">Detalhes</summary>
-            <div className="finance-bank-balances__card-details-body">
-              {children}
-              {accountLink ? (
-                <Link to={accountLink} className="finance-bank-balances__card-action">
-                  Ver lançamentos <ArrowRight size={14} aria-hidden />
-                </Link>
-              ) : null}
-            </div>
+            <summary className="finance-bank-balances__card-details-summary">Movimentação</summary>
+            <div className="finance-bank-balances__card-details-body">{children}</div>
           </details>
         ) : null}
       </article>
@@ -103,11 +129,12 @@ function BankBalanceCard({
     >
       <div className="finance-bank-balances__card-inner">
         <h3 className="finance-bank-balances__card-title">{label}</h3>
-        <p className="finance-bank-balances__card-balance">{fmtMoney(balance)}</p>
+        <p className={primaryClass}>{primaryValue}</p>
         {children}
         {accountLink ? (
           <Link to={accountLink} className="finance-bank-balances__card-action">
-            Ver lançamentos <ArrowRight size={14} aria-hidden />
+            {unallocated ? 'Ver para alocar' : 'Ver lançamentos'}{' '}
+            <ArrowRight size={14} aria-hidden />
           </Link>
         ) : null}
       </div>
@@ -146,6 +173,26 @@ function AccountBreakdown({
   );
 }
 
+/** Não alocado não tem saldo acumulado — só volume a classificar. */
+function UnallocatedBreakdown({
+  inflow,
+  outflow,
+  periodMode = false,
+}) {
+  return (
+    <dl className="finance-bank-balances__card-breakdown">
+      <div>
+        <dt>{periodMode ? 'Entradas no período' : 'Entradas'}</dt>
+        <dd className="finance-bank-balances__card-breakdown--in">+{fmtMoney(inflow)}</dd>
+      </div>
+      <div>
+        <dt>{periodMode ? 'Saídas no período' : 'Saídas'}</dt>
+        <dd className="finance-bank-balances__card-breakdown--out">−{fmtMoney(outflow)}</dd>
+      </div>
+    </dl>
+  );
+}
+
 export default function BankBalancesOverview({
   academyId,
   onSelectAccount,
@@ -180,7 +227,7 @@ export default function BankBalancesOverview({
       }
       const [currentBody, prevBody] = await Promise.all(requests);
       setData(currentBody);
-      setPrevTotalBalance(compareDate ? Number(prevBody?.totalBalance) || 0 : null);
+      setPrevTotalBalance(compareDate ? sumAccountsBalance(prevBody) : null);
     } catch (e) {
       setData(null);
       setPrevTotalBalance(null);
@@ -194,9 +241,7 @@ export default function BankBalancesOverview({
     if (usePrefetch) {
       setData(prefetchedData);
       setPrevTotalBalance(
-        showTotalDelta && prefetchedCompareData
-          ? Number(prefetchedCompareData.totalBalance) || 0
-          : null
+        showTotalDelta && prefetchedCompareData ? sumAccountsBalance(prefetchedCompareData) : null
       );
       setLoading(false);
       setError('');
@@ -233,15 +278,17 @@ export default function BankBalancesOverview({
   }
 
   const selectable = Boolean(onSelectAccount);
-  const showUnallocated = compactLayout || (unallocated?.count > 0);
+  const unallocatedCount = Number(unallocated?.count) || 0;
+  const showUnallocated = unallocatedCount > 0;
   const resolvedPeriodFrom = periodFrom || data?.periodFrom || '';
   const resolvedPeriodTo = periodTo || data?.periodTo || '';
   const periodMode = Boolean(resolvedPeriodFrom && resolvedPeriodTo);
   const asOfLabel = periodLabel
     ? periodLabel
     : String(data?.asOf || '').split('-').reverse().join('/') || 'hoje';
+  const accountsTotalBalance = sumAccountsBalance(data);
   const totalDelta = showTotalDelta
-    ? formatBalanceDelta(data?.totalBalance, prevTotalBalance)
+    ? formatBalanceDelta(accountsTotalBalance, prevTotalBalance)
     : null;
 
   return (
@@ -314,7 +361,8 @@ export default function BankBalancesOverview({
         {showUnallocated ? (
           <BankBalanceCard
             label={UNALLOCATED_BANK_LABEL}
-            balance={unallocated?.balance ?? 0}
+            balance={0}
+            heroText={formatUnallocatedCount(unallocatedCount)}
             unallocated
             selected={selectedAccountLabel === UNALLOCATED_BANK_LABEL}
             selectable={selectable}
@@ -331,26 +379,11 @@ export default function BankBalancesOverview({
                 : undefined
             }
           >
-            {periodMode ? (
-              <AccountBreakdown
-                openingBalance={unallocated?.openingBalance ?? 0}
-                inflow={unallocated?.periodInflow ?? 0}
-                outflow={unallocated?.periodOutflow ?? 0}
-                movementCount={unallocated?.periodMovementCount ?? 0}
-                periodMode
-              />
-            ) : (
-              <dl className="finance-bank-balances__card-breakdown">
-                <div>
-                  <dt>Lançamentos</dt>
-                  <dd>{unallocated?.count ?? 0}</dd>
-                </div>
-                <div>
-                  <dt>Vínculo</dt>
-                  <dd>Sem conta bancária</dd>
-                </div>
-              </dl>
-            )}
+            <UnallocatedBreakdown
+              inflow={periodMode ? unallocated?.periodInflow ?? 0 : unallocated?.inflow ?? 0}
+              outflow={periodMode ? unallocated?.periodOutflow ?? 0 : unallocated?.outflow ?? 0}
+              periodMode={periodMode}
+            />
           </BankBalanceCard>
         ) : null}
       </div>
@@ -361,24 +394,30 @@ export default function BankBalancesOverview({
             : 'Clique em uma conta para filtrar a lista abaixo. Clique de novo para remover o filtro.'}
         </p>
       ) : null}
-      <div className="text-small text-muted finance-bank-balances__total">
-        <span>
-          <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.saldoAtualBancario}>
-            Total (contas + não alocado)
-          </FinanceLabelWithHint>
-          : <strong>{fmtMoney(data?.totalBalance)}</strong>
-        </span>
-        {totalDelta ? (
-          <BalanceDeltaBadge
-            delta={totalDelta}
-            compareLabel="vs fim do mês anterior"
-            className="finance-bank-balances__total-delta"
-          />
-        ) : null}
+      <div className="finance-bank-balances__footer">
+        <div className="finance-bank-balances__total">
+          <span className="finance-bank-balances__total-label">
+            <FinanceLabelWithHint hint={FINANCE_TERM_HINTS.saldoAtualBancario}>
+              Total nas contas
+            </FinanceLabelWithHint>
+          </span>
+          <strong className="finance-bank-balances__total-value">{fmtMoney(accountsTotalBalance)}</strong>
+        </div>
+        <div className="finance-bank-balances__footer-meta">
+          {showUnallocated ? (
+            <span className="finance-bank-balances__unallocated-note">
+              {formatUnallocatedCount(unallocatedCount)} sem conta
+            </span>
+          ) : null}
+          {totalDelta ? (
+            <BalanceDeltaBadge
+              delta={totalDelta}
+              compareLabel="vs fim do mês anterior"
+              className="finance-bank-balances__total-delta"
+            />
+          ) : null}
+        </div>
       </div>
-      <Link to={EMPRESA_FINANCE_CONFIG_PATH} className="finance-config-context-link">
-        Ajustar saldo inicial das contas →
-      </Link>
     </div>
   );
 }

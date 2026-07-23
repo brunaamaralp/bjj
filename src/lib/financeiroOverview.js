@@ -20,6 +20,7 @@ import {
   buildPaidBundleCoveredMonthsByLead,
   isMonthCoveredByPaidBundle,
 } from './bundleCoverage.js';
+import { indexPaymentsByLeadPreferSettled } from './receivablesAggregate.js';
 
 export function currentMonthYm() {
   const d = new Date();
@@ -186,15 +187,10 @@ export function computeMensalidadesMonthKpis(
   const active = (students || []).filter(
     (s) => isActiveStudent(s) && String(s.plan || '').trim() && !isStudentOnExemptPlan(s, financeConfig)
   );
-  const payByLead = {};
-  for (const p of payments || []) {
-    const lid = String(p.lead_id || '').trim();
-    if (!lid) continue;
-    payByLead[lid] = p;
-  }
+  const payByLead = indexPaymentsByLeadPreferSettled(payments);
 
   const coverageSource = Array.isArray(opts.coveragePayments)
-    ? opts.coveragePayments
+    ? [...opts.coveragePayments, ...(payments || [])]
     : payments || [];
   const bundleCoveredByLead = buildPaidBundleCoveredMonthsByLead(coverageSource);
 
