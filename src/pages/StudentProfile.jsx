@@ -71,8 +71,12 @@ import {
     DISCOUNT_TYPES,
     formatDiscountAmountForInput,
     formatDiscountSummaryLabel,
+    getStudentAgreedPlanPrice,
+    isStudentOnExemptPlan,
     normalizeDiscountType,
     parseDiscountAmountInput,
+    parsePlanPriceInput,
+    snapshotPlanPriceFromCatalog,
     validateEnrollmentDiscount,
 } from '../lib/planBilling.js';
 import { LEAD_TIMELINE_CHANGED, LEAD_ATTENDANCE_CHANGED, emitLeadAttendanceChanged } from '../lib/leadTimelineEvents.js';
@@ -142,7 +146,14 @@ import {
     paidAtMonthDivergesFromCoverage,
     paidAtCoverageDivergenceConfirmDescription,
 } from '../lib/paymentReceiptDate.js';
-import { isStudentOnExemptPlan } from '../lib/planBilling.js';
+
+function formatAgreedPlanPriceInput(value) {
+    if (value == null || value === '') return '';
+    const n = typeof value === 'object' ? getStudentAgreedPlanPrice(value) : Number(value);
+    if (n == null || !Number.isFinite(n) || n < 0) return '';
+    const rounded = Math.round(n * 100) / 100;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace('.', ',');
+}
 
 function formatDateBR(ymd) {
     if (!ymd || String(ymd).length < 10) return '';
@@ -390,6 +401,7 @@ export default function StudentProfile() {
         belt: '',
         discountType: DISCOUNT_TYPES.NONE,
         discountAmountInput: '',
+        planPriceInput: '',
     });
     const [savingData, setSavingData] = useState(false);
     const [payerAliases, setPayerAliases] = useState([]);
@@ -397,8 +409,11 @@ export default function StudentProfile() {
     const [cpfErrors, setCpfErrors] = useState({ cpf: '', cpfResponsavel: '' });
     const [futurePaidDateLabel, setFuturePaidDateLabel] = useState(null);
     const [paidAtDivergenceConfirm, setPaidAtDivergenceConfirm] = useState(null);
+    const [planPriceConfirm, setPlanPriceConfirm] = useState(null);
     const skipFuturePaidDateRef = useRef(false);
     const skipPaidAtDivergenceRef = useRef(false);
+    const skipPlanPriceConfirmRef = useRef(false);
+    const pendingInlinePlanCommitRef = useRef(null);
     const [timelineOpen, setTimelineOpen] = useState(readInitialTimelineOpen);
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
@@ -599,6 +614,7 @@ export default function StudentProfile() {
                 student.discountAmount,
                 normalizeDiscountType(student)
             ),
+            planPriceInput: formatAgreedPlanPriceInput(student),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1059,6 +1075,7 @@ export default function StudentProfile() {
                 student.discountAmount,
                 normalizeDiscountType(student)
             ),
+            planPriceInput: formatAgreedPlanPriceInput(student),
         });
         setEmergencySameAsRegistered(
             emergencyMatchesRegistered({
@@ -1141,14 +1158,16 @@ export default function StudentProfile() {
             }
 
             if (isActiveStudent(student) && canViewFinance) {
-                const planMatch = findPlanByName(financeConfig, dataForm.plan);
-                const planPrice = Number(planMatch?.price ?? 0);
+                const agreed =
+                    parsePlanPriceInput(dataForm.planPriceInput) ??
+                    getStudentAgreedPlanPrice(student) ??
+                    Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
                 const discountNum = parseDiscountAmountInput(
                     dataForm.discountAmountInput,
                     dataForm.discountType
                 );
                 const discountErr = validateEnrollmentDiscount(
-                    planPrice,
+                    agreed,
                     dataForm.discountType,
                     discountNum
                 );
@@ -1171,6 +1190,23 @@ export default function StudentProfile() {
                     return;
                 }
             }
+
+            const planChanged =
+                String(dataForm.plan || '').trim() !== String(student.plan || '').trim();
+            const nextAgreed = parsePlanPriceInput(dataForm.planPriceInput);
+            const currentAgreed = getStudentAgreedPlanPrice(student);
+            const priceChanged = nextAgreed != null && nextAgreed !== currentAgreed;
+            if (
+                isActiveStudent(student) &&
+                canViewFinance &&
+                !skipPlanPriceConfirmRef.current &&
+                (planChanged || priceChanged)
+            ) {
+                setSavingData(false);
+                setPlanPriceConfirm({ kind: 'bulk' });
+                return;
+            }
+            skipPlanPriceConfirmRef.current = false;
 
             await updateStudent(leadId, {
                 name,
@@ -1198,6 +1234,9 @@ export default function StudentProfile() {
                               dataForm.discountAmountInput,
                               dataForm.discountType
                           ),
+                          ...(parsePlanPriceInput(dataForm.planPriceInput) != null
+                              ? { planPrice: parsePlanPriceInput(dataForm.planPriceInput) }
+                              : {}),
                       }
                     : {}),
                 ...(shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)
@@ -1814,7 +1853,10 @@ export default function StudentProfile() {
         attendanceRisk?.status && isAtRiskTableStatus(attendanceRisk.status);
     const showRetentionInContactBanner = student?.retention_in_contact === true;
 
-    const editPlanPrice = Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
+    const editPlanPrice =
+        parsePlanPriceInput(dataForm.planPriceInput) ??
+        getStudentAgreedPlanPrice(student) ??
+        Number(findPlanByName(financeConfig, dataForm.plan)?.price ?? 0);
     const studentDiscountLabel =
         student?.discountAmount > 0
             ? formatDiscountSummaryLabel(student.discountType, student.discountAmount)
@@ -1824,25 +1866,41 @@ export default function StudentProfile() {
         if (!isActiveStudent(student) || !canViewFinance) return null;
         if (editingData) {
             return (
-                <EnrollmentDiscountFields
-                    planPrice={editPlanPrice}
-                    planName={dataForm.plan}
-                    financeConfig={financeConfig}
-                    discountType={dataForm.discountType}
-                    discountAmount={dataForm.discountAmountInput}
-                    onTypeChange={(nextType) => {
-                        setDataForm((p) => ({
-                            ...p,
-                            discountType: nextType,
-                            discountAmountInput: nextType === DISCOUNT_TYPES.NONE ? '' : p.discountAmountInput,
-                        }));
-                    }}
-                    onAmountChange={(value) =>
-                        setDataForm((p) => ({ ...p, discountAmountInput: value }))
-                    }
-                    disabled={savingData}
-                    idPrefix="student-profile-discount"
-                />
+                <>
+                    <div className="form-group">
+                        <label htmlFor="student-profile-plan-price">Valor acordado (mensalidade)</label>
+                        <input
+                            id="student-profile-plan-price"
+                            className="form-input"
+                            inputMode="decimal"
+                            value={dataForm.planPriceInput}
+                            onChange={(e) => setDataForm((p) => ({ ...p, planPriceInput: e.target.value }))}
+                            disabled={savingData || !canViewFinance}
+                        />
+                        <p className="text-small text-muted">
+                            Valor cobrado deste aluno. Alterar o preço do plano na academia não muda este valor.
+                        </p>
+                    </div>
+                    <EnrollmentDiscountFields
+                        planPrice={editPlanPrice}
+                        planName={dataForm.plan}
+                        financeConfig={financeConfig}
+                        discountType={dataForm.discountType}
+                        discountAmount={dataForm.discountAmountInput}
+                        onTypeChange={(nextType) => {
+                            setDataForm((p) => ({
+                                ...p,
+                                discountType: nextType,
+                                discountAmountInput: nextType === DISCOUNT_TYPES.NONE ? '' : p.discountAmountInput,
+                            }));
+                        }}
+                        onAmountChange={(value) =>
+                            setDataForm((p) => ({ ...p, discountAmountInput: value }))
+                        }
+                        disabled={savingData}
+                        idPrefix="student-profile-discount"
+                    />
+                </>
             );
         }
         if (!studentDiscountLabel) return null;
@@ -2015,6 +2073,13 @@ export default function StudentProfile() {
                             value={draft}
                             onChange={(v) => {
                                 setDraft(v);
+                                const snap = snapshotPlanPriceFromCatalog(financeConfig, v);
+                                const current = getStudentAgreedPlanPrice(student);
+                                if (snap !== current) {
+                                    pendingInlinePlanCommitRef.current = { commitEdit, draft: v };
+                                    setPlanPriceConfirm({ kind: 'inline', draft: v });
+                                    return;
+                                }
                                 void commitEdit(v);
                             }}
                             className="student-profile-data-input"
@@ -2192,7 +2257,14 @@ export default function StudentProfile() {
                     id={`student-data-${field.key}`}
                     financeConfig={financeConfig}
                     value={dataForm.plan}
-                    onChange={(v) => setDataForm((p) => ({ ...p, plan: v }))}
+                    onChange={(v) => {
+                        const snap = snapshotPlanPriceFromCatalog(financeConfig, v);
+                        setDataForm((p) => ({
+                            ...p,
+                            plan: v,
+                            ...(snap != null ? { planPriceInput: formatAgreedPlanPriceInput(snap) } : {}),
+                        }));
+                    }}
                     className="student-profile-data-input"
                     disabled={savingData}
                 />
@@ -3551,6 +3623,35 @@ export default function StudentProfile() {
                     void saveStudentPayment();
                 }}
                 onClose={() => !savingPayment && setPaidAtDivergenceConfirm(null)}
+            />
+            <ConfirmDialog
+                open={Boolean(planPriceConfirm)}
+                title="Atualizar valor acordado?"
+                description="O valor acordado deste aluno será atualizado. Mensalidades futuras usarão o novo valor. Continuar?"
+                confirmLabel="Continuar"
+                confirmVariant="primary"
+                loading={savingData}
+                onConfirm={() => {
+                    const pending = planPriceConfirm;
+                    setPlanPriceConfirm(null);
+                    if (pending?.kind === 'inline') {
+                        const commit = pendingInlinePlanCommitRef.current;
+                        pendingInlinePlanCommitRef.current = null;
+                        if (commit?.commitEdit) {
+                            void commit.commitEdit(commit.draft);
+                        } else if (pending.draft != null) {
+                            void saveStudentFieldInline('plan', pending.draft);
+                        }
+                        return;
+                    }
+                    skipPlanPriceConfirmRef.current = true;
+                    void handleSaveData();
+                }}
+                onClose={() => {
+                    if (savingData) return;
+                    pendingInlinePlanCommitRef.current = null;
+                    setPlanPriceConfirm(null);
+                }}
             />
         </div>
     );
