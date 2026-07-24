@@ -94,7 +94,7 @@ export default function ContractsPageContent({ embedded = false }: ContractsPage
         Atualizar
       </button>
       {navRole === 'owner' ? (
-        <Link to="/empresa?tab=financeiro&section=contratos" className="btn-outline flex items-center gap-1">
+        <Link to="/empresa?tab=contratos" className="btn-outline flex items-center gap-1">
           <FileText size={14} />
           Modelos
         </Link>

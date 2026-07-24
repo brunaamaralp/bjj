@@ -30,7 +30,6 @@ export const FINANCE_SETTINGS_SECTIONS = {
   EXCECOES: 'excecoes',
   PLANO_CONTAS: 'plano-contas',
   RAZAO: 'razao-contabil',
-  CONTRATOS: 'contratos',
 };
 
 const VALID = new Set(Object.values(FINANCE_SETTINGS_SECTIONS));
@@ -107,12 +106,6 @@ export const FINANCE_SETTINGS_GROUPS = [
         id: FINANCE_SETTINGS_SECTIONS.WHATSAPP,
         label: 'Lembretes WhatsApp',
         hint: 'Aviso automático antes e depois do vencimento',
-      },
-      {
-        id: FINANCE_SETTINGS_SECTIONS.CONTRATOS,
-        label: 'Modelos de contrato',
-        hint: 'Textos para assinatura digital. Marque os planos de mensalidade em cada modelo.',
-        ownerOnly: true,
       },
     ],
   },
@@ -209,7 +202,7 @@ export function exceptionLabelsCustomized(financeConfig) {
   return EXCEPTION_STATUS_KEYS.some((key) => current[key] !== DEFAULT_EXCEPTION_STATUS_LABELS[key]);
 }
 
-export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, accountsCount, isOwner, contractTemplatesCount = 0 }) {
+export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, accountsCount, isOwner }) {
   const plans = financeConfig?.plans || [];
   const namedPlans = plans.filter((p) => String(p?.name || '').trim());
   const banks = filterBankAccountsWithBank(financeConfig?.bankAccounts);
@@ -306,14 +299,6 @@ export function buildFinanceSettingsSummaries({ financeConfig, collectionRules, 
     [FINANCE_SETTINGS_SECTIONS.RAZAO]: {
       done: (accountsCount || 0) > 0,
       summary: 'Partidas dobradas e histórico',
-      hidden: !isOwner,
-    },
-    [FINANCE_SETTINGS_SECTIONS.CONTRATOS]: {
-      done: contractTemplatesCount > 0,
-      summary:
-        contractTemplatesCount === 0
-          ? 'Nenhum modelo'
-          : `${contractTemplatesCount} modelo${contractTemplatesCount === 1 ? '' : 's'}`,
       hidden: !isOwner,
     },
   };

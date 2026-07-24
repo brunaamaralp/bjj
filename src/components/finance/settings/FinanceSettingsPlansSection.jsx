@@ -178,7 +178,7 @@ export default function FinanceSettingsPlansSection({
         Usados em Mensalidades e matrícula. O <strong>dia de vencimento</strong> é definido no cadastro de
         cada aluno (campo &quot;Vence dia&quot;), não no plano — a cobrança mensal usa o <strong>preço</strong>{' '}
         do plano por mês de referência. Contratos são opcionais; vincule em{' '}
-        <Link to="/empresa?tab=financeiro&section=contratos" className="edit-link">
+        <Link to="/empresa?tab=contratos" className="edit-link">
           Contratos
         </Link>
         .

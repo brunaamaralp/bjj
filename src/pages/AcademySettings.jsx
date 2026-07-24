@@ -23,6 +23,7 @@ const StudentsSection = lazyWithRetry(() => import('../components/academy/Studen
 const EstudioSection = lazyWithRetry(() => import('../components/academy/EstudioSection'));
 const FunilSection = lazyWithRetry(() => import('../components/academy/FunilSection'));
 const FinanceiroConfigTab = lazyWithRetry(() => import('../components/finance/FinanceiroConfigTab.jsx'));
+const ContractTemplatesPage = lazyWithRetry(() => import('../components/contracts/ContractTemplatesPage'));
 const HorariosSection = lazyWithRetry(() => import('../components/academy/HorariosSection.jsx'));
 import { readStudentExitReasonsFromAcademyDoc } from '../lib/studentExitConfig.js';
 import { readStudentFreezeReasonsFromAcademyDoc } from '../lib/studentFreezeConfig.js';
@@ -39,6 +40,7 @@ const TABS_ALL = [
     { id: 'alunos', label: 'Alunos' },
     { id: 'horarios', label: 'Horários' },
     { id: 'financeiro', label: 'Financeiro' },
+    { id: 'contratos', label: 'Contratos' },
 ];
 
 const VALID_TAB_IDS = new Set(TABS_ALL.map((t) => t.id));
@@ -49,11 +51,15 @@ const TAB_SKELETON_HEIGHT = {
     alunos: 400,
     horarios: 420,
     financeiro: 520,
+    contratos: 480,
 };
 
 function getTabDisabledState(tabId, { role }) {
     if (tabId === 'financeiro' && !canAccessEmpresaFinanceSettings(role)) {
         return { disabled: true, title: 'Disponível para titulares e administradores' };
+    }
+    if (tabId === 'contratos' && role !== 'owner') {
+        return { disabled: true, title: 'Disponível apenas para o titular da academia' };
     }
     if (tabId === 'horarios' && role !== 'owner') {
         return { disabled: true, title: 'Disponível apenas para o titular da academia' };
@@ -405,7 +411,9 @@ const AcademySettings = () => {
     }
 
     const legacyFinanceSectionRedirect =
-        rawTab === 'financeiro' ? resolveEmpresaLegacyFinanceSectionRedirect(searchParams.get('section')) : null;
+        rawTab === 'financeiro'
+          ? resolveEmpresaLegacyFinanceSectionRedirect(searchParams.get('section'), searchParams)
+          : null;
     if (legacyFinanceSectionRedirect) {
         return <Navigate to={legacyFinanceSectionRedirect} replace />;
     }
@@ -414,7 +422,7 @@ const AcademySettings = () => {
         <div className="container navi-hub-page academy-settings-page">
             <PageHeader
                 title={terms.myWorkspace}
-                subtitle="Dados da academia, funil, alunos e financeiro."
+                subtitle="Dados da academia, funil, alunos, financeiro e contratos."
                 prefix={
                     <Link
                         to="/"
@@ -514,6 +522,12 @@ const AcademySettings = () => {
                         academyId={academyId}
                         isOwner={role === 'owner'}
                     />
+                </div>
+            )}
+
+            {activeTab === 'contratos' && academyId && (
+                <div className="empresa-section">
+                    <ContractTemplatesPage embedded />
                 </div>
             )}
                 </Suspense>

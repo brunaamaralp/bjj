@@ -28,11 +28,7 @@ import FinanceSettingsWhatsappRemindersSection from './settings/FinanceSettingsW
 import FinanceSettingsExceptionsSection from './settings/FinanceSettingsExceptionsSection.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
-import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
-import RouteFallback from '../shared/RouteFallback.jsx';
 import './finance.css';
-
-const ContractTemplatesPage = lazyWithRetry(() => import('../contracts/ContractTemplatesPage'));
 
 const SECTION_META = Object.fromEntries(
   FINANCE_SETTINGS_GROUPS.flatMap((g) => g.items.map((item) => [item.id, item]))
@@ -232,14 +228,6 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
             embedded
             linkedTxId={linkedTxId}
           />
-        </div>
-      ) : null}
-
-      {activeSection === FINANCE_SETTINGS_SECTIONS.CONTRATOS && isOwner ? (
-        <div className="finance-settings-section-body finance-settings-section-body--flush">
-          <React.Suspense fallback={<RouteFallback />}>
-            <ContractTemplatesPage embedded embeddedFinance />
-          </React.Suspense>
         </div>
       ) : null}
     </>

@@ -34,9 +34,16 @@ describe('financeSettingsSections', () => {
     expect(ids).toContain(FINANCE_SETTINGS_SECTIONS.TAXAS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.PLANOS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.REGUA);
-    expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.CONTRATOS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.PLANO_CONTAS);
     expect(ids).not.toContain(FINANCE_SETTINGS_SECTIONS.RAZAO);
+  });
+
+  it('buildFinanceSettingsNavItems does not list modelos de contrato (aba própria)', () => {
+    const ownerNav = buildFinanceSettingsNavItems(true);
+    const adminNav = buildFinanceSettingsNavItems(false);
+    expect(ownerNav.map((item) => item.id)).not.toContain('contratos');
+    expect(adminNav.map((item) => item.id)).not.toContain('contratos');
+    expect(isFinanceSettingsSection('contratos')).toBe(null);
   });
 
   it('financeSettingsProgress for admin counts recebimento and taxas only', () => {

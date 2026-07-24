@@ -28,7 +28,7 @@
 
 ## Resumo
 
-O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, **formas de recebimento** (PIX, cartão, etc.), **meios de captura** por maquininha/link, taxas de cartão, régua de cobrança, lembretes WhatsApp e opcionalmente contratos. Alterações em campos inline ficam pendentes até **Salvar** na barra fixa **no topo do painel**; modais de conta bancária e recebedor de taxas gravam direto ao clicar **Salvar** no modal.
+O titular (ou admin, em escopo limitado) configura o financeiro em **Minha academia → Financeiro**: planos de mensalidade, contas para recebimento, **formas de recebimento** (PIX, cartão, etc.), **meios de captura** por maquininha/link, taxas de cartão, régua de cobrança e lembretes WhatsApp. Modelos de contrato ficam em **Minha academia → Contratos**. Alterações em campos inline ficam pendentes até **Salvar** na barra fixa **no topo do painel**; modais de conta bancária e recebedor de taxas gravam direto ao clicar **Salvar** no modal.
 
 O passo de onboarding `setup_finance` aponta para esta tela e considera concluído quando existe ao menos um plano nomeado.
 
@@ -73,9 +73,10 @@ flowchart TD
 | 5 | `&section=regua` (owner) | `FinanceSettingsCollectionSection` | Etapas e rótulo de atraso | `collectionRules` + `overdueLabel` |
 | 6 | `&section=lembretes-whatsapp` | `FinanceSettingsWhatsappRemindersSection` | Ativar lembretes antes/depois vencimento | `whatsappReminders` |
 | 7 | `&section=excecoes` | `FinanceSettingsExceptionsSection` | Personalizar rótulos de bolsa/cortesia | `exceptionStatusLabels` |
-| 8 | `&section=contratos` (owner) | `ContractTemplatesPage` (embedded) | Modelos de contrato | Vínculo com planos na matrícula |
-| 9 | Qualquer seção editável (campos inline) | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig`; barra sticky no topo do painel |
-| 10 | Onboarding | Checklist inicial | Clicar passo financeiro | Navega para `/empresa?tab=financeiro` |
+| 8 | Qualquer seção editável (campos inline) | `FinanceSettingsStickySave` | **Salvar** ou **Descartar** | `persistAll` grava em `financeConfig`; barra sticky no topo do painel |
+| 9 | Onboarding | Checklist inicial | Clicar passo financeiro | Navega para `/empresa?tab=financeiro` |
+
+**Modelos de contrato:** aba própria `/empresa?tab=contratos` (owner). Deep link legado `?tab=financeiro&section=contratos` redireciona para a aba Contratos.
 
 ### Seções da sidebar (grupos)
 
@@ -87,7 +88,6 @@ flowchart TD
 | Recomendado | `taxas` | ✅ | ✅ |
 | Recomendado | `regua` | ✅ | — |
 | Recomendado | `lembretes-whatsapp` | ✅ | ✅ |
-| Recomendado | `contratos` | ✅ | — |
 | Avançado | `excecoes` | ✅ | ✅ |
 | Avançado | `plano-contas`, `razao-contabil` | ✅ | — (ver [plano-contas-categorias.md](plano-contas-categorias.md)) |
 
@@ -125,7 +125,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 5. [ ] **Taxas**: percentuais > 0 marcam progresso (`feesConfigured`)
 6. [ ] **Régua**: customizar etapa ou rótulo de atraso → `collectionRulesConfigured`
 7. [ ] **WhatsApp**: habilitar lembrete antes ou depois do vencimento
-8. [ ] **Contratos**: link em planos abre `section=contratos`; modelos disponíveis no select do plano
+8. [ ] **Contratos**: link em planos abre `/empresa?tab=contratos`; modelos disponíveis no select do plano
 9. [ ] Descartar alterações → estado volta ao último salvo
 10. [ ] Remover plano/conta → `ConfirmDialog` antes de excluir
 11. [ ] Onboarding `setup_finance` marca done quando há plano nomeado
@@ -134,10 +134,11 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 ### Checklist passo a passo — admin
 
 1. [ ] Aba Financeiro acessível (não bloqueada)
-2. [ ] Sidebar **sem** planos, régua, contratos, plano de contas, razão
+2. [ ] Sidebar **sem** planos, régua, plano de contas, razão
 3. [ ] Default abre em **Recebimento**; **Formas de recebimento** editável
 4. [ ] Editar taxas e salvar funciona
 5. [ ] URL `?section=planos` redireciona para seção permitida
+6. [ ] Aba **Contratos** desabilitada (só titular)
 
 ### Estados de erro conhecidos
 
@@ -192,7 +193,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 ## Variações e atalhos
 
 - **Links do hub operacional:** `EMPRESA_FINANCE_ACCOUNTS_PATH` → `section=recebimento#contas`; config geral → `EMPRESA_FINANCE_CONFIG_PATH`
-- **Aliases legados:** `/finance` → `/empresa?tab=financeiro`; `/contratos/modelos` → `section=contratos`
+- **Aliases legados:** `/finance` → `/empresa?tab=financeiro`; `/contratos/modelos` → `/empresa?tab=contratos`; `?tab=financeiro&section=contratos` → `/empresa?tab=contratos`
 - **Progresso:** `buildFinanceSettingsSummaries` + `financeSettingsProgress` — owner: 4 núcleos; admin: 2 (recebimento + taxas)
 - **Próximo passo operacional:** após setup, fluxo [a-receber-mensalidades.md](a-receber-mensalidades.md)
 
@@ -202,6 +203,7 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-07-23 | — | Modelos de contrato → aba própria `/empresa?tab=contratos` |
 | 2026-07-23 | — | Planos: preço = lista; alunos usam `plan_price` (spec snapshot) |
 | 2026-06-15 | — | Criação Fase 2B |
 | 2026-06-16 | — | Validação pré-save, link para seção com erro, conta incompleta no modal Recebimento |
