@@ -664,7 +664,7 @@ export default function StudentProductSaleStep({
                 onPctChange={(e) => setDescGeralPct(e.target.value)}
               />
 
-              <label className="sales-collab-toggle__label student-product-sale__defer">
+              <label className="sales-deferred-toggle">
                 <input
                   type="checkbox"
                   checked={receiveLater}
@@ -676,7 +676,7 @@ export default function StudentProductSaleStep({
                     setLocalError('');
                   }}
                 />
-                <span className="sales-collab-toggle__text">Receber depois</span>
+                <span>Receber depois</span>
               </label>
 
               {receiveLater ? (
@@ -694,15 +694,18 @@ export default function StudentProductSaleStep({
                   />
                 </div>
               ) : (
-                <SalesPaymentBlock
-                  totalCents={totalFinalCents}
-                  payments={payments}
-                  onChange={setPayments}
-                  disabled={creating || cart.length === 0}
-                  inlineValidate
-                  financeConfig={financeConfig}
-                  allowPartial
-                />
+                <div className="sales-checkout-pay">
+                  <p className="sales-checkout-pay__label">Pagamento</p>
+                  <SalesPaymentBlock
+                    totalCents={totalFinalCents}
+                    payments={payments}
+                    onChange={setPayments}
+                    disabled={creating || cart.length === 0}
+                    inlineValidate
+                    financeConfig={financeConfig}
+                    allowPartial
+                  />
+                </div>
               )}
 
               {!hideSubmitButton ? (

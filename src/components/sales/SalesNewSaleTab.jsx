@@ -43,6 +43,7 @@ import {
   normalizePaymentForma,
   buildQuickPayment,
 } from '../../lib/salePayments';
+import { needsCaptureMethodSelect } from '../../lib/captureMethodPaymentForm.js';
 import {
   listSuspendedCarts,
   suspendCart,
@@ -128,7 +129,7 @@ export default function SalesNewSaleTab({
 
   const [deferredSale, setDeferredSale] = useState(false);
   const [dueDate, setDueDate] = useState('');
-  const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const [suspendedOpen, setSuspendedOpen] = useState(false);
   const [suspendedList, setSuspendedList] = useState([]);
@@ -404,10 +405,6 @@ export default function SalesNewSaleTab({
   ]);
 
   useEffect(() => {
-    setManualPaymentOpen(!pdvMode);
-  }, [pdvMode]);
-
-  useEffect(() => {
     if (!academyId) {
       setSuspendedList([]);
       return;
@@ -519,9 +516,15 @@ export default function SalesNewSaleTab({
     (rows) => {
       setDeferredSale(false);
       setPayments(rows);
-      setManualPaymentOpen(true);
+      const forma = normalizePaymentForma(rows?.[0]?.forma);
+      // Só abre o formulário quando há campos extras (troco, parcelas, maquininha).
+      const needsManual =
+        forma === 'dinheiro' ||
+        forma === 'cartao_credito' ||
+        needsCaptureMethodSelect(financeConfig, forma);
+      setManualPaymentOpen(needsManual);
     },
-    []
+    [financeConfig]
   );
 
   useEffect(() => {
@@ -1028,7 +1031,7 @@ export default function SalesNewSaleTab({
       <form
         id={formId || undefined}
         ref={formRef}
-        className="sales-new-sale animate-in"
+        className={`sales-new-sale animate-in${modalMode ? ' sales-new-sale--modal' : ''}`}
         onSubmit={submit}
       >
         <div className="sales-mobile-tabs" role="tablist" aria-label="Catálogo e carrinho">
@@ -1240,36 +1243,68 @@ export default function SalesNewSaleTab({
                 onPctChange={(e) => setDescGeralPct(e.target.value)}
               />
 
+              <label className="sales-deferred-toggle">
+                <input
+                  type="checkbox"
+                  checked={deferredSale}
+                  disabled={creating || cart.length === 0}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setDeferredSale(on);
+                    if (on) {
+                      setManualPaymentOpen(false);
+                      setDueDate((prev) => prev || defaultDeferredDueYmd());
+                    }
+                    setLocalError('');
+                  }}
+                />
+                <span>Vender a prazo (sem pagamento agora)</span>
+              </label>
+
               {!deferredSale ? (
-                <>
-                  <SalesQuickPayBar
-                    totalCents={totalFinalCents}
-                    disabled={creating || cart.length === 0}
-                    onApply={applyQuickPay}
-                    onFocusCashReceived={focusCashReceived}
-                    compact={!pdvMode}
-                    financeConfig={financeConfig}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost sales-manual-pay-toggle"
-                    onClick={() => setManualPaymentOpen((v) => !v)}
-                    disabled={cart.length === 0}
-                  >
-                    {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
-                  </button>
+                <div className="sales-checkout-pay">
+                  <p className="sales-checkout-pay__label">Pagamento</p>
                   {manualPaymentOpen ? (
-                    <SalesPaymentBlock
-                      totalCents={totalFinalCents}
-                      payments={payments}
-                      onChange={setPayments}
-                      disabled={creating || cart.length === 0}
-                      inlineValidate
-                      financeConfig={financeConfig}
-                      allowPartial
-                    />
-                  ) : null}
-                </>
+                    <>
+                      <SalesPaymentBlock
+                        totalCents={totalFinalCents}
+                        payments={payments}
+                        onChange={setPayments}
+                        disabled={creating || cart.length === 0}
+                        inlineValidate
+                        financeConfig={financeConfig}
+                        allowPartial
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost sales-manual-pay-toggle"
+                        onClick={() => setManualPaymentOpen(false)}
+                        disabled={cart.length === 0}
+                      >
+                        Usar pagamento rápido
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <SalesQuickPayBar
+                        totalCents={totalFinalCents}
+                        disabled={creating || cart.length === 0}
+                        onApply={applyQuickPay}
+                        onFocusCashReceived={focusCashReceived}
+                        compact={!pdvMode}
+                        financeConfig={financeConfig}
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost sales-manual-pay-toggle"
+                        onClick={() => setManualPaymentOpen(true)}
+                        disabled={cart.length === 0}
+                      >
+                        Pagamento manual ou dividido
+                      </button>
+                    </>
+                  )}
+                </div>
               ) : (
                 <div className="form-group sales-checkout__field">
                   <label htmlFor="sales-deferred-due">
@@ -1285,24 +1320,6 @@ export default function SalesNewSaleTab({
                   />
                 </div>
               )}
-
-              <label className="sales-collab-toggle__label sales-deferred-toggle">
-                <input
-                  type="checkbox"
-                  checked={deferredSale}
-                  disabled={creating || cart.length === 0}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setDeferredSale(on);
-                    if (on) {
-                      setManualPaymentOpen(false);
-                      setDueDate((prev) => prev || defaultDeferredDueYmd());
-                    }
-                    setLocalError('');
-                  }}
-                />
-                <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
-              </label>
 
               <details
                 className="sales-more-options"

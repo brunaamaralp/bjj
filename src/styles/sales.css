@@ -346,6 +346,20 @@
   padding: 0;
 }
 
+.navi-modal-shell.nova-venda-modal .navi-modal-shell__header {
+  padding: 16px 18px 12px;
+  margin-bottom: 0;
+  border-bottom: 0.5px solid var(--border-light);
+}
+
+.navi-modal-shell.nova-venda-modal .navi-modal-shell__footer {
+  margin-top: 0;
+  padding: 12px 18px 16px;
+  border-top: 0.5px solid var(--border-light);
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .nova-venda-modal__head {
   display: flex;
   align-items: center;
@@ -383,6 +397,82 @@
 
 .nova-venda-modal__body {
   padding: 14px 18px 18px;
+}
+
+.nova-venda-modal .sales-new-sale--modal .sales-layout__checkout {
+  position: static;
+}
+
+.nova-venda-modal .sales-new-sale--modal .sales-layout {
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .nova-venda-modal {
+    max-width: min(960px, 100vw);
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    max-height: min(96vh, calc(100dvh - 8px)) !important;
+  }
+
+  .navi-modal-overlay--form:has(.nova-venda-modal) {
+    align-items: flex-end;
+    padding: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+.nova-venda-modal .sales-checkout.card {
+  box-shadow: none;
+  border: 1px solid var(--border-light);
+}
+
+.sales-checkout-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface, #fff);
+}
+
+.sales-checkout-pay__label {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sales-checkout-pay .sales-quick-pay__label {
+  display: none;
+}
+
+.sales-deferred-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover, var(--v50));
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sales-deferred-toggle input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--v500);
+}
+
+.sales-deferred-toggle span {
+  line-height: 1.35;
 }
 
 .nova-venda-modal__back {
@@ -1729,7 +1819,14 @@
   border-color: var(--color-danger, var(--danger)) !important;
 }
 .sales-payment-block__label { margin: 0; }
-.sales-payment-row.card { padding: 12px; margin-bottom: 10px; }
+.sales-payment-row.card {
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: none;
+}
+.sales-checkout-pay .sales-payment-row.card {
+  background: var(--bg, #fff);
+}
 .sales-payment-row__field { flex: 1; min-width: 0; }
 .sales-payment-row__field-label { display: block; margin-bottom: 4px; }
 .sales-payment-row__remove { padding: 8px; flex-shrink: 0; }
@@ -1766,6 +1863,7 @@
   align-self: flex-start;
   font-size: var(--font-sm);
   padding: 4px 0;
+  min-height: 36px;
 }
 
 .sales-pos-hints {
