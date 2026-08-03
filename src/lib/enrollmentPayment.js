@@ -11,6 +11,7 @@ import { centsToNumber, parseMaskToCents } from './moneyBr.js';
 import { findPlanByName } from './academyPlans.js';
 import { trocoFieldsForPaymentPayload, validateStudentPaymentTroco } from './studentPaymentTroco.js';
 import { calcFinalPrice, getStudentDiscountAmount, normalizeDiscountType } from './planBilling.js';
+import { normalizeMensalidadesInstallments } from './mensalidadesPaymentForm.js';
 
 function amountMaskFromNumber(value) {
   const n = Number(value);
@@ -135,6 +136,7 @@ export async function registerEnrollmentPayment({
     paid_amount: amountNum,
     method: payForm.method,
     account: paymentAccount,
+    installments: normalizeMensalidadesInstallments(payForm.method, payForm.installments),
     plan_name: payForm.plan_name || '',
     status: payForm.status,
     payment_category: paymentType,

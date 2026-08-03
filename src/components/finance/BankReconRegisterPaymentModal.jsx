@@ -15,6 +15,8 @@ import {
 import CaptureMethodSelect from './CaptureMethodSelect.jsx';
 import CardBrandSelect from './CardBrandSelect.jsx';
 import {
+  isStorageCreditMethod,
+  normalizeMensalidadesInstallments,
   normalizeMensalidadesPaymentMethod,
   validateMensalidadesPaymentForm,
 } from '../../lib/mensalidadesPaymentForm.js';
@@ -50,6 +52,7 @@ export default function BankReconRegisterPaymentModal({
     account: '',
     paid_at: '',
     amount: '',
+    installments: 1,
     capture_method_id: '',
     capture_method_name: '',
     fee_receiver_id: '',
@@ -73,6 +76,7 @@ export default function BankReconRegisterPaymentModal({
     const captureDefaults = whenPaymentMethodChangesWithCapture(financeConfig, method);
     setForm({
       method,
+      installments: 1,
       ...captureDefaults,
       account: captureDefaults.account || resolveBankAccountForPayment('', financeConfig),
       paid_at: paidAt,
@@ -99,7 +103,7 @@ export default function BankReconRegisterPaymentModal({
       paid_at: form.paid_at,
       amount: form.amount,
       status: 'paid',
-      installments: 1,
+      installments: form.installments,
       capture_method_id: form.capture_method_id,
       card_brand: form.card_brand,
       fee_receiver_id: form.fee_receiver_id,
@@ -126,6 +130,7 @@ export default function BankReconRegisterPaymentModal({
     setErrors({});
     setFormError('');
     setSaving(true);
+    const installments = normalizeMensalidadesInstallments(form.method, form.installments);
     try {
       const result = await registerBankReconPayment(academyId, {
         item_id: bankItem.id,
@@ -135,6 +140,7 @@ export default function BankReconRegisterPaymentModal({
         amount: amountNum,
         paid_at: String(form.paid_at).slice(0, 10),
         method: normalizeMensalidadesPaymentMethod(form.method),
+        installments,
         bank_account_id: paymentAccount,
         ...resolveCaptureFieldsForPayment(financeConfig, form.method, form.capture_method_id),
         ...(form.card_brand ? { card_brand: String(form.card_brand).trim() } : {}),
@@ -145,6 +151,7 @@ export default function BankReconRegisterPaymentModal({
           method: normalizeMensalidadesPaymentMethod(form.method),
           status: 'paid',
           paid_at: String(form.paid_at).slice(0, 10),
+          installments,
         },
         { financeConfig, toast: toastAdapterFromAddToast(addToast) }
       );
@@ -158,6 +165,7 @@ export default function BankReconRegisterPaymentModal({
   };
 
   const isBusy = busy || saving;
+  const installments = normalizeMensalidadesInstallments(form.method, form.installments);
 
   return (
     <ModalShell
@@ -232,6 +240,7 @@ export default function BankReconRegisterPaymentModal({
                 setForm((f) => ({
                   ...f,
                   method,
+                  installments: isStorageCreditMethod(method) ? f.installments || 1 : 1,
                   ...whenPaymentMethodChangesWithCapture(financeConfig, method),
                 }));
               }}
@@ -243,6 +252,31 @@ export default function BankReconRegisterPaymentModal({
               ))}
             </select>
           </div>
+
+          {isStorageCreditMethod(form.method) ? (
+            <div className="form-group">
+              <label htmlFor="bank-recon-reg-installments">Parcelas</label>
+              <select
+                id="bank-recon-reg-installments"
+                className="form-input"
+                value={String(form.installments || 1)}
+                disabled={isBusy}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    installments: Number(e.target.value) || 1,
+                    card_brand: '',
+                  }))
+                }
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n}x
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <CaptureMethodSelect
             financeConfig={financeConfig}
@@ -275,7 +309,7 @@ export default function BankReconRegisterPaymentModal({
           <CardBrandSelect
             financeConfig={financeConfig}
             method={form.method}
-            installments={1}
+            installments={installments}
             captureMethodId={form.capture_method_id}
             feeReceiverId={form.fee_receiver_id}
             bankAccount={form.account}
@@ -288,7 +322,7 @@ export default function BankReconRegisterPaymentModal({
 
           {fallbackPath ? (
             <p className="text-xs text-muted mt-3 mb-0">
-              Caso complexo (pacote, parcelas)?{' '}
+              Caso complexo (pacote)?{' '}
               <Link to={fallbackPath} className="btn-text btn-sm p-0" onClick={onClose}>
                 Abrir em Mensalidades
               </Link>

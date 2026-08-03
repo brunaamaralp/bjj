@@ -15,7 +15,11 @@ import { hasConfiguredBankAccounts, resolveBankAccountForPayment } from '../../l
 import { pickFinanceConfigForPayments } from '../../lib/financeConfigForPayments.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { EMPRESA_FINANCE_ACCOUNTS_PATH } from '../../lib/financeiroHubTabs.js';
-import { STUDENT_PAY_FIELD_IDS } from '../../lib/mensalidadesPaymentForm.js';
+import {
+  isStorageCreditMethod,
+  normalizeMensalidadesInstallments,
+  STUDENT_PAY_FIELD_IDS,
+} from '../../lib/mensalidadesPaymentForm.js';
 import {
   pickInitialBankAccountForPayment,
 } from '../../lib/paymentMethodBankDefaults.js';
@@ -66,6 +70,10 @@ export function paymentFormFromDoc(payment, student, financeConfig = null) {
     capture_method_name: payment.capture_method_name || base.capture_method_name,
     fee_receiver_id: payment.fee_receiver_id || base.fee_receiver_id,
     card_brand: payment.card_brand || base.card_brand,
+    installments: normalizeMensalidadesInstallments(
+      payment.method || base.method,
+      payment.installments ?? base.installments
+    ),
     plan_name: payment.plan_name || base.plan_name,
     note: payment.note || '',
   };
@@ -100,6 +108,7 @@ export function buildDefaultPayForm(student, financeConfig = null) {
     capture_method_name: '',
     fee_receiver_id: '',
     card_brand: '',
+    installments: 1,
     cash_received: '',
     formaTroco: 'pix',
     trocoAccount: '',
@@ -537,6 +546,7 @@ export default function StudentPaymentModal({
                     setPayForm((p) => ({
                       ...p,
                       method,
+                      installments: isStorageCreditMethod(method) ? p.installments || 1 : 1,
                       ...whenPaymentMethodChangesWithCapture(effectiveFinanceConfig, method),
                       ...(isCashPaymentMethod(method) && !p.cash_received
                         ? { cash_received: p.amount || '' }
@@ -553,6 +563,34 @@ export default function StudentPaymentModal({
                   ))}
                 </select>
               </div>
+
+              {isStorageCreditMethod(payForm.method) ? (
+                <div className="form-group">
+                  <label className="form-label" htmlFor={STUDENT_PAY_FIELD_IDS.installments}>
+                    Parcelas
+                  </label>
+                  <select
+                    id={STUDENT_PAY_FIELD_IDS.installments}
+                    className="form-input"
+                    style={{ ...inputStyle, width: '100%' }}
+                    value={String(payForm.installments || 1)}
+                    disabled={saving}
+                    onChange={(e) =>
+                      setPayForm((p) => ({
+                        ...p,
+                        installments: Number(e.target.value) || 1,
+                        card_brand: '',
+                      }))
+                    }
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={String(n)}>
+                        {n}x
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <CaptureMethodSelect
                 financeConfig={effectiveFinanceConfig}
@@ -586,7 +624,7 @@ export default function StudentPaymentModal({
               <CardBrandSelect
                 financeConfig={effectiveFinanceConfig}
                 method={payForm.method}
-                installments={payForm.installments}
+                installments={normalizeMensalidadesInstallments(payForm.method, payForm.installments)}
                 captureMethodId={payForm.capture_method_id}
                 feeReceiverId={payForm.fee_receiver_id}
                 bankAccount={payForm.account}

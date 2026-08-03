@@ -13,7 +13,9 @@ import { toastAdapterFromAddToast } from '../../lib/financeTxSettlementDisplay.j
 import {
   validateMensalidadesPaymentForm,
   focusFirstStudentPaymentError,
+  normalizeMensalidadesInstallments,
 } from '../../lib/mensalidadesPaymentForm.js';
+import { resolveCaptureFieldsForPayment } from '../../lib/captureMethodPaymentForm.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import StudentPaymentModal, {
   buildDefaultPayForm,
@@ -159,6 +161,7 @@ export default function NovaVendaPlanPanel({
       paid_amount: amountNum,
       method: payForm.method,
       account: paymentAccount,
+      installments: normalizeMensalidadesInstallments(payForm.method, payForm.installments),
       plan_name: payForm.plan_name || student.plan || '',
       status: payForm.status,
       payment_category: paymentType,
@@ -171,6 +174,8 @@ export default function NovaVendaPlanPanel({
       registered_by_name: 'Usuário',
       note: String(payForm.note || '').trim(),
       ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
+      ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
+      ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
     };
 
     if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

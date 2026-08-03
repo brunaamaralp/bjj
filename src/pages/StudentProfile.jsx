@@ -113,7 +113,11 @@ import { trocoFieldsForPaymentPayload } from '../lib/studentPaymentTroco.js';
 import {
     validateMensalidadesPaymentForm,
     focusFirstStudentPaymentError,
+    normalizeMensalidadesInstallments,
 } from '../lib/mensalidadesPaymentForm.js';
+import {
+    resolveCaptureFieldsForPayment,
+} from '../lib/captureMethodPaymentForm.js';
 import { expectedAmountForStudent } from '../lib/paymentStatus.js';
 import { useUserRole } from '../lib/useUserRole.js';
 import { useCanEditProfile } from '../lib/profilePermissions.js';
@@ -1680,6 +1684,7 @@ export default function StudentProfile() {
             expected_amount: isPlanPayment ? expectedAmount : undefined,
             method: payForm.method,
             account: paymentAccount,
+            installments: normalizeMensalidadesInstallments(payForm.method, payForm.installments),
             plan_name: payForm.plan_name || student.plan || '',
             status: launchStatus,
             payment_category: paymentType,
@@ -1692,6 +1697,8 @@ export default function StudentProfile() {
             registered_by_name: sessionUserName,
             note: desc,
             ...trocoFieldsForPaymentPayload(payForm, amountNum, financeConfig),
+            ...resolveCaptureFieldsForPayment(financeConfig, payForm.method, payForm.capture_method_id),
+            ...(payForm.card_brand ? { card_brand: String(payForm.card_brand).trim() } : {}),
         };
 
         if (paymentType === PAYMENT_CATEGORY.BUNDLE) {

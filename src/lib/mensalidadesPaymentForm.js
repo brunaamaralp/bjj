@@ -181,7 +181,10 @@ export const STUDENT_PAY_FIELD_IDS = {
   cash_received: 'student-pay-cash-received',
   trocoAccount: 'student-pay-troco-account',
   account: 'student-pay-account',
+  installments: 'student-pay-installments',
   capture_method: 'student-pay-capture-method',
+  capture_method_id: 'student-pay-capture-method',
+  card_brand: 'student-pay-card-brand',
 };
 
 const STUDENT_PAY_ERROR_FOCUS_ORDER = [
@@ -192,7 +195,9 @@ const STUDENT_PAY_ERROR_FOCUS_ORDER = [
   'cash_received',
   'trocoAccount',
   'account',
+  'installments',
   'capture_method_id',
+  'card_brand',
 ];
 
 export function focusFirstStudentPaymentError(errors) {

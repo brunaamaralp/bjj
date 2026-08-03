@@ -11,11 +11,16 @@ import {
   whenPaymentMethodChangesWithCapture,
 } from '../lib/captureMethodPaymentForm.js';
 import CaptureMethodSelect from './finance/CaptureMethodSelect.jsx';
+import CardBrandSelect from './finance/CardBrandSelect.jsx';
 import CashTrocoFields from './finance/CashTrocoFields.jsx';
 import { isCashPaymentMethod } from '../lib/studentPaymentTroco.js';
 import { centsToNumber, formatBRL, parseMaskToCents } from '../lib/moneyBr.js';
 import { DISCOUNT_TYPES, parseDiscountAmountInput } from '../lib/planBilling.js';
 import { enrollmentPlanPricing } from '../lib/enrollmentPayment.js';
+import {
+  isStorageCreditMethod,
+  normalizeMensalidadesInstallments,
+} from '../lib/mensalidadesPaymentForm.js';
 
 /**
  * Pagamento opcional pós-matrícula (mensalidade ou pacote).
@@ -244,6 +249,7 @@ function MatriculaPaymentStepForm({
             setPayForm((p) => ({
               ...p,
               method,
+              installments: isStorageCreditMethod(method) ? p.installments || 1 : 1,
               ...whenPaymentMethodChangesWithCapture(financeConfig, method),
               ...(isCashPaymentMethod(method) && !p.cash_received
                 ? { cash_received: p.amount || '' }
@@ -260,6 +266,33 @@ function MatriculaPaymentStepForm({
           ))}
         </select>
       </div>
+
+      {isStorageCreditMethod(payForm.method) ? (
+        <div className="form-group">
+          <label className="form-label" htmlFor="matricula-pay-installments">
+            Parcelas
+          </label>
+          <select
+            id="matricula-pay-installments"
+            className="form-input"
+            value={String(payForm.installments || 1)}
+            disabled={disabled}
+            onChange={(e) =>
+              setPayForm((p) => ({
+                ...p,
+                installments: Number(e.target.value) || 1,
+                card_brand: '',
+              }))
+            }
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={String(n)}>
+                {n}x
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <CaptureMethodSelect
         financeConfig={financeConfig}
@@ -295,9 +328,22 @@ function MatriculaPaymentStepForm({
           required={payForm.status === 'paid'}
           value={payForm.account || ''}
           disabled={disabled}
-          onChange={(v) => setPayForm((p) => ({ ...p, account: v }))}
+          onChange={(v) => setPayForm((p) => ({ ...p, account: v, card_brand: '' }))}
         />
       ) : null}
+
+      <CardBrandSelect
+        financeConfig={financeConfig}
+        method={payForm.method}
+        installments={normalizeMensalidadesInstallments(payForm.method, payForm.installments)}
+        captureMethodId={payForm.capture_method_id}
+        feeReceiverId={payForm.fee_receiver_id}
+        bankAccount={payForm.account}
+        value={payForm.card_brand}
+        id="matricula-pay-card-brand"
+        disabled={disabled}
+        onChange={(brand) => setPayForm((p) => ({ ...p, card_brand: brand }))}
+      />
 
       <div className="form-group">
         <label className="form-label">Observação (opcional)</label>
