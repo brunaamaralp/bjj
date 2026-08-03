@@ -1857,8 +1857,39 @@
   padding: 10px 12px;
   text-align: left;
 }
+.sales-quick-pay__btn--active {
+  border-color: var(--v500);
+  background: var(--v50);
+  color: var(--v700);
+  box-shadow: inset 0 0 0 1px var(--v500);
+}
 .sales-quick-pay__btn-label { font-weight: 700; font-size: var(--font-sm); }
 .sales-quick-pay__btn-total { font-size: var(--font-xs); opacity: 0.85; }
+.sales-quick-pay__extras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border-light);
+}
+.sales-quick-pay__extras .sales-payment-row__capture-field {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  grid-column: 1 / -1;
+}
+.sales-quick-pay__installments {
+  min-width: 0;
+}
+.sales-quick-pay__extras .card-brand-select,
+.sales-quick-pay__extras [class*='card-brand'] {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .sales-quick-pay__extras {
+    grid-template-columns: 1fr;
+  }
+}
 .sales-manual-pay-toggle {
   align-self: flex-start;
   font-size: var(--font-sm);

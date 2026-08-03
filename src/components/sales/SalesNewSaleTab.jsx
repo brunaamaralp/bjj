@@ -43,7 +43,6 @@ import {
   normalizePaymentForma,
   buildQuickPayment,
 } from '../../lib/salePayments';
-import { needsCaptureMethodSelect } from '../../lib/captureMethodPaymentForm.js';
 import {
   listSuspendedCarts,
   suspendCart,
@@ -517,14 +516,10 @@ export default function SalesNewSaleTab({
       setDeferredSale(false);
       setPayments(rows);
       const forma = normalizePaymentForma(rows?.[0]?.forma);
-      // Só abre o formulário quando há campos extras (troco, parcelas, maquininha).
-      const needsManual =
-        forma === 'dinheiro' ||
-        forma === 'cartao_credito' ||
-        needsCaptureMethodSelect(financeConfig, forma);
-      setManualPaymentOpen(needsManual);
+      // Crédito fica no pagamento rápido (com Parcelas inline). Dinheiro abre o form de troco.
+      setManualPaymentOpen(forma === 'dinheiro');
     },
-    [financeConfig]
+    []
   );
 
   useEffect(() => {
@@ -1293,6 +1288,8 @@ export default function SalesNewSaleTab({
                         onFocusCashReceived={focusCashReceived}
                         compact={!pdvMode}
                         financeConfig={financeConfig}
+                        payments={payments}
+                        onPaymentsChange={setPayments}
                       />
                       <button
                         type="button"
