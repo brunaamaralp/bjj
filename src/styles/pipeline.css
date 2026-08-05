@@ -103,9 +103,8 @@
 }
 
 .pipeline-container .filter-chip.is-active {
-  background: var(--color-accent);
-  color: #fff;
-  border-color: var(--color-accent);
+  /* herda --filter-* canônicos; densifica raio local */
+  border-radius: 10px;
 }
 
 .pipeline-container .filter-chip--alert {

@@ -2414,6 +2414,16 @@ const Pipeline = () => {
         Boolean(quickFilter || filterDateFrom || filterDateTo || enrollmentMonthFilter) ||
         searchStageScope !== 'all';
 
+    const advancedFilterCount = [
+        profileFilter !== 'all',
+        originFilter !== 'all',
+        Boolean(quickFilter),
+        Boolean(filterDateFrom),
+        Boolean(filterDateTo),
+        Boolean(enrollmentMonthFilter),
+        searchStageScope !== 'all',
+    ].filter(Boolean).length;
+
     const clearAdvancedFilters = useCallback(() => {
         setProfileFilter('all');
         setOriginFilter('all');
@@ -3048,6 +3058,9 @@ const Pipeline = () => {
                                         onClick={() => setFiltersMenuOpen((v) => !v)}
                                     >
                                         <SlidersHorizontal size={14} aria-hidden /> Filtros
+                                        {advancedFilterCount > 0 ? (
+                                            <span className="filter-count">{advancedFilterCount}</span>
+                                        ) : null}
                                     </button>
                                     {renderFiltersMenuPanel()}
                                 </DropdownMenu>
@@ -3105,6 +3118,9 @@ const Pipeline = () => {
                                     onClick={() => setFiltersMenuOpen((v) => !v)}
                                 >
                                     <SlidersHorizontal size={16} aria-hidden />
+                                    {advancedFilterCount > 0 ? (
+                                        <span className="filter-count">{advancedFilterCount}</span>
+                                    ) : null}
                                 </button>
                                 {renderFiltersMenuPanel()}
                             </DropdownMenu>

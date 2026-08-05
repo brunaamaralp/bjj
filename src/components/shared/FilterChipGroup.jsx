@@ -15,6 +15,7 @@ export default function FilterChipGroup({
           <button
             key={opt.id}
             type="button"
+            aria-pressed={active}
             className={[
               'filter-chip',
               size === 'sm' ? 'filter-chip--sm' : '',

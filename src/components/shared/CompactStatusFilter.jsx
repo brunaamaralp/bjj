@@ -46,6 +46,24 @@ export default function CompactStatusFilter({
     setOpen(false);
   };
 
+  const renderOption = (opt) => (
+    <button
+      key={opt.id}
+      type="button"
+      role="option"
+      aria-selected={value === opt.id}
+      className={`navi-menu__item filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' navi-menu__item--active mensal-status-filter__option--active is-active' : ''}`}
+      onClick={() => pick(opt.id)}
+      title={opt.title || undefined}
+    >
+      <span>
+        {opt.label}
+        {showCounts && opt.count != null ? ` (${opt.count})` : ''}
+      </span>
+      {value === opt.id ? <Check size={12} aria-hidden /> : null}
+    </button>
+  );
+
   return (
     <div className={`filter-dropdown mensal-status-filter ${className}`.trim()} ref={rootRef}>
       <button
@@ -61,7 +79,7 @@ export default function CompactStatusFilter({
       {isActive ? (
         <button
           type="button"
-          className="filter-clear mensal-status-filter__clear"
+          className="filter-clear filter-clear--icon mensal-status-filter__clear"
           onClick={() => onChange('all')}
           aria-label="Limpar filtro"
         >
@@ -73,46 +91,14 @@ export default function CompactStatusFilter({
           className="filter-dropdown__menu mensal-status-filter__menu navi-menu__panel"
           role="listbox"
         >
-          {options.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              role="option"
-              aria-selected={value === opt.id}
-              className={`navi-menu__item filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' navi-menu__item--active mensal-status-filter__option--active is-active' : ''}`}
-              onClick={() => pick(opt.id)}
-              title={opt.title || undefined}
-            >
-              <span>
-                {value === opt.id ? '●' : '○'} {opt.label}
-                {showCounts && opt.count != null ? ` (${opt.count})` : ''}
-              </span>
-              {value === opt.id ? <Check size={12} aria-hidden /> : null}
-            </button>
-          ))}
+          {options.map(renderOption)}
           {extraSections.map((section) => (
             <React.Fragment key={section.label || 'extra'}>
               <div className="mensal-status-filter__divider" role="separator" />
               {section.label ? (
                 <div className="navi-menu__label mensal-status-filter__section-label">{section.label}</div>
               ) : null}
-              {(section.options || []).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="option"
-                  aria-selected={value === opt.id}
-                  className={`navi-menu__item filter-dropdown__option mensal-status-filter__option${value === opt.id ? ' navi-menu__item--active mensal-status-filter__option--active is-active' : ''}`}
-                  onClick={() => pick(opt.id)}
-                  title={opt.title || undefined}
-                >
-                  <span>
-                    {value === opt.id ? '●' : '○'} {opt.label}
-                    {showCounts && opt.count != null ? ` (${opt.count})` : ''}
-                  </span>
-                  {value === opt.id ? <Check size={12} aria-hidden /> : null}
-                </button>
-              ))}
+              {(section.options || []).map(renderOption)}
             </React.Fragment>
           ))}
         </div>

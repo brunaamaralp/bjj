@@ -93,6 +93,8 @@ import FinanceTxStudentField from './FinanceTxStudentField.jsx';
 import FinanceTxDirectionToggle from './FinanceTxDirectionToggle.jsx';
 import FinanceTxFormSection from './FinanceTxFormSection.jsx';
 import SearchField from '../shared/SearchField.jsx';
+import FilterClearAll from '../shared/FilterClearAll.jsx';
+import FilterTag from '../shared/FilterTag.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
 import PlanSelect from '../shared/PlanSelect.jsx';
 import { planPriceToPayAmountString } from '../../lib/academyPlans.js';
@@ -597,6 +599,12 @@ export default function TransacoesTab({
     directionFilter !== 'all' ||
     bankAccountFilter !== 'all' ||
     txSearch.trim().length > 0;
+
+  const activeTxFilterCount =
+    (statusFilter !== 'all' ? 1 : 0) +
+    (directionFilter !== 'all' ? 1 : 0) +
+    (bankAccountFilter !== 'all' ? 1 : 0) +
+    (txSearch.trim().length > 0 ? 1 : 0);
 
   const clearTxFilters = useCallback(() => {
     setStatusFilter('all');
@@ -1491,15 +1499,32 @@ export default function TransacoesTab({
               aria-label="Buscar lançamentos"
             />
             {hasActiveTxFilters ? (
-              <button
-                type="button"
-                className="btn-outline btn-sm filter-clear navi-btn--toolbar"
-                onClick={clearTxFilters}
-              >
-                Limpar filtros
-              </button>
+              <FilterClearAll count={Math.max(1, activeTxFilterCount)} onClick={clearTxFilters} />
             ) : null}
           </div>
+          {activeTxFilterCount >= 2 ? (
+            <div className="filter-toolbar__active finance-tx-toolbar__active" aria-live="polite">
+              {statusFilter !== 'all' ? (
+                <FilterTag label={`Status: ${statusFilter}`} onRemove={() => setStatusFilter('all')} />
+              ) : null}
+              {directionFilter !== 'all' ? (
+                <FilterTag
+                  label={`Natureza: ${directionFilter}`}
+                  onRemove={() => setDirectionFilter('all')}
+                />
+              ) : null}
+              {bankAccountFilter !== 'all' ? (
+                <FilterTag
+                  label={`Conta: ${bankAccountFilter}`}
+                  onRemove={() => setBankAccountFilter('all')}
+                />
+              ) : null}
+              {txSearch.trim() ? (
+                <FilterTag label={`Busca: ${txSearch.trim()}`} onRemove={() => setTxSearch('')} />
+              ) : null}
+              <FilterClearAll count={activeTxFilterCount} onClick={clearTxFilters} />
+            </div>
+          ) : null}
           <div className="finance-hub-filters__row finance-hub-filters__row--actions finance-tx-toolbar__actions-row">
             <div
               className="finance-tx-period-balance-inline finance-hub-filters__meta"

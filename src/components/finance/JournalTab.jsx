@@ -9,6 +9,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import StatusBanner from '../shared/StatusBanner.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
+import FilterClearAll from '../shared/FilterClearAll.jsx';
 import FinanceFiltersBar, { FinanceToolbarDate, FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
 import { DateInputField } from '../DateInput';
 
@@ -165,6 +166,11 @@ export default function JournalTab({
   }, [journal, effectiveSearch, accountById, direction, fromDate, toDate]);
 
   const hasActiveFilters = Boolean(effectiveSearch || fromDate || toDate || direction !== 'all');
+  const activeFilterCount =
+    (effectiveSearch ? 1 : 0) +
+    (fromDate ? 1 : 0) +
+    (toDate ? 1 : 0) +
+    (direction !== 'all' ? 1 : 0);
 
   const Wrapper = embedded ? 'div' : 'section';
   const wrapperClass = embedded ? 'finance-journal-embedded' : 'finance-tab-panel animate-in';
@@ -363,18 +369,15 @@ export default function JournalTab({
             <option value="credit">Crédito</option>
           </FinanceToolbarSelect>
           {hasActiveFilters ? (
-            <button
-              type="button"
-              className="btn-outline btn-sm filter-clear navi-btn--toolbar"
+            <FilterClearAll
+              count={Math.max(1, activeFilterCount)}
               onClick={() => {
                 setSearch('');
                 setFromDate('');
                 setToDate('');
                 setDirection('all');
               }}
-            >
-              Limpar filtros
-            </button>
+            />
           ) : null}
         </FinanceFiltersBar>
         <div className="finance-table-wrap">

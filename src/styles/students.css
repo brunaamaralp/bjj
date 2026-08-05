@@ -397,9 +397,13 @@
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--color-primary, var(--accent));
   cursor: pointer;
   font-family: inherit;
+  margin-left: 0;
+}
+.students-filters-clear-desktop {
+  margin-left: auto;
 }
 .students-mobile-filters-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .students-mobile-filter-group { width: 100%; flex-direction: column; align-items: stretch; }

@@ -77,6 +77,8 @@ import { buildBankReconReturnPath } from '../../lib/bankReconPaymentHintLink.js'
 import SearchField from '../shared/SearchField.jsx';
 import HubTabBar from '../shared/HubTabBar.jsx';
 import FinanceFiltersBar, { FinanceToolbarSelect } from './FinanceFiltersBar.jsx';
+import FilterClearAll from '../shared/FilterClearAll.jsx';
+import FilterTag from '../shared/FilterTag.jsx';
 import CompactStatusFilter from '../shared/CompactStatusFilter.jsx';
 import {
   buildMensalidadesGridRows,
@@ -1139,6 +1141,37 @@ export default function MensalidadesPanel({
     exSortBy,
   ]);
 
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (search.trim().length > 0) n += 1;
+    if ((viewMode === 'list' || viewMode === 'grid') && filter !== 'all') n += 1;
+    if ((viewMode === 'list' || viewMode === 'grid') && turmaFilter !== 'all') n += 1;
+    if ((viewMode === 'list' || viewMode === 'grid') && planFilter !== 'all') n += 1;
+    if (viewMode === 'list' && dueSortOrder) n += 1;
+    if (viewMode === 'grid' && gridSortBy !== 'name') n += 1;
+    if (viewMode === 'exceptions') {
+      if (exStatusFilter !== 'all') n += 1;
+      if (exTurmaFilter !== 'all') n += 1;
+      if (exPlatformFilter !== 'all') n += 1;
+      if (exOnlyWithDiff) n += 1;
+      if (exSortBy !== 'difference') n += 1;
+    }
+    return n;
+  }, [
+    search,
+    filter,
+    viewMode,
+    turmaFilter,
+    planFilter,
+    dueSortOrder,
+    gridSortBy,
+    exStatusFilter,
+    exTurmaFilter,
+    exPlatformFilter,
+    exOnlyWithDiff,
+    exSortBy,
+  ]);
+
   const fmtMoney = formatBRL;
 
   const handleMonthChange = useCallback(
@@ -1355,15 +1388,26 @@ export default function MensalidadesPanel({
             </>
           ) : null}
           {hasActiveFilters ? (
-            <button
-              type="button"
-              className="btn-outline btn-sm filter-clear navi-btn--toolbar"
-              onClick={clearFilters}
-            >
-              Limpar filtros
-            </button>
+            <FilterClearAll count={Math.max(1, activeFilterCount)} onClick={clearFilters} />
           ) : null}
         </FinanceFiltersBar>
+        {activeFilterCount >= 2 ? (
+          <div className="filter-toolbar__active mensal-toolbar__active" aria-live="polite">
+            {search.trim() ? (
+              <FilterTag label={`Busca: ${search.trim()}`} onRemove={() => setSearch('')} />
+            ) : null}
+            {(viewMode === 'list' || viewMode === 'grid') && filter !== 'all' ? (
+              <FilterTag label={`Status: ${filter}`} onRemove={() => setFilter('all')} />
+            ) : null}
+            {(viewMode === 'list' || viewMode === 'grid') && turmaFilter !== 'all' ? (
+              <FilterTag label={`Turma: ${turmaFilter}`} onRemove={() => setTurmaFilter('all')} />
+            ) : null}
+            {(viewMode === 'list' || viewMode === 'grid') && planFilter !== 'all' ? (
+              <FilterTag label={`Plano: ${planFilter}`} onRemove={() => setPlanFilter('all')} />
+            ) : null}
+            <FilterClearAll count={activeFilterCount} onClick={clearFilters} />
+          </div>
+        ) : null}
 
       </header>
 

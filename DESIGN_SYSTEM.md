@@ -163,6 +163,10 @@ Opacidades sobre primária: preferir `rgba(108, 71, 216, α)` ou `color-mix(in s
 - `PageHeader`
 - `HubTabBar`
 - `FilterBar`
+- `FilterToolbar`
+- `FilterChipGroup`
+- `FilterTag`
+- `FilterClearAll`
 - `SearchField`
 - `FormSelect`
 - `ModalShell`
@@ -180,7 +184,7 @@ Opacidades sobre primária: preferir `rgba(108, 71, 216, α)` ou `color-mix(in s
 - Usa tokens `--color-*` (ou aliases legados documentados) em vez de hex fixos para cor.
 - CTAs na sidebar usam `--color-accent` com texto claro; conteúdo usa `--color-primary` para `.btn-primary`.
 - Header de página usa `PageHeader` (quando aplicável).
-- Filtros usam `FilterBar` + `SearchField` + classes de controls.
+- Filtros: active = primary surface; clear via `FilterClearAll`; chips = `<button>` / `FilterChipGroup`; busca via `SearchField`.
 - Confirmação destrutiva usa `ConfirmDialog` ou `ModalShell`.
 - Feedback persistente usa `StatusBanner`/`ErrorBanner`.
 - Sem novos `z-index` hardcoded sem justificar mapeamento para `--z-*`.

@@ -1,6 +1,7 @@
 import React from 'react';
 import { LEAD_ORIGIN } from '../../store/useLeadStore';
 import { DateInputField } from '../DateInput';
+import FilterClearAll from '../shared/FilterClearAll.jsx';
 /**
  * Filtros avançados do funil — aplicam imediatamente ao alterar (sem rascunho).
  */
@@ -15,11 +16,16 @@ export default function PipelineAdvancedFilters({
   onChange,
   onClear,
 }) {
-  const hasActive =
-    profileFilter !== 'all' ||
-    originFilter !== 'all' ||
-    Boolean(filterDateFrom || filterDateTo || enrollmentMonthFilter) ||
-    searchStageScope !== 'all';
+  const activeCount = [
+    profileFilter !== 'all',
+    originFilter !== 'all',
+    Boolean(filterDateFrom),
+    Boolean(filterDateTo),
+    Boolean(enrollmentMonthFilter),
+    searchStageScope !== 'all',
+  ].filter(Boolean).length;
+
+  const hasActive = activeCount > 0;
 
   const patch = (updates) => onChange?.(updates);
 
@@ -139,9 +145,7 @@ export default function PipelineAdvancedFilters({
 
       {hasActive ? (
         <div className="pipeline-filters-panel__actions">
-          <button type="button" className="btn-outline btn-sm pipeline-filters-panel__clear-all" onClick={onClear}>
-            Limpar filtros
-          </button>
+          <FilterClearAll count={activeCount} onClick={onClear} />
         </div>
       ) : null}
     </div>

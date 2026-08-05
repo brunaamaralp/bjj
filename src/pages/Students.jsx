@@ -5,6 +5,8 @@ import { useUiStore } from '../store/useUiStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Upload, RefreshCw, Download, UserPlus, X, DoorOpen, Users } from 'lucide-react';
 import SearchField from '../components/shared/SearchField.jsx';
+import FilterChipGroup from '../components/shared/FilterChipGroup.jsx';
+import FilterClearAll from '../components/shared/FilterClearAll.jsx';
 
 const ControlIdAttendancePanel = lazy(() => import('../components/attendance/ControlIdAttendancePanel.jsx'));
 const ImportSheet = lazy(() => import('../components/ImportSheet'));
@@ -400,42 +402,22 @@ const Students = ({ embedded = false }) => {
                                 aria-hidden
                             />
                         </button>
-                        {filtrosAtivos ? (
-                            <button type="button" className="students-filters-clear-mobile" onClick={limparFiltros}>
-                                Limpar
-                            </button>
-                        ) : null}
+                        <FilterClearAll
+                            className="students-filters-clear-mobile"
+                            count={filtrosAtivos ? Math.max(1, collapsibleFilterCount || 1) : 0}
+                            onClick={limparFiltros}
+                        />
                     </div>
                     <div className={`students-mobile-filters-panel${filtersExpanded ? ' is-open' : ''}`}>
                         <div className="filter-bar students-mobile-filters-chips">
-                            <span
-                                className={`filter-chip${!showInactive ? ' is-active' : ''}`}
-                                onClick={() => setShowInactive(false)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        setShowInactive(false);
-                                    }
-                                }}
-                            >
-                                Ativos
-                            </span>
-                            <span
-                                className={`filter-chip${showInactive ? ' is-active' : ''}`}
-                                onClick={() => setShowInactive(true)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        setShowInactive(true);
-                                    }
-                                }}
-                            >
-                                Inativos
-                            </span>
+                            <FilterChipGroup
+                                value={showInactive ? 'inativos' : 'ativos'}
+                                onChange={(id) => setShowInactive(id === 'inativos')}
+                                options={[
+                                    { id: 'ativos', label: 'Ativos' },
+                                    { id: 'inativos', label: 'Inativos' },
+                                ]}
+                            />
                         </div>
                         <div className="filter-group students-mobile-filter-group">
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
@@ -464,34 +446,14 @@ const Students = ({ embedded = false }) => {
                         </select>
                     </div>
                     <div className="page-header-row filter-bar students-header-row-filters">
-                        <span
-                            className={`filter-chip${!showInactive ? ' is-active' : ''}`}
-                            onClick={() => setShowInactive(false)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setShowInactive(false);
-                                }
-                            }}
-                        >
-                            Ativos
-                        </span>
-                        <span
-                            className={`filter-chip${showInactive ? ' is-active' : ''}`}
-                            onClick={() => setShowInactive(true)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setShowInactive(true);
-                                }
-                            }}
-                        >
-                            Inativos
-                        </span>
+                        <FilterChipGroup
+                            value={showInactive ? 'inativos' : 'ativos'}
+                            onChange={(id) => setShowInactive(id === 'inativos')}
+                            options={[
+                                { id: 'ativos', label: 'Ativos' },
+                                { id: 'inativos', label: 'Inativos' },
+                            ]}
+                        />
                         <div className="filter-group">
                             <select value={filtroOrigem} onChange={(e) => setFiltroOrigem(e.target.value)}>
                                 <option value="Todas">Todas as origens</option>
@@ -518,11 +480,11 @@ const Students = ({ embedded = false }) => {
                             <option value="za">Nome Z-A</option>
                             <option value="recentes">Mais recente</option>
                         </select>
-                        {filtrosAtivos ? (
-                            <button type="button" className="btn-action-ghost" onClick={limparFiltros} style={{ color: 'var(--accent)', marginLeft: 'auto' }}>
-                                Limpar filtros
-                            </button>
-                        ) : null}
+                        <FilterClearAll
+                            count={filtrosAtivos ? Math.max(1, collapsibleFilterCount || 1) : 0}
+                            onClick={limparFiltros}
+                            className="students-filters-clear-desktop"
+                        />
                     </div>
                 </div>
                 )}

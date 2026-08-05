@@ -114,6 +114,25 @@
   --control-bg: var(--branco);
   --control-bg-muted: var(--azul-gelo);
 
+  /* Filtros — toolbar SaaS (ver docs/controls-toolbar.md) */
+  --filter-control-h: var(--control-height-toolbar);
+  --filter-gap: var(--control-gap);
+  --filter-gap-tight: 4px;
+  --filter-radius: var(--control-radius-sm); /* 8px */
+  --filter-chip-radius: 999px;
+  --filter-font: var(--font-sm);
+  --filter-font-label: var(--font-xs);
+  --filter-pad-x: 10px;
+  --filter-bg: transparent;
+  --filter-bg-hover: var(--surface-hover, var(--azul-gelo));
+  --filter-bg-active: var(--color-primary-surface, var(--v50));
+  --filter-border: var(--control-border);
+  --filter-border-active: 1px solid var(--color-primary);
+  --filter-text: var(--text-secondary);
+  --filter-text-active: var(--color-primary-dark, var(--v700));
+  --filter-menu-shadow: 0 8px 24px rgba(15, 15, 15, 0.08);
+  --filter-transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+
   /* Filtro opcional no ícone nativo do calendário (WebKit) */
   --date-icon-filter: none;
   --transition: all 0.15s ease;
@@ -543,30 +562,45 @@ a.btn-ghost:focus-visible {
   border-right: none;
 }
 
+.filter-chip-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--filter-gap-tight, 4px);
+}
+
 .filter-chip {
-  font-size: var(--font-xs);
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 0.5px solid var(--border-light);
+  font-size: var(--filter-font-label, var(--font-xs));
+  padding: 5px var(--filter-pad-x, 10px);
+  min-height: 32px;
+  border-radius: var(--filter-chip-radius, 999px);
+  border: var(--filter-border, 0.5px solid var(--border-light));
   background: var(--surface);
-  color: var(--text-secondary);
+  color: var(--filter-text, var(--text-secondary));
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: var(--filter-transition, background 0.15s ease, border-color 0.15s ease, color 0.15s ease);
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
 .filter-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--filter-bg-hover);
+  border-color: var(--color-primary-light, var(--v200));
+  color: var(--color-text-primary, var(--text));
+}
+
+.filter-chip:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 .filter-chip.is-active {
-  background: var(--color-accent);
-  color: #fff;
-  border-color: var(--color-accent);
+  background: var(--filter-bg-active);
+  color: var(--filter-text-active);
+  border: var(--filter-border-active);
+  font-weight: 600;
 }
 
 .filter-chip--sm {
@@ -585,8 +619,15 @@ a.btn-ghost:focus-visible {
 }
 
 .filter-chip.is-active .filter-count {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-primary) 18%, white);
+  color: var(--filter-text-active);
+}
+
+.filter-chip:disabled,
+.filter-chip[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .filter-clear {
@@ -607,27 +648,136 @@ a.btn-ghost:focus-visible {
   color: var(--v500);
 }
 
-.date-chip {
-  font-size: var(--font-xs);
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 0.5px solid var(--border-light);
-  background: var(--surface);
+.filter-clear.filter-clear--icon {
+  min-width: 34px;
+  min-height: 34px;
+}
+
+.filter-bar--stacked-mobile {
+  /* desktop: inherit .filter-bar flex row */
+}
+
+@media (max-width: 720px) {
+  .filter-bar--stacked-mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-bar--stacked-mobile > * {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+.filter-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-toolbar__primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--filter-gap, var(--control-gap));
+  min-height: var(--filter-control-h, var(--control-height-toolbar));
+}
+
+.filter-toolbar__spacer {
+  flex: 1 1 8px;
+  min-width: 8px;
+}
+
+.filter-toolbar__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--filter-gap, var(--control-gap));
+}
+
+.filter-toolbar__active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  border-radius: var(--filter-chip-radius, 999px);
+  background: var(--filter-bg-active);
+  border: var(--filter-border-active);
+  color: var(--filter-text-active);
+  font-size: var(--filter-font-label, var(--font-xs));
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--filter-transition);
+}
+
+.filter-tag:hover {
+  background: color-mix(in srgb, var(--color-primary) 14%, white);
+}
+
+.filter-tag:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.filter-clear-all {
+  margin-left: 4px;
+  border: none;
+  background: transparent;
   color: var(--text-secondary);
+  font-size: var(--filter-font, var(--font-sm));
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--filter-radius);
+}
+
+.filter-clear-all:hover {
+  color: var(--color-primary);
+  background: var(--filter-bg-hover);
+}
+
+.filter-clear-all:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.date-chip {
+  font-size: var(--filter-font-label, var(--font-xs));
+  padding: 5px var(--filter-pad-x, 10px);
+  border-radius: var(--filter-chip-radius, 999px);
+  border: var(--filter-border, 0.5px solid var(--border-light));
+  background: var(--surface);
+  color: var(--filter-text, var(--text-secondary));
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: var(--filter-transition, background 0.15s ease, border-color 0.15s ease, color 0.15s ease);
 }
 
 .date-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--filter-bg-hover);
+  border-color: var(--color-primary-light, var(--v200));
+  color: var(--color-text-primary, var(--text));
+}
+
+.date-chip:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 .date-chip.active {
-  background: var(--color-accent);
-  color: #fff;
-  border-color: var(--color-accent);
+  background: var(--filter-bg-active);
+  color: var(--filter-text-active);
+  border: var(--filter-border-active);
+  font-weight: 600;
 }
 
 .btn-action-ghost,

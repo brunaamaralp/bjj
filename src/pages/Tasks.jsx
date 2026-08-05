@@ -62,6 +62,9 @@ import {
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
+import FilterChipGroup from '../components/shared/FilterChipGroup.jsx';
+import FilterTag from '../components/shared/FilterTag.jsx';
+import FilterClearAll from '../components/shared/FilterClearAll.jsx';
 import { friendlyError } from '../lib/errorMessages';
 import { useTerms, contactLabelSingular } from '../lib/terminology.js';
 import CollectionResultModal from '../components/CollectionResultModal.jsx';
@@ -1471,43 +1474,50 @@ export default function Tasks() {
         />
         
         <div className="filter-bar task-filters">
-          {[
-            { id: 'all', label: 'Todas' },
-            { id: 'pendentes', label: 'Pendentes' },
-            { id: 'minhas', label: 'Minhas' },
-            { id: 'vencidas', label: 'Vencidas' },
-            { id: 'concluidas', label: 'Concluídas' },
-          ].map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              className={`filter-chip ${filters.status === id ? 'is-active' : ''}`}
-              onClick={() => setFilter('status', id)}
-            >
-              {label}
-            </button>
-          ))}
+          <FilterChipGroup
+            value={filters.status || 'all'}
+            onChange={(id) => setFilter('status', id)}
+            options={[
+              { id: 'all', label: 'Todas' },
+              { id: 'pendentes', label: 'Pendentes' },
+              { id: 'minhas', label: 'Minhas' },
+              { id: 'vencidas', label: 'Vencidas' },
+              { id: 'concluidas', label: 'Concluídas' },
+            ]}
+          />
           <button
             type="button"
             className={`filter-chip ${estaSemanaOn ? 'is-active' : ''}`}
+            aria-pressed={estaSemanaOn}
             onClick={() => setEstaSemanaOn((v) => !v)}
           >
             Esta semana
           </button>
-          {filters.lead_id && (
-            <button 
-              type="button" 
-              className="filter-chip is-active"
-              onClick={() => {
+          {filters.lead_id ? (
+            <FilterTag
+              label={`Aluno: ${linkableById.get(filters.lead_id)?.name || 'Desconhecido'}`}
+              onRemove={() => {
                 setFilter('lead_id', null);
                 searchParams.delete('lead_id');
                 searchParams.delete('new');
                 navigate('/tarefas');
               }}
-            >
-              Aluno: {linkableById.get(filters.lead_id)?.name || 'Desconhecido'} ✕
-            </button>
-          )}
+            />
+          ) : null}
+          <FilterClearAll
+            count={
+              (filters.status && filters.status !== 'all' ? 1 : 0) +
+              (estaSemanaOn ? 1 : 0) +
+              (filters.lead_id ? 1 : 0)
+            }
+            onClick={() => {
+              setFilter('status', 'all');
+              setFilter('lead_id', null);
+              setEstaSemanaOn(false);
+              setPeriodTodayOn(false);
+              navigate('/tarefas');
+            }}
+          />
         </div>
         {estaSemanaOn && semPrazoExcluidasCount > 0 ? (
           <p className="task-week-hint text-muted text-sm mt-2 mb-0">
@@ -1562,7 +1572,7 @@ export default function Tasks() {
             secondaryAction={
               hasActiveFilters
                 ? {
-                    label: 'Limpar filtros',
+                    label: 'Limpar tudo',
                     variant: 'link',
                     onClick: () => {
                       setFilter('status', 'all');

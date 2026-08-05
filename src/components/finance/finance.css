@@ -671,8 +671,9 @@
 }
 
 .mensal-status-filter__trigger--active {
-  border-color: var(--v500) !important;
-  color: var(--v500);
+  background: var(--filter-bg-active, var(--color-primary-surface, var(--v50))) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--filter-text-active, var(--color-primary-dark, var(--v700)));
 }
 
 .mensal-status-filter__chev--open {

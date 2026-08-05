@@ -15,6 +15,9 @@ Padrão visual para barras de busca, filtros, inputs e botões alinhados na mesm
 | `--control-gap` | 8px | Espaço entre itens na barra |
 | `--control-font-size` | 13px | Texto em controles |
 | `--control-border` | 1px solid var(--v100) | Borda padrão |
+| `--filter-bg-active` | primary surface | Estado ativo de filtro (nunca accent verde) |
+| `--filter-border-active` | 1px solid primary | Borda do filtro aplicado |
+| `--filter-text-active` | primary-dark | Texto do filtro aplicado |
 
 ## Classes
 
@@ -27,6 +30,11 @@ Padrão visual para barras de busca, filtros, inputs e botões alinhados na mesm
 | `.navi-btn--toolbar` | Botão na barra (mesma altura que busca) |
 | `.navi-btn--touch` | Botão 44px (CTA mobile) |
 | `.btn-action-ghost` / `.btn-action-primary` | Botões de ação na toolbar (já usam tokens) |
+| `.filter-chip` / `.filter-chip.is-active` | Chip de seleção (active = primary surface) |
+| `.filter-tag` | Tag removível de filtro aplicado |
+| `.filter-clear-all` | Ghost “Limpar” / “Limpar tudo” |
+| `.filter-toolbar` | Shell L0–L4 (primary + active + actions) |
+| `.filter-strip` / `.filter-pill` | Segmented control (período / tabs densas) |
 
 ## Componente React
 
@@ -58,9 +66,32 @@ import SearchField from '../components/shared/SearchField.jsx';
 
 Datas em barra: `className="form-input navi-date-filter navi-control--toolbar"` ou só `navi-date-filter` no funil.
 
+## Filtros (toolbar SaaS)
+
+### Hierarquia L0–L4
+
+0. Busca (`SearchField`)
+1. Primários (2–4): status, período, tipo
+2. Avançados: botão **Filtros** + badge count
+3. Tags ativas (`FilterTag`) quando ≥2 dimensões
+4. Ações (`margin-left: auto` / `filter-toolbar__actions`)
+
+### Componentes
+
+- `FilterToolbar`, `FilterChipGroup`, `FilterTag`, `FilterClearAll`, `CompactStatusFilter`
+- `FilterBar` / `FinanceFiltersBar` — wrappers legados ainda válidos
+
+### Estado ativo
+
+- Selection: `--filter-bg-active` (primary surface), **nunca** `--color-accent`
+- Segmented strip: `.filter-strip` + `.filter-pill.active` (já no idioma roxo)
+
+### Clear
+
+- 1 → "Limpar"; ≥2 → "Limpar tudo"; `aria-label="Limpar filtros"`
+
 ## O que não padronizar
 
-- `.filter-chip`, `.date-chip` (pills)
 - `.icon-btn` circular (avatar, fechar)
 - `.btn-large` (CTA full-width)
 - `.navi-hub-tabs--sm` (32px — abas densas)
@@ -72,10 +103,11 @@ Datas em barra: `className="form-input navi-date-filter navi-control--toolbar"` 
 - [ ] Botões na barra: `.btn-action-*` ou `.navi-btn--toolbar`
 - [ ] Sem `style` inline de `minHeight`, `padding` ou `borderRadius` em controles da barra
 - [ ] Formulários fora da barra: `.form-input` (40px) ou `.navi-control--form`
+- [ ] Filtros: active = primary surface; clear via `FilterClearAll`; chips = `<button>` / `FilterChipGroup`
 
 ## Migração
 
-- **Feito:** tokens, classes base, `SearchField`, aliases `.page-header-search` / `.btn-action-*`, hub tabs, `.form-input`.
-- **Em curso:** substituir buscas manuais e estilos inline em páginas legadas.
+- **Feito:** tokens, classes base, `SearchField`, aliases `.page-header-search` / `.btn-action-*`, hub tabs, `.form-input`, sistema de filtros unificado (chips, tags, clear).
+- **Em curso:** Products / Inventory / Reports / Contracts → mesma migração.
 
 Ver também [page-headings.md](./page-headings.md) e [dropdown-menus.md](./dropdown-menus.md).

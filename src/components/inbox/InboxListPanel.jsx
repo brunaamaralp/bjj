@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Bell, BellOff, Filter, RefreshCw } from 'lucide-react';
 import ConversationList from './ConversationList';
 import SearchField from '../shared/SearchField.jsx';
+import FilterClearAll from '../shared/FilterClearAll.jsx';
 import { DropdownMenu, DropdownMenuPanel } from '../shared/menu';
 import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
 
@@ -273,13 +274,7 @@ export default function InboxListPanel({
           <span className="inbox-list-filters-active__label">
             Filtro: <strong>{activeFilterLabel}</strong>
           </span>
-          <button
-            type="button"
-            className="inbox-list-filters-active__clear"
-            onClick={() => onClearActiveFilter?.()}
-          >
-            Limpar filtro
-          </button>
+          <FilterClearAll count={1} onClick={() => onClearActiveFilter?.()} />
         </div>
       ) : null}
       <div ref={listScrollRef} className="inbox-list-panel__scroll" onScroll={onConversationListScroll}>
