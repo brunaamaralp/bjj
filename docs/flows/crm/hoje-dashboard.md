@@ -9,11 +9,12 @@
 | **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico`; `?retornos=1` ou `?tab=retornos` → Experimentais + scroll para follow-ups; `#follow-ups` → scroll na aba Experimentais |
 | **pré-requisitos** | Usuário autenticado; academia selecionada; módulo CRM ativo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-07-16 |
+| **última revisão** | 2026-08-05 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
+- [registro-aula-recepcao-design](../../superpowers/specs/2026-08-05-registro-aula-recepcao-design.md) — professor + observações na grade
 - [2026-06-17-recepcao-navegacao-PRODUCT.md](../../superpowers/specs/2026-06-17-recepcao-navegacao-PRODUCT.md) — hub Recepção e navegação
 - [2026-06-10-dashboard-retornos-row-design.md](../../superpowers/specs/2026-06-10-dashboard-retornos-row-design.md) — lista e saúde de follow-ups (spec histórica; UI usa «follow-up»)
 - [2026-06-10-followup-experimental-design.md](../../superpowers/specs/2026-06-10-followup-experimental-design.md) — follow-up e outcomes
@@ -31,7 +32,7 @@
 A página **Recepção** (`/`) é a mesa do dia com duas abas via `HubTabBar`:
 
 1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **agenda da semana** em destaque, **kimonos** (busca de disponíveis + emprestados), follow-ups, tarefas de hoje, grade de horários.
-2. **Presença** (`?tab=catraca`) — hero com KPIs de presença/retenção; no desktop, feed ao vivo e fila de retenção lado a lado; sub-abas **Ao vivo** e **Histórico** no mobile (retenção via KPI do hero ou `?section=retencao`). Ver [recepcao-controlid.md](recepcao-controlid.md).
+2. **Presença** (`?tab=catraca`) — hero com KPIs de presença/retenção; feed ao vivo e retenção **empilhados** (retenção em largura total); sub-abas **Ao vivo** e **Histórico**; KPIs Em risco/Sumidos filtram a fila (`ret_status`). Ver [recepcao-controlid.md](recepcao-controlid.md).
 
 Rotas legadas redirecionam para os destinos canônicos acima.
 
@@ -84,8 +85,9 @@ flowchart TD
 | 8 | `/` | `FollowupCopilotButtons` | Ação sugerida (WhatsApp, remarcar, etc.) | Template, estágio ou perfil conforme playbook |
 | 9 | `/` | `DashboardAgendaWeekPanel` | **Compareceu** / **Faltou** na aula do dia | `markLeadAttended` / `markLeadMissed`; toast; **sem** `FollowupOutcomeDialog` |
 | 10 | `/` | Card de lead (follow-ups ou agenda) | Clicar nome | `/lead/:id` com `LEAD_PROFILE_FROM_DASHBOARD`; voltar retorna à Recepção |
-| 11c | `/` | `RecepcaoSchedulesGrid` | Ver **Grade de horários** | Grade semanal read-only; scroll horizontal no mobile; filtro por modalidade |
-| 11d | `/` | `KimonoLoanPanel` | Ver **Kimonos** | Resumo disponíveis/emprestados; busca com dropdown dos tamanhos disponíveis (abre **Emprestar** com tamanho pré-selecionado); lista de empréstimos ativos; botão **Emprestar**; alerta de atraso em seção recolhida |
+| 11c | `/` | `RecepcaoSchedulesGrid` | Ver / clicar **Grade de horários** | Grade semanal; clique numa aula abre `LessonRegisterModal` (professor + observações da data da coluna na semana corrente) |
+| 11d | `/` | `LessonRegisterModal` | Selecionar professor, anotar, salvar | Upsert em `class_slots` (cria slot se necessário); reabrir edita o mesmo registro |
+| 11e | `/` | `KimonoLoanPanel` | Ver **Kimonos** | Resumo disponíveis/emprestados; busca com dropdown dos tamanhos disponíveis (abre **Emprestar** com tamanho pré-selecionado); lista de empréstimos ativos; botão **Emprestar**; alerta de atraso em seção recolhida |
 | 12 | `/` | `DashboardBirthdayBanner` | **Parabenizar** | `DashboardBirthdayModal` + template WhatsApp |
 | 13 | `/` | Header | **Novo lead** | `NewLeadModal` global |
 | 14 | `/` (zero state) | Welcome card | **Adicionar primeiro lead** | Modal de novo lead ou link para funil |
@@ -128,7 +130,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 9. [ ] WhatsApp no follow-up — toast sucesso ou `friendlyError`
 10. [ ] Nome do lead → `/lead/:id` → voltar à Recepção
 11c. [ ] **Grade de horários** — coluna «Hoje» destacada; cards compactos (nome, professor, modalidade); scroll horizontal no mobile
-11c. [ ] **Grade de horários** — lotação na coluna hoje (quando slots existem); filtro modalidade persiste na sessão; link «Editar horários» (owner); coluna horário sticky no desktop
+11c. [ ] **Grade de horários** — clique numa aula abre modal de registro (data = coluna na semana corrente); professor + observações; editar se já existir
 11d. [ ] **Kimonos** — painel mostra totais, busca filtrável de peças disponíveis (selecionar abre modal com tamanho pré-selecionado) e lista de emprestados; **Emprestar** registra saída; **Devolver** encerra empréstimo; configuração de alerta fica recolhida
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
 13. [ ] Aniversariantes: banner + modal + template
@@ -138,7 +140,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 ### Checklist passo a passo — aba Catraca
 
 16. [ ] `/?tab=catraca` — empty state com link para Integrações se sem Control iD nem presença manual
-17. [ ] Com integração: sub-abas **Ao vivo** e **Histórico** (`?section=historico`); retenção via KPI do hero ou `?section=retencao` (sem botão Retenção na tablist)
+17. [ ] Com integração: sub-abas **Ao vivo** e **Histórico**; retenção abaixo do feed; KPIs Em risco/Sumidos filtram (`ret_status`) + chip; `?section=retencao` rola até a seção
 18. [ ] **Liberar catraca** no header (só nesta aba, com Control iD ativo)
 19. [ ] `/recepcao` e `/presenca` redirecionam para destinos canônicos
 

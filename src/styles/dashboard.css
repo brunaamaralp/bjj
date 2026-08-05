@@ -1799,28 +1799,15 @@
         .recepcao-presence-hero {
           margin-bottom: 16px;
         }
-        .recepcao-presence-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
-          gap: 20px;
-          align-items: start;
-          width: 100%;
+        .recepcao-presence-live {
+          margin-bottom: 16px;
         }
-        .recepcao-presence-grid__live,
-        .recepcao-presence-grid__retention {
-          min-width: 0;
+        .recepcao-presence-retention {
+          margin-top: 4px;
+          width: 100%;
         }
         .recepcao-presence-historico-link {
           margin-top: 12px;
-        }
-        .attendance-at-risk--sidebar .attendance-at-risk-table-wrap {
-          max-height: min(62vh, 640px);
-          overflow: auto;
-        }
-        @media (max-width: 959px) {
-          .recepcao-presence-grid {
-            grid-template-columns: 1fr;
-          }
         }
         .agenda-bottom-row {
           display: grid;

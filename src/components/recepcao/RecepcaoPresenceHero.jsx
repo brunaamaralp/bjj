@@ -35,7 +35,7 @@ function buildPresenceSummaryLine({ atRisk = 0, absent = 0, entriesToday = 0, in
  * @param {{
  *   integrationReady?: boolean;
  *   entriesToday?: number|null;
- *   onScrollToRetention?: () => void;
+ *   onFocusRetention?: (status: 'at_risk'|'absent') => void;
  *   onScrollToLive?: () => void;
  *   refreshSignal?: number;
  *   summaryOverride?: { at_risk?: number; absent?: number; active?: number }|null;
@@ -45,7 +45,7 @@ function buildPresenceSummaryLine({ atRisk = 0, absent = 0, entriesToday = 0, in
 export default function RecepcaoPresenceHero({
   integrationReady = false,
   entriesToday = null,
-  onScrollToRetention,
+  onFocusRetention,
   onScrollToLive,
   refreshSignal = 0,
   summaryOverride,
@@ -134,7 +134,7 @@ export default function RecepcaoPresenceHero({
       tone: atRisk > 0 ? 'attention' : 'success',
       icon: <Users {...HERO_ICON} aria-hidden />,
       footnote: atRisk > 0 ? 'Priorize contato' : 'Ninguém em risco',
-      onClick: onScrollToRetention,
+      onClick: onFocusRetention ? () => onFocusRetention('at_risk') : null,
     },
     {
       key: 'absent',
@@ -143,7 +143,7 @@ export default function RecepcaoPresenceHero({
       tone: absent > 0 ? 'default' : 'muted',
       icon: <UserX {...HERO_ICON} aria-hidden />,
       footnote: absent > 0 ? 'Sem check-in recente' : 'Sem sumidos',
-      onClick: onScrollToRetention,
+      onClick: onFocusRetention ? () => onFocusRetention('absent') : null,
     },
     {
       key: 'active',

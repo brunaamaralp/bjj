@@ -47,6 +47,9 @@ describe('recepcaoHubTabs', () => {
 
   it('buildRecepcaoRetencaoPath', () => {
     expect(buildRecepcaoRetencaoPath()).toBe('/?tab=catraca&section=retencao');
+    expect(buildRecepcaoRetencaoPath({ retStatus: 'absent' })).toBe(
+      '/?tab=catraca&section=retencao&ret_status=absent'
+    );
   });
 
   it('resolveRecepcaoCatracaSection', () => {

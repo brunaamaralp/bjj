@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Info, RefreshCw, Users } from 'lucide-react';
-import { parseISO, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { RefreshCw, Users } from 'lucide-react';
 import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUiStore } from '../../store/useUiStore.js';
 import { useWhatsappTemplates } from '../../lib/useWhatsappTemplates.js';
@@ -10,8 +8,18 @@ import { createCheckin, isAttendanceConfigured } from '../../lib/attendance.js';
 import { fetchAttendanceRetention, postAttendanceRetentionAction } from '../../lib/attendanceRetentionApi.js';
 import { sendWhatsappTemplateOutbound } from '../../lib/outboundWhatsappTemplate.js';
 import { addLeadEvent } from '../../lib/leadEvents.js';
-import { ATTENDANCE_RETENTION_EVENT_TYPES, normalizeAttendanceRiskStatus } from '../../../lib/attendanceRetentionCore.js';
-import { attendanceRetentionKpiTooltips } from '../../lib/attendanceRetentionKpiTooltips.js';
+import {
+  ATTENDANCE_RETENTION_EVENT_TYPES,
+  ATTENDANCE_RISK_STATUS,
+  normalizeAttendanceRiskStatus,
+} from '../../../lib/attendanceRetentionCore.js';
+import { buildAttendanceRetentionReasonPhrase } from '../../lib/attendanceRetentionReasonPhrase.js';
+import {
+  URL_RET_STATUS,
+  patchRetentionStatusParam,
+  resolveRetentionStatusFilter,
+  retentionStatusFilterLabel,
+} from '../../lib/attendanceRetentionFilters.js';
 import { friendlyError } from '../../lib/errorMessages.js';
 import { deactivateStudent } from '../../lib/deactivateStudent.js';
 import { getAcademyDocument } from '../../lib/getAcademyDocument.js';
@@ -19,7 +27,7 @@ import { readStudentExitReasonsFromAcademyDoc } from '../../lib/studentExitConfi
 import { useStudentStore } from '../../store/useStudentStore.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
-import ReportDataTable from '../reports/shared/ReportDataTable.jsx';
+import FilterTag from '../shared/FilterTag.jsx';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import AttendanceRiskBadge from './AttendanceRiskBadge.jsx';
 import AttendanceAbsenceReasonModal from './AttendanceAbsenceReasonModal.jsx';
@@ -44,54 +52,6 @@ function patchRetentionFilters(prev, { turma, belt }) {
   return next;
 }
 
-function formatLastCheckin(iso) {
-  if (!iso) return '—';
-  try {
-    return format(parseISO(iso), 'dd/MM/yyyy', { locale: ptBR });
-  } catch {
-    return '—';
-  }
-}
-
-function KpiPill({ label, value, tone, featured = false, tooltip = null }) {
-  return (
-    <div
-      className={`attendance-at-risk-kpi attendance-at-risk-kpi--${tone}${featured ? ' attendance-at-risk-kpi--featured' : ''}`}
-    >
-      <span className="attendance-at-risk-kpi__value">{value}</span>
-      <span className="attendance-at-risk-kpi__label">
-        {label}
-        {tooltip ? (
-          <button
-            type="button"
-            className="attendance-at-risk-kpi__info"
-            aria-label={`Definição: ${label}`}
-            title={tooltip}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Info size={12} aria-hidden />
-          </button>
-        ) : null}
-      </span>
-    </div>
-  );
-}
-
-function daysTone(days) {
-  const n = Number(days);
-  if (!Number.isFinite(n) || n < 8) return 'ok';
-  if (n <= 14) return 'warn';
-  return 'danger';
-}
-
-function weeklyTone(row) {
-  const expected = Number(row.weeklyCheckinsExpected) || 2;
-  const count = Number(row.checkinsLast7Days) || 0;
-  if (count >= expected) return 'ok';
-  if (count > 0) return 'warn';
-  return 'danger';
-}
-
 function StudentCell({ row }) {
   const meta = [row.turma, row.belt].filter(Boolean).join(' · ');
   return (
@@ -105,9 +65,9 @@ function StudentCell({ row }) {
 }
 
 /**
- * Tabela operacional de alunos em risco por frequência (Recepção → Catraca).
+ * Fila operacional de alunos em risco por frequência (Recepção → Presença).
  */
-export default function AttendanceAtRiskSection({ className = '', layout = 'full', onDataLoaded }) {
+export default function AttendanceAtRiskSection({ className = '', onDataLoaded }) {
   const terms = useTerms();
   const navigate = useNavigate();
   const { firstName: sessionUserName } = useSessionUser();
@@ -115,6 +75,7 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
   const [searchParams, setSearchParams] = useSearchParams();
   const turma = String(searchParams.get(URL_RET_TURMA) || '').trim();
   const belt = String(searchParams.get(URL_RET_BELT) || '').trim();
+  const statusFilter = resolveRetentionStatusFilter(searchParams.get(URL_RET_STATUS));
 
   const academyId = useLeadStore((s) => s.academyId);
   const academyList = useLeadStore((s) => s.academyList);
@@ -137,7 +98,6 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
   const [deactivateBusy, setDeactivateBusy] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState('');
 
-  // Evita loop: pai costuma passar callback inline; não pode entrar nas deps do load.
   const onDataLoadedRef = useRef(onDataLoaded);
   onDataLoadedRef.current = onDataLoaded;
 
@@ -181,6 +141,10 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
     [turma, setSearchParams]
   );
 
+  const clearStatusFilter = useCallback(() => {
+    setSearchParams((prev) => patchRetentionStatusParam(prev, ''), { replace: true });
+  }, [setSearchParams]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -192,14 +156,17 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
       .catch(() => setExitReasons(readStudentExitReasonsFromAcademyDoc(null)));
   }, [academyId]);
 
-  const rows = data?.at_risk || [];
-  const summary = data?.summary;
+  const allRows = data?.at_risk || [];
+  const rows = useMemo(() => {
+    if (!statusFilter) return allRows;
+    return allRows.filter((row) => normalizeAttendanceRiskStatus(row.status) === statusFilter);
+  }, [allRows, statusFilter]);
+
   const filterOptions = data?.filters || {};
   const turmaOptions = filterOptions.turmas || [];
   const beltOptions = filterOptions.belts || [];
   const queueCount = rows.length;
-  const activeCount = summary?.active ?? 0;
-  const kpiTooltips = useMemo(() => attendanceRetentionKpiTooltips(), []);
+  const statusChipLabel = retentionStatusFilterLabel(statusFilter);
 
   const handleCheckin = async (row) => {
     const studentId = String(row?.studentId || '').trim();
@@ -378,88 +345,16 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
     }
   };
 
-  const columns = [
-      {
-        key: 'name',
-        label: 'Aluno',
-        render: (row) => <StudentCell row={row} />,
-      },
-      {
-        key: 'checkinsLast7Days',
-        label: 'Semana',
-        align: 'center',
-        render: (row) => {
-          const expected = row.weeklyCheckinsExpected ?? 2;
-          const count = row.checkinsLast7Days ?? 0;
-          const tone = weeklyTone(row);
-          return (
-            <span className={`attendance-at-risk-days attendance-at-risk-days--${tone}`} title={`Meta: ${expected}/sem`}>
-              {count}/{expected}
-            </span>
-          );
-        },
-      },
-      {
-        key: 'daysWithoutCheckin',
-        label: 'Dias s/ treino',
-        align: 'center',
-        render: (row) => {
-          const days = row.daysWithoutCheckin ?? '—';
-          const tone = daysTone(row.daysWithoutCheckin);
-          return (
-            <span className={`attendance-at-risk-days attendance-at-risk-days--${tone}`}>
-              {days}
-            </span>
-          );
-        },
-      },
-      {
-        key: 'lastCheckinAt',
-        label: 'Último check-in',
-        render: (row) => (
-          <span className="attendance-at-risk-last-checkin">{formatLastCheckin(row.lastCheckinAt)}</span>
-        ),
-      },
-      {
-        key: 'status',
-        label: 'Status',
-        render: (row) => <AttendanceRiskBadge status={row.status} label={row.statusLabel} />,
-      },
-      {
-        key: 'actions',
-        label: '',
-        align: 'right',
-        width: '156px',
-        render: (row) => {
-          const sid = String(row.studentId || '');
-          return (
-            <AttendanceAtRiskRowActions
-              row={row}
-              showCheckin={attendanceReady}
-              checkinLoading={checkinBusyId === sid}
-              onCheckin={handleCheckin}
-              waLoading={waBusyId === sid}
-              waSent={waSentIds.has(sid)}
-              rowBusy={actionBusyId === sid || checkinBusyId === sid}
-              menuOpen={menuOpenId}
-              onMenuOpenChange={setMenuOpenId}
-              onWhatsApp={handleWhatsApp}
-              onAbsence={setAbsenceRow}
-              onMarkContact={handleMarkContact}
-              onDeactivate={setDeactivateRow}
-              onQuickSnooze={handleQuickSnooze}
-            />
-          );
-        },
-      },
-    ];
+  const emptyDescription = statusFilter
+    ? statusFilter === ATTENDANCE_RISK_STATUS.ABSENT
+      ? 'Nenhum aluno sumido com os filtros atuais.'
+      : 'Nenhum aluno em risco com os filtros atuais.'
+    : 'Quando alguém ficar abaixo da meta semanal ou sumir por 15+ dias, aparece aqui.';
 
   return (
     <section
       id="retencao"
-      className={`attendance-at-risk card reception-section${
-        layout === 'sidebar' ? ' attendance-at-risk--sidebar' : ''
-      }${className ? ` ${className}` : ''}`}
+      className={`attendance-at-risk card reception-section${className ? ` ${className}` : ''}`}
     >
       <ReportSectionHeading
         className="attendance-at-risk__heading"
@@ -488,26 +383,9 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
         }
       />
 
-      {summary && layout !== 'sidebar' ? (
-        <div className="attendance-at-risk-kpis" role="status" aria-live="polite">
-          <KpiPill
-            label="Em risco"
-            value={summary.at_risk ?? 0}
-            tone="at-risk"
-            tooltip={kpiTooltips.at_risk}
-          />
-          <KpiPill
-            label="Sumidos"
-            value={summary.absent ?? 0}
-            tone="absent"
-            tooltip={kpiTooltips.absent}
-          />
-          <KpiPill
-            label="Ativos"
-            value={activeCount}
-            tone="active"
-            tooltip={kpiTooltips.active}
-          />
+      {statusChipLabel ? (
+        <div className="attendance-at-risk-status-chips">
+          <FilterTag label={`Filtrando: ${statusChipLabel}`} onRemove={clearStatusFilter} />
         </div>
       ) : null}
 
@@ -568,22 +446,52 @@ export default function AttendanceAtRiskSection({ className = '', layout = 'full
           insideCard
           variant="compact"
           tone="dashed"
-          title="Nenhum aluno em risco agora"
-          description="Quando alguém ficar abaixo da meta semanal ou sumir por 15+ dias, aparece aqui."
+          title={statusFilter ? 'Nenhum aluno neste filtro' : 'Nenhum aluno em risco agora'}
+          description={emptyDescription}
         />
       ) : null}
 
       {rows.length > 0 ? (
-        <ReportDataTable
-          columns={columns}
-          rows={rows}
-          loading={loading}
-          emptyMessage="Nenhum aluno em risco."
-          getRowClassName={(row) =>
-            `attendance-at-risk-row attendance-at-risk-row--${normalizeAttendanceRiskStatus(row.status)}`
-          }
-          wrapClassName="attendance-at-risk-table-wrap"
-        />
+        <ul className="attendance-at-risk-list" aria-label="Fila de retenção">
+          {rows.map((row) => {
+            const sid = String(row.studentId || '');
+            const status = normalizeAttendanceRiskStatus(row.status);
+            return (
+              <li
+                key={sid || row.name}
+                className={`attendance-at-risk-list__item attendance-at-risk-row--${status}`}
+              >
+                <div className="attendance-at-risk-list__main">
+                  <div className="attendance-at-risk-list__identity">
+                    <StudentCell row={row} />
+                    <AttendanceRiskBadge status={row.status} label={row.statusLabel} />
+                  </div>
+                  <p className="attendance-at-risk-list__reason">
+                    {buildAttendanceRetentionReasonPhrase(row)}
+                  </p>
+                </div>
+                <div className="attendance-at-risk-list__actions">
+                  <AttendanceAtRiskRowActions
+                    row={row}
+                    showCheckin={attendanceReady}
+                    checkinLoading={checkinBusyId === sid}
+                    onCheckin={handleCheckin}
+                    waLoading={waBusyId === sid}
+                    waSent={waSentIds.has(sid)}
+                    rowBusy={actionBusyId === sid || checkinBusyId === sid}
+                    menuOpen={menuOpenId}
+                    onMenuOpenChange={setMenuOpenId}
+                    onWhatsApp={handleWhatsApp}
+                    onAbsence={setAbsenceRow}
+                    onMarkContact={handleMarkContact}
+                    onDeactivate={setDeactivateRow}
+                    onQuickSnooze={handleQuickSnooze}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
 
       {data?.attendanceTruncated ? (

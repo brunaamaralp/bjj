@@ -12,6 +12,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 - 2026-07-22: perfil — **Cobertura histórica** (owner/admin): meses `covered` R$0 sem Caixa (`aluno-perfil-presenca.md`).
 - 2026-07-22: mensalidades — `?filtro=overdue` e chip Em atraso filtram a grade (Cobrança só via link); KPIs do mês no topo; prioridades no dropdown de status; coluna Conta oculta &lt;1100px (`a-receber-mensalidades.md`).
 - 2026-07-22: mensalidades — coluna **Pagador** (alias → responsável → pai/mãe) na grade e no CSV (`a-receber-mensalidades.md`).
+- 2026-08-05: aba Presença — retenção em largura total abaixo do feed; KPIs Em risco/Sumidos filtram com `ret_status` + chip (`hoje-dashboard.md`, `recepcao-controlid.md`).
 - 2026-07-21: aba Presença — removida sub-aba **Retenção** da tablist; acesso via KPIs do hero ou `?section=retencao` (`hoje-dashboard.md`, `recepcao-controlid.md`).
 - 2026-06-23: fluxo de matrícula e financeiro alinhado para desconto individual recorrente em `students.discount_amount`; cálculo líquido propagado para primeira cobrança, mensalidades, inadimplência e card financeiro do perfil.
 

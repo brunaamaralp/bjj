@@ -88,7 +88,15 @@ export function buildRecepcaoLegacyRedirectPath({ historico = false, retencao = 
   return `/?${params.toString()}`;
 }
 
-/** Link canônico para a fila operacional de retenção. */
-export function buildRecepcaoRetencaoPath() {
-  return buildRecepcaoLegacyRedirectPath({ retencao: true });
+/**
+ * Link canônico para a fila operacional de retenção.
+ * @param {{ retStatus?: string|null }} [opts]
+ */
+export function buildRecepcaoRetencaoPath({ retStatus } = {}) {
+  const base = buildRecepcaoLegacyRedirectPath({ retencao: true });
+  const status = String(retStatus || '').trim().toLowerCase();
+  if (status !== 'at_risk' && status !== 'absent') return base;
+  const params = new URLSearchParams(base.startsWith('/?') ? base.slice(2) : '');
+  params.set('ret_status', status);
+  return `/?${params.toString()}`;
 }
