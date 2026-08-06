@@ -101,7 +101,7 @@ describe('signContract', () => {
         { public_id: 'sig-b', email: 'aluno@x.com' },
       ],
     });
-    vi.mocked(signDocument).mockResolvedValue({ id: 'aut-3' });
+    vi.mocked(signDocument).mockResolvedValue({ ok: true });
     vi.mocked(getDocument).mockResolvedValue({
       id: 'aut-3',
       signatures: [
@@ -112,7 +112,7 @@ describe('signContract', () => {
     vi.mocked(createContract).mockResolvedValue({ $id: 'c2' } as never);
     vi.mocked(saveSigners).mockResolvedValue([] as never);
 
-    await signContract(
+    const result = await signContract(
       {
         name: 'Test',
         autoSignAcademy: true,
@@ -130,5 +130,42 @@ describe('signContract', () => {
     );
     expect(signDocument).toHaveBeenCalledWith('aut-3', null);
     expect(createContract).toHaveBeenCalledWith(expect.objectContaining({ status: 'in_progress' }));
+    expect(result.autoSign).toEqual({ applied: true });
+  });
+
+  it('não marca autoSign applied se refresh não mostrar assinatura', async () => {
+    vi.mocked(createDocument).mockResolvedValue({
+      id: 'aut-4',
+      name: 'Test',
+      signatures: [
+        { public_id: 'sig-a', email: 'acad@x.com' },
+        { public_id: 'sig-b', email: 'aluno@x.com' },
+      ],
+    });
+    vi.mocked(signDocument).mockResolvedValue({ ok: true });
+    vi.mocked(getDocument).mockResolvedValue({
+      id: 'aut-4',
+      signatures: [
+        { public_id: 'sig-a', email: 'acad@x.com' },
+        { public_id: 'sig-b', email: 'aluno@x.com' },
+      ],
+    });
+    vi.mocked(createContract).mockResolvedValue({ $id: 'c3' } as never);
+    vi.mocked(saveSigners).mockResolvedValue([] as never);
+
+    const result = await signContract(
+      {
+        name: 'Test',
+        autoSignAcademy: true,
+        signers: [
+          { email: 'aluno@x.com', action: 'SIGN' },
+          { email: 'acad@x.com', action: 'SIGN' },
+        ],
+      },
+      Buffer.from('pdf')
+    );
+
+    expect(result.autoSign?.applied).toBe(false);
+    expect(result.autoSign?.warning).toMatch(/não confirmou/i);
   });
 });

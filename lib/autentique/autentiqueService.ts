@@ -212,16 +212,9 @@ export async function createDocument(
   return doc;
 }
 
+/** API oficial: `signDocument` retorna Boolean (sem selection set). */
 const SIGN_DOCUMENT_MUTATION = `mutation SignDocument($id: UUID!) {
-  signDocument(id: $id) {
-    id
-    name
-    signatures {
-      public_id
-      email
-      signed { created_at }
-    }
-  }
+  signDocument(id: $id)
 }`;
 
 /** Assina com a conta do titular do token (deve constar como signatário). */
@@ -246,7 +239,7 @@ export async function signDocument(
 
   const text = await res.text();
   let data: {
-    data?: { signDocument?: SignDocumentResult };
+    data?: { signDocument?: boolean | null };
     errors?: AutentiqueGraphQLError[];
   } | null = null;
   try {
@@ -265,9 +258,10 @@ export async function signDocument(
     throw new Error(humanizeAutentiqueError(raw, graphQLErrors));
   }
 
-  const signed = data?.data?.signDocument;
-  if (!signed?.id) throw new Error('autentique_sign_empty_response');
-  return signed;
+  if (data?.data?.signDocument !== true) {
+    throw new Error('autentique_sign_rejected');
+  }
+  return { ok: true };
 }
 
 const DELETE_DOCUMENT_MUTATION = `mutation DeleteDocument($id: UUID!) {

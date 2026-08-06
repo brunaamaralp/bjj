@@ -118,8 +118,24 @@ export async function signContract(
     try {
       await signDocument(autentiqueDocument.id, academyDoc);
       const refreshed = await refreshAutentiqueDocument(autentiqueDocument.id, academyDoc);
-      if (refreshed) autentiqueDocument = refreshed;
-      autoSign = { applied: true };
+      if (refreshed) {
+        autentiqueDocument = refreshed;
+        const hasSigned = (autentiqueDocument.signatures || []).some((s) =>
+          Boolean(s.signed?.created_at)
+        );
+        if (!hasSigned) {
+          autoSign = {
+            applied: false,
+            warning:
+              'Contrato enviado, mas a Autentique não confirmou a assinatura automática da academia.',
+          };
+        } else {
+          autoSign = { applied: true };
+        }
+      } else {
+        // signDocument retornou true; refresh indisponível — confia na API
+        autoSign = { applied: true };
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[contracts] academy_auto_sign_failed', {

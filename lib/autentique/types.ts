@@ -31,6 +31,7 @@ export interface CreateDocumentParams {
   sortable?: boolean;
 }
 
+/** Autentique `signDocument` retorna Boolean (`true` = assinado). */
 export interface SignDocumentResult {
-  id: string;
+  ok: true;
 }
