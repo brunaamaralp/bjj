@@ -2,6 +2,9 @@
  * Dedupe instâncias recorrentes vs projeções (Previsão + A pagar).
  */
 
+/** Status que cobrem a competência (não projetar / não reabrir na fila). */
+const COVERING_INSTANCE_STATUSES = new Set(['pending', 'settled', 'cancelled']);
+
 export function dueDateForRecurrenceMonth(recurrenceDay, ym) {
   const m = String(ym || '').match(/^(\d{4})-(\d{2})$/);
   if (!m) return null;
@@ -26,6 +29,21 @@ export function hasPendingInstanceForPeriod(pending = [], templateId, competence
     if (String(tx.recurrence_origin_id || '').trim() !== tid) return false;
     if (String(tx.competence_month || '').trim() !== ym) return false;
     return String(tx.status || '').toLowerCase() === 'pending';
+  });
+}
+
+/**
+ * Instância pending/settled/cancelled para o período — evita reabrir conta já liquidada
+ * ou projetar mês já gerado.
+ */
+export function hasInstanceForPeriod(instances = [], templateId, competenceMonth) {
+  const tid = String(templateId || '').trim();
+  const ym = String(competenceMonth || '').trim();
+  if (!tid || !ym) return false;
+  return instances.some((tx) => {
+    if (String(tx.recurrence_origin_id || '').trim() !== tid) return false;
+    if (String(tx.competence_month || '').trim() !== ym) return false;
+    return COVERING_INSTANCE_STATUSES.has(String(tx.status || '').toLowerCase());
   });
 }
 

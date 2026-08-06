@@ -41,6 +41,7 @@ describe('payablesHandler', () => {
     mocks.loadPayablesInputs.mockResolvedValue({
       pendingTransactions: [],
       recurrenceTemplates: [],
+      settledRecurrenceInstances: [],
       pendingTruncated: false,
     });
   });
@@ -84,6 +85,7 @@ describe('payablesHandler', () => {
         },
       ],
       recurrenceTemplates: [],
+      settledRecurrenceInstances: [],
       pendingTruncated: false,
     });
     const res = mockRes();
@@ -93,5 +95,54 @@ describe('payablesHandler', () => {
     );
     expect(res.statusCode).toBe(200);
     expect(res.body.items.every((it) => it.status === 'overdue')).toBe(true);
+  });
+
+  it('does not re-list settled competence as open template in contas-fixas', async () => {
+    mocks.loadPayablesInputs.mockResolvedValue({
+      pendingTransactions: [],
+      recurrenceTemplates: [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 450,
+          planName: 'CPFL',
+          category: 'Luz / energia',
+        },
+      ],
+      settledRecurrenceInstances: [
+        {
+          id: 's1',
+          status: 'settled',
+          direction: 'out',
+          gross: 450,
+          recurrence_origin_id: 'tpl-1',
+          competence_month: '2026-08',
+          due_date: '2026-08-10',
+        },
+      ],
+      pendingTruncated: false,
+    });
+    const res = mockRes();
+    await payablesHandler(
+      {
+        method: 'GET',
+        query: {
+          route: 'payables',
+          section: 'contas-fixas',
+          from: '2026-08-01',
+          to: '2026-09-30',
+          refresh: '1',
+        },
+      },
+      res
+    );
+    expect(res.statusCode).toBe(200);
+    const augustOpen = (res.body.items || []).find(
+      (it) => it.template_id === 'tpl-1' && String(it.due_date || '').startsWith('2026-08')
+    );
+    expect(augustOpen).toBeUndefined();
   });
 });

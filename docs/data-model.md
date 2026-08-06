@@ -329,6 +329,8 @@ financial_tx.saleId ──► sales.$id  (espelho automático — salesMirror.js
 |---------|-------|-------------------|
 | `classes` | Catálogo da turma (nome exibido em selects, automações, matrícula) | `academy_id`, `name`, `modality`, `instructor`, `level`, `description`, `is_active`, `max_capacity`, `legacy_turma_key`, `color`, `sort_order` |
 | `schedules` | Slot na grade semanal | `academy_id`, `class_id`, `name`, `modality`, `instructor`, `days_of_week[]`, `time_start`, `time_end`, `level`, `is_active`, `max_capacity` |
+| `class_slots` | Ocorrência datada (cron + sob demanda) | `schedule_id`, `slot_date`, `starts_at`/`ends_at`, `instructor`, **`instructor_id`**, **`lesson_notes`**, **`lesson_recorded_by`**, **`lesson_recorded_by_name`**, **`lesson_recorded_at`**, `status` |
+| `instructors` | Professores da academia (sem login) | `academy_id`, `name`, `is_active`, `sort_order` |
 
 **Relacionamentos:**
 
@@ -337,6 +339,9 @@ financial_tx.saleId ──► sales.$id  (espelho automático — salesMirror.js
 | `classes` | `academy_id` | `academies.$id` | Índices: `academy_id`, `academy_id+is_active`, `academy_id+name`, `academy_id+legacy_turma_key` |
 | `schedules` | `academy_id` | `academies.$id` | |
 | `schedules` | `class_id` | `classes.$id` | Horário pertence a uma turma; exclusão de turma bloqueada se houver horários |
+| `class_slots` | `schedule_id` | `schedules.$id` | Instância do dia; registro de aula (professor + notas) na Recepção |
+| `class_slots` | `instructor_id` | `instructors.$id` | Quem ministrou naquela data (opcional até o registro) |
+| `instructors` | `academy_id` | `academies.$id` | Cadastro leve; distinto de colaboradores da Equipe |
 | `tasks` | `classId` | `classes.$id` | Tarefas operacionais por turma |
 | `attendance` | `academy_id` | `academies.$id` | |
 | `attendance` | `student_id` | `students.$id` | |

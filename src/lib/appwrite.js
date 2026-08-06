@@ -73,6 +73,10 @@ export const CLASSES_COL =
 export const CLASS_SLOTS_COL =
   import.meta.env.VITE_APPWRITE_CLASS_SLOTS_COLLECTION_ID || 'class_slots';
 
+/** Professores (cadastro leve, sem login). */
+export const INSTRUCTORS_COL =
+  import.meta.env.VITE_APPWRITE_INSTRUCTORS_COLLECTION_ID || 'instructors';
+
 /** Agendamentos de alunos em slots. */
 export const BOOKINGS_COL =
   import.meta.env.VITE_APPWRITE_BOOKINGS_COLLECTION_ID || 'bookings';

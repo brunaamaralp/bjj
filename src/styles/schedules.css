@@ -353,6 +353,32 @@
   border-left: 3px solid var(--color-primary);
 }
 
+.schedules-week-card--interactive {
+  padding: 0;
+}
+
+.schedules-week-card__button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 3px 5px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.schedules-week-card__button:hover,
+.schedules-week-card__button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  outline-offset: 1px;
+}
+
 .schedules-week-card__head {
   display: flex;
   flex-wrap: wrap;

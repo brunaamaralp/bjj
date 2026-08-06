@@ -7,7 +7,7 @@ import {
   dueDateForRecurrenceMonth,
   competenceMonthFromYmd,
   hasAnyPendingInstanceForTemplate,
-  hasPendingInstanceForPeriod,
+  hasInstanceForPeriod,
 } from './financeRecurrenceDedup.js';
 
 export const PAYABLE_SOURCE = {
@@ -90,7 +90,8 @@ export function buildPendingPayableItems(transactions = [], { today = todayYmdLo
   return items;
 }
 
-function nextDueForTemplate(template, todayYmd) {
+function nextDueForTemplate(template, todayYmd, instances = []) {
+  const templateId = String(template.id || template.$id || '').trim();
   const day = Number(template.recurrence_day) || 1;
   const type = String(template.recurrence_type || 'monthly').toLowerCase();
   if (type === 'weekly') {
@@ -107,17 +108,25 @@ function nextDueForTemplate(template, todayYmd) {
       from,
       to
     );
-    return occ[0]?.due_date || null;
+    for (const row of occ) {
+      const due = row?.due_date;
+      if (!due) continue;
+      const cm = competenceMonthFromYmd(due);
+      if (cm && hasInstanceForPeriod(instances, templateId, cm)) continue;
+      return due;
+    }
+    return null;
   }
   const today = String(todayYmd).slice(0, 10);
   const [y, m] = today.split('-').map(Number);
   for (let i = 0; i < 14; i += 1) {
     const d = new Date(y, m - 1 + i, 1, 12, 0, 0, 0);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (hasInstanceForPeriod(instances, templateId, ym)) continue;
     const due = dueDateForRecurrenceMonth(day, ym);
     if (due && due >= today) return due;
   }
-  return dueDateForRecurrenceMonth(day, today.slice(0, 7));
+  return null;
 }
 
 /** Templates recorrentes ativos (contas programadas). */
@@ -134,9 +143,10 @@ export function buildTemplatePayableItems(templates = [], { today = todayYmdLoca
     const templateId = String(tx.id || tx.$id || '').trim();
     if (hasAnyPendingInstanceForTemplate(pending, templateId)) continue;
 
-    const nextDue = nextDueForTemplate(tx, todayYmd);
+    const nextDue = nextDueForTemplate(tx, todayYmd, pending);
+    if (!nextDue) continue;
     const nextCm = competenceMonthFromYmd(nextDue);
-    if (nextCm && hasPendingInstanceForPeriod(pending, templateId, nextCm)) continue;
+    if (nextCm && hasInstanceForPeriod(pending, templateId, nextCm)) continue;
 
     const amount = roundMoney(Math.abs(Number(tx.gross) || 0));
     if (amount < 0.01) continue;
@@ -195,7 +205,7 @@ export function buildProjectedPayableItems(
     for (const occ of occurrences) {
       if (!occ.due_date || occ.due_date < todayYmd) continue;
       const cm = competenceMonthFromYmd(occ.due_date);
-      if (cm && hasPendingInstanceForPeriod(pending, templateId, cm)) continue;
+      if (cm && hasInstanceForPeriod(pending, templateId, cm)) continue;
 
       items.push({
         id: `proj:${templateId}:${occ.due_date}`,
@@ -325,6 +335,7 @@ export function filterPayablesSearch(items = [], search = '') {
 export function buildPayablesCatalog({
   pendingTransactions = [],
   recurrenceTemplates = [],
+  settledRecurrenceInstances = [],
   fromYmd,
   toYmd,
   today,
@@ -333,16 +344,19 @@ export function buildPayablesCatalog({
   const from = String(fromYmd || todayYmd).slice(0, 10);
   const to = String(toYmd || addDaysYmd(todayYmd, 30)).slice(0, 10);
 
+  /** Pending + settled/cancelled geradas — só para dedupe de template/projeção. */
+  const instancesForDedup = pendingTransactions.concat(settledRecurrenceInstances || []);
+
   const pending = buildPendingPayableItems(pendingTransactions, { today: todayYmd });
   const templates = buildTemplatePayableItems(recurrenceTemplates, {
     today: todayYmd,
-    pending: pendingTransactions,
+    pending: instancesForDedup,
   });
   const projected = buildProjectedPayableItems(
     recurrenceTemplates,
     from,
     to,
-    pendingTransactions,
+    instancesForDedup,
     { today: todayYmd }
   );
 
@@ -374,6 +388,7 @@ export function selectPayablesItems(catalog, section = 'visao') {
 export function buildPayablesSnapshot({
   pendingTransactions = [],
   recurrenceTemplates = [],
+  settledRecurrenceInstances = [],
   fromYmd,
   toYmd,
   today,
@@ -382,6 +397,7 @@ export function buildPayablesSnapshot({
   const catalog = buildPayablesCatalog({
     pendingTransactions,
     recurrenceTemplates,
+    settledRecurrenceInstances,
     fromYmd,
     toYmd,
     today,

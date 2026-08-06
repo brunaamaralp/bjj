@@ -4,6 +4,7 @@ import { Clock } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ScheduleGridCard from './ScheduleGridCard.jsx';
+import LessonRegisterModal from './LessonRegisterModal.jsx';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
 import {
@@ -18,6 +19,7 @@ import {
   resolveScheduleGridColumns,
   writeModalityFilter,
 } from '../../lib/recepcaoScheduleGrid.js';
+import { isClassSlotsConfigured } from '../../store/classSlotsStore.js';
 
 function SchedulesGridSkeleton() {
   return (
@@ -29,7 +31,7 @@ function SchedulesGridSkeleton() {
   );
 }
 
-function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef }) {
+function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef, onSelectSchedule }) {
   const now = useMemo(() => new Date(), []);
 
   return (
@@ -98,6 +100,11 @@ function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef
                               classDoc={classById.get(item.class_id) || null}
                               variant="table"
                               timeStatus={timeStatus}
+                              onSelect={
+                                onSelectSchedule
+                                  ? () => onSelectSchedule(item, col.id)
+                                  : undefined
+                              }
                             />
                           );
                         })}
@@ -126,6 +133,7 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const fetchClasses = useClassesStore((s) => s.fetchClasses);
 
   const [modalityFilter, setModalityFilter] = useState(() => readModalityFilter());
+  const [lessonTarget, setLessonTarget] = useState(null);
 
   const gridWrapRef = useRef(null);
   const todayColRef = useRef(null);
@@ -133,6 +141,7 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
 
   const todayId = getTodayWeekdayId();
   const configured = isSchedulesConfigured();
+  const canRegisterLesson = isClassSlotsConfigured();
 
   useEffect(() => {
     if (!academyId || !configured) return;
@@ -152,6 +161,11 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
     setModalityFilter(value);
     writeModalityFilter(value);
   }, []);
+
+  const handleSelectSchedule = useCallback((item, weekdayId) => {
+    if (!canRegisterLesson) return;
+    setLessonTarget({ schedule: item, weekdayId });
+  }, [canRegisterLesson]);
 
   const classById = useMemo(
     () => new Map(classes.map((c) => [c.id, c])),
@@ -189,6 +203,12 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
           }
         />
       </div>
+
+      {canRegisterLesson ? (
+        <p className="text-small text-muted schedules-grid-section__hint">
+          Clique em uma aula para registrar o professor e observações daquele dia.
+        </p>
+      ) : null}
 
       {modalities.length > 1 ? (
         <div className="schedules-modality-filter" role="group" aria-label="Filtrar por modalidade">
@@ -238,8 +258,22 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
           classById={classById}
           gridWrapRef={gridWrapRef}
           todayColRef={todayColRef}
+          onSelectSchedule={canRegisterLesson ? handleSelectSchedule : undefined}
         />
       ) : null}
+
+      <LessonRegisterModal
+        open={Boolean(lessonTarget)}
+        onClose={() => setLessonTarget(null)}
+        academyId={academyId}
+        schedule={lessonTarget?.schedule || null}
+        weekdayId={lessonTarget?.weekdayId || ''}
+        classDoc={
+          lessonTarget?.schedule?.class_id
+            ? classById.get(lessonTarget.schedule.class_id) || null
+            : null
+        }
+      />
     </section>
   );
 }

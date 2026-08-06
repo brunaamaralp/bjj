@@ -229,6 +229,74 @@ describe('payablesAggregate', () => {
     expect(templates).toHaveLength(0);
   });
 
+  it('after settling current period early, template advances to next unpaid month', () => {
+    const templates = buildTemplatePayableItems(
+      [
+        {
+          id: 'tpl-luz',
+          is_recurrence_template: true,
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 10,
+          gross: 450,
+          planName: 'CPFL',
+          category: 'Luz / energia',
+        },
+      ],
+      {
+        today: '2026-06-05',
+        pending: [
+          {
+            id: 'inst-jun-paid',
+            status: 'settled',
+            direction: 'out',
+            gross: 450,
+            recurrence_origin_id: 'tpl-luz',
+            competence_month: '2026-06',
+            due_date: '2026-06-10',
+          },
+        ],
+      }
+    );
+    expect(templates).toHaveLength(1);
+    expect(templates[0].due_date).toBe('2026-07-10');
+  });
+
+  it('dedupes projected recurrence when settled instance exists for period', () => {
+    const templates = [
+      {
+        id: 'tpl-1',
+        is_recurrence_template: true,
+        direction: 'out',
+        recurrence_type: 'monthly',
+        recurrence_day: 10,
+        gross: 450,
+        planName: 'CPFL',
+        category: 'Luz / energia',
+      },
+    ];
+    const instances = [
+      {
+        id: 's1',
+        status: 'settled',
+        direction: 'out',
+        gross: 450,
+        recurrence_origin_id: 'tpl-1',
+        competence_month: '2026-06',
+        due_date: '2026-06-10',
+      },
+    ];
+    const projected = buildProjectedPayableItems(
+      templates,
+      '2026-06-01',
+      '2026-07-31',
+      instances,
+      { today: '2026-06-01' }
+    );
+    expect(projected.some((it) => it.due_date === '2026-06-10')).toBe(false);
+    expect(projected.some((it) => it.due_date === '2026-07-10')).toBe(true);
+  });
+
   it('selectPayablesItems picks section-specific rows from catalog', () => {
     const catalog = buildPayablesCatalog({
       pendingTransactions: [
