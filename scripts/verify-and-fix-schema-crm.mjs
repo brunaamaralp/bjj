@@ -232,13 +232,16 @@ async function ensureAttr(databases, collectionId, statsKey, spec) {
         required,
       });
     } else if (type === 'float') {
-      await databases.createFloatAttribute({
+      const floatOpts = {
         databaseId: DB_ID,
         collectionId,
         key,
         required,
-        xdefault: 0,
-      });
+      };
+      if (!spec.noDefault) {
+        floatOpts.xdefault = 0;
+      }
+      await databases.createFloatAttribute(floatOpts);
     } else if (type === 'integer') {
       await databases.createIntegerAttribute({
         databaseId: DB_ID,
@@ -449,7 +452,8 @@ const STUDENTS_ATTRS = [
   { key: 'payer_aliases_json', type: 'string', size: 4096 },
   { key: 'birth_date', type: 'string', size: 16 },
   { key: 'plan', type: 'string', size: 128 },
-  { key: 'plan_price', type: 'float' },
+  // float opcional SEM default — default 0 faria snapshot ausente parecer R$ 0
+  { key: 'plan_price', type: 'float', noDefault: true },
   { key: 'discount_amount', type: 'float' },
   { key: 'discount_type', type: 'string', size: 16 },
   { key: 'plan_billing', type: 'string', size: 16 },

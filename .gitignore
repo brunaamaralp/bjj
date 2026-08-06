@@ -51,6 +51,7 @@ scripts/*
 !scripts/provision-financial-tx-ledger-regime.mjs
 !scripts/backfill-financial-tx-ledger-regime.mjs
 !scripts/backfill-student-plan-price.mjs
+!scripts/fix-student-plan-price-attr.mjs
 
 # Editor directories and files
 .vscode/*
