@@ -602,6 +602,7 @@ export default function NlCommandBar({
                                     <Link
                                       to={row.linkKind === 'lead' ? `/lead/${row.id}` : `/student/${row.id}`}
                                       style={{ color: 'var(--petroleo)', fontWeight: 600 }}
+                                      onClick={() => onOpenChange(false)}
                                     >
                                       {row.name || '—'}
                                     </Link>

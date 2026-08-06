@@ -139,14 +139,15 @@ export function useNlAction() {
     async (text, context = 'financeiro', opts = {}) => {
       const students = leads
         .filter((l) => l.status === LEAD_STATUS.CONVERTED || l.contact_type === 'student')
-        .map((l) => ({ id: l.id, name: l.name, plan: l.plan || '' }));
+        .map((l) => ({ id: l.id, name: l.name, plan: l.plan || '', phone: l.phone || '' }));
       const funnelLeads = leads
         .filter((l) => l.contact_type !== 'student' && l.status !== LEAD_STATUS.CONVERTED && l.status !== LEAD_STATUS.LOST)
         .map((l) => ({
           id: l.id,
           name: l.name,
           status: l.status,
-          pipelineStage: l.pipelineStage || ''
+          pipelineStage: l.pipelineStage || '',
+          phone: l.phone || '',
         }));
 
       const pipelineStagesPayload = (Array.isArray(opts.pipelineStages) ? opts.pipelineStages : [])

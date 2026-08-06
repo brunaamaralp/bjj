@@ -84,4 +84,19 @@ describe('buildStudentsListDocumentQueries', () => {
     const queries = buildStudentsListDocumentQueries('acad1', opts, 'turma');
     expect(queries.some((q) => String(q).includes('offset'))).toBe(true);
   });
+
+  it('busca por phone quando a query é telefone', () => {
+    const opts = parseStudentsListQueryParams({ search: '11999887766' });
+    const queries = buildStudentsListDocumentQueries('acad1', opts, 'turma');
+    const serialized = queries.map((q) => String(q));
+    expect(serialized.some((q) => q.includes('phone') && q.includes('contains'))).toBe(true);
+    expect(serialized.some((q) => q.includes('"name"') && q.includes('contains'))).toBe(false);
+  });
+
+  it('busca por name quando a query não é telefone', () => {
+    const opts = parseStudentsListQueryParams({ search: 'João' });
+    const queries = buildStudentsListDocumentQueries('acad1', opts, 'turma');
+    const serialized = queries.map((q) => String(q));
+    expect(serialized.some((q) => q.includes('contains'))).toBe(true);
+  });
 });

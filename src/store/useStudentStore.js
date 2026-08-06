@@ -16,6 +16,10 @@ import {
 } from '../lib/studentPhoneDuplicate.js';
 import { recalcPendingPaymentsOnDiscountChange } from '../lib/recalcPendingPaymentsOnDiscount.js';
 import { useLeadStore } from './useLeadStore.js';
+import {
+  isPagePhoneSearchQuery,
+  normalizePhoneSearchDigits,
+} from '../lib/phoneSearchQuery.js';
 
 export const STUDENTS_PAGE_SIZE = 200;
 
@@ -257,7 +261,13 @@ async function listStudentsFromAppwrite(academyId, queryOpts, { reset, cursor })
       Query.limit(STUDENTS_PAGE_SIZE),
     ];
     const search = String(queryOpts.search || '').trim();
-    if (search.length >= 2) queries.push(Query.contains('name', search));
+    if (search.length >= 2) {
+      if (isPagePhoneSearchQuery(search)) {
+        queries.push(Query.contains('phone', normalizePhoneSearchDigits(search)));
+      } else {
+        queries.push(Query.contains('name', search));
+      }
+    }
     if (queryOpts.plan) queries.push(Query.equal('plan', String(queryOpts.plan).trim()));
     if (withStatusFilter) {
       if (queryOpts.studentStatus === STUDENT_STATUS.INACTIVE) {

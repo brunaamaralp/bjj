@@ -20,6 +20,10 @@ import {
   extractInitialNoteEvents,
 } from '../lib/leadCreatePayload.js';
 import { mergePendingAutomations, parsePendingAutomations } from '../../lib/automationCore.js';
+import {
+  isPagePhoneSearchQuery,
+  normalizePhoneSearchDigits,
+} from '../lib/phoneSearchQuery.js';
 
 export { LEAD_STATUS, LEAD_ORIGIN } from '../lib/leadStatus.js';
 
@@ -335,7 +339,11 @@ export const useLeadStore = create(
         Query.limit(LEADS_PAGE_SIZE)
       ];
       if (opts.search) {
-        queries.push(Query.contains('name', opts.search));
+        if (isPagePhoneSearchQuery(opts.search)) {
+          queries.push(Query.contains('phone', normalizePhoneSearchDigits(opts.search)));
+        } else {
+          queries.push(Query.contains('name', opts.search));
+        }
       }
       if (!reset && get().leadsCursor) {
         queries.push(Query.cursorAfter(get().leadsCursor));
