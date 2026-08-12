@@ -187,6 +187,7 @@ flowchart TD
 - **Sidebar:** Financeiro → A receber → mensalidades (`naviMenu.js`)
 - **Config formas/meios:** [config-inicial-financeiro.md](config-inicial-financeiro.md) → `section=formas-recebimento`
 - **Perfil do aluno:** registrar pagamento em [`crm/aluno-perfil-presenca.md`](../crm/aluno-perfil-presenca.md)
+- **Checkout misto (produto + mensalidade/taxa no mesmo cartão):** Loja → Vendas — ver [`vendas/pdv-nova-venda.md`](../vendas/pdv-nova-venda.md); atalho no modal de pagamento do perfil
 - **Deep link:** `?filtro=` (`paid`, `paid_in_month`, `pending`, `overdue`, `covered`, `frozen`, `regua_*`, etc.) · `?student=` / NL prefill (`NL_PAYMENT_PREFILL_EVENT`)
 - **Exceções:** view dedicada em `PaymentExceptionsView` dentro do painel
 - **Rotas legadas:** `/caixa`, `/mensalidades` → redirect para hub canônico

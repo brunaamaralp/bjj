@@ -8,7 +8,7 @@
 | **rotas** | `/loja?tab=vendas`, `/loja?tab=vendas&subtab=new`, `/loja?tab=vendas&subtab=history`, `/loja?tab=vendas&pdv=1` |
 | **pré-requisitos** | Módulo `sales` ativo; produtos cadastrados em `/loja?tab=produtos`; estoque quando item controla saldo |
 | **status** | revisado (código) |
-| **última revisão** | 2026-07-13 |
+| **última revisão** | 2026-08-12 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -16,6 +16,7 @@
 - [2026-06-15-modal-venda-produto-PRODUCT.md](../../superpowers/specs/2026-06-15-modal-venda-produto-PRODUCT.md)
 - [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-07-01-relatorio-vendas-dia-PRODUCT.md)
 - [2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md](../../superpowers/specs/2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md) — correções cancelamento, turno de caixa, histórico (pendente/parcial)
+- [2026-08-12-checkout-misto-design.md](../../superpowers/specs/2026-08-12-checkout-misto-design.md) — produto + mensalidade/pacote/taxa no mesmo checkout
 
 **Harness relacionado:** `npm test -- lojaSalesTabs nlAction`
 
@@ -62,7 +63,8 @@ flowchart TD
 | 5 | Nova venda | Vincular aluno (opcional) | Busca typeahead | `searchStudentsForSale` |
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
 | 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; **Recebido via** em cartão (2+ meios) |
-| 8 | Checkout | Venda a prazo | Toggle visível + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias |
+| 7b | Checkout | Cobrança mista | Aluno + mensalidade/pacote/taxa | `MixedCheckoutChargeForm`; submit via `submitMixedCheckout` |
+| 8 | Checkout | Venda a prazo | Toggle visível + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias; bloqueado se houver cobranças |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |
 | 10 | Toolbar | **Modo PDV** | `?pdv=1` | UI fullscreen; hotkeys F2–F4 |
 | 11 | PDV | Suspender carrinho | Pausar atendimento | `suspendCart` / retomar |
@@ -116,6 +118,8 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 6b. [ ] Venda a prazo preenche vencimento padrão (+30 dias) ao marcar o toggle
 7. [ ] Split de pagamento com total divergente → bloqueio (`paymentsUiValid`)
 7b. [ ] Cartão com 2 meios de captura — **Recebido via** na linha de pagamento
+7c. [ ] Com aluno vinculado: **Adicionar cobrança** (mensalidade/pacote/taxa) no checkout; total na máquina = venda + cobranças; gera `sale` + `student_payment`(s)
+7d. [ ] Venda a prazo desabilitada quando há cobranças no carrinho
 8. [ ] **Modo PDV** (`?pdv=1`) oculta tabs do hub; preferência em `localStorage` `sales:pdvMode:v1`
 9. [ ] Atalho sidebar **Nova venda** abre modal; dirty → `ConfirmDialog` ao fechar
 10. [ ] Histórico: filtros período, status (incl. pendente/parcial/em aberto), canal, busca; totais recebido + saldo em aberto

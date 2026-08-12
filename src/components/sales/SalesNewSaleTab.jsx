@@ -20,7 +20,7 @@ import {
 } from '../../lib/salesCatalog';
 import { normalizeLineKind } from '../../lib/saleLineKind';
 import { readSalesSettings } from '../../lib/salesSettings';
-import { formatBRLFromCents } from '../../lib/moneyBr';
+import { formatBRLFromCents, formatBRL } from '../../lib/moneyBr';
 import { maskPhone } from '../../lib/masks.js';
 import SalesCatalogPicker from './SalesCatalogPicker';
 import SalesVariantPicker from './SalesVariantPicker';
@@ -49,7 +49,7 @@ import {
   removeSuspendedCart,
 } from '../../lib/salesSuspendedCart';
 import { NL_SALE_PREFILL_EVENT } from '../../lib/nlCorrect.js';
-import { friendlySaleError } from '../../lib/errorMessages.js';
+import { friendlySaleError, studentPaymentFriendlyError } from '../../lib/errorMessages.js';
 import SalesGeneralDiscountFields from './SalesGeneralDiscountFields';
 import {
   applySaleGeneralDiscountToUnitPrice,
@@ -59,10 +59,32 @@ import {
 import { refreshStockStores } from '../../lib/syncStockStores.js';
 import { getSaleFooterHint, isSaleCheckoutDirty } from '../../lib/saleModalDirty.js';
 import StatusBanner from '../shared/StatusBanner.jsx';
+import MixedCheckoutChargeForm from './MixedCheckoutChargeForm.jsx';
+import {
+  chargeLinesGross,
+  productLinesGross,
+  validateMixedCart,
+  allocatePaymentsForMixedCheckout,
+  buildSalePayloadFromMixed,
+  buildStudentPaymentPayloadsFromMixed,
+  summarizeMixedCheckout,
+} from '../../lib/mixedCheckout.js';
+import { submitMixedCheckout } from '../../lib/mixedCheckoutSubmit.js';
+import { createPayment } from '../../lib/studentPayments.js';
+import { resolveDefaultBankAccountLabel } from '../../lib/bankAccounts.js';
+import { toastAdapterFromAddToast } from '../../lib/financeTxSettlementDisplay.js';
+import { PAYMENT_CATEGORY } from '../../lib/paymentCategories.js';
+import { consumeMixedCheckoutPrefill } from '../../lib/mixedCheckoutPrefill.js';
 
 const SALE_ALUNO_SEARCH_ID = 'sale-aluno-search';
 const SALE_ALUNO_SUGGESTIONS_ID = 'sale-aluno-suggestions';
 const saleAlunoOptionId = (id) => `sale-aluno-option-${id}`;
+
+const CHARGE_BADGE = {
+  [PAYMENT_CATEGORY.PLAN]: 'Mensalidade',
+  [PAYMENT_CATEGORY.BUNDLE]: 'Pacote',
+  [PAYMENT_CATEGORY.FEE]: 'Taxa',
+};
 
 function formatSaleTotalBRL(total) {
   const n = Number(total);
@@ -86,11 +108,13 @@ export default function SalesNewSaleTab({
   onNavigateAway,
 }) {
   const createSale = useSalesStore((s) => s.createSale);
+  const cancelSale = useSalesStore((s) => s.cancelSale);
   const creating = useSalesStore((s) => s.creating);
   const lastSale = useSalesStore((s) => s.lastSale);
   const error = useSalesStore((s) => s.error);
   const academyId = useLeadStore((s) => s.academyId);
   const financeConfig = useLeadStore((s) => s.financeConfig);
+  const userId = useLeadStore((s) => s.userId);
   const addToast = useUiStore((s) => s.addToast);
   const { products, loading: catalogLoading, reload: reloadCatalog, error: catalogError } =
     useSalesCatalog(academyId);
@@ -113,6 +137,10 @@ export default function SalesNewSaleTab({
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
 
   const [cart, setCart] = useState([]);
+  const [chargeLines, setChargeLines] = useState([]);
+  const [alunoPlanName, setAlunoPlanName] = useState('');
+  const [alunoPlanPrice, setAlunoPlanPrice] = useState(null);
+  const [mixedBusy, setMixedBusy] = useState(false);
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
   const [variantPickerParent, setVariantPickerParent] = useState(null);
@@ -151,6 +179,24 @@ export default function SalesNewSaleTab({
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `sale-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+  }, []);
+
+  useEffect(() => {
+    const prefill = consumeMixedCheckoutPrefill();
+    if (!prefill?.aluno_id) return;
+    setAlunoId(String(prefill.aluno_id).trim());
+    const nome = String(prefill.aluno_nome || '').trim();
+    setAlunoNomeSel(nome);
+    setAlunoSearchText(nome);
+    setAlunoPhoneSel(String(prefill.phone || '').trim());
+    setAlunoPlanName(String(prefill.plan || '').trim());
+    setAlunoPlanPrice(
+      prefill.plan_price != null && Number.isFinite(Number(prefill.plan_price))
+        ? Number(prefill.plan_price)
+        : null
+    );
+    setClienteNome('');
+    setClienteTelefone('');
   }, []);
 
   useEffect(() => {
@@ -298,7 +344,7 @@ export default function SalesNewSaleTab({
   const {
     fatorGeral,
     totalFinal,
-    totalFinalCents,
+    totalFinalCents: productTotalCents,
     discountDisplayValue,
   } = useMemo(
     () =>
@@ -310,19 +356,35 @@ export default function SalesNewSaleTab({
     [totalCart, descGeralTipo, descGeralCents, descGeralPct]
   );
 
+  const chargesGross = useMemo(() => chargeLinesGross(chargeLines), [chargeLines]);
+  const checkoutTotal = useMemo(
+    () => roundSaleMoney(Number(totalFinal || 0) + Number(chargesGross || 0)),
+    [totalFinal, chargesGross]
+  );
+  const totalFinalCents = useMemo(
+    () => Math.max(0, Math.round(checkoutTotal * 100)),
+    [checkoutTotal]
+  );
+
   const paymentValid = useMemo(
     () =>
       deferredSale
-        ? paymentsUiValid(payments, totalFinalCents, { deferred: true })
+        ? paymentsUiValid(payments, productTotalCents, { deferred: true })
         : paymentsUiValid(payments, totalFinalCents, { financeConfig, allowPartial: true }),
-    [payments, totalFinalCents, deferredSale, financeConfig]
+    [payments, totalFinalCents, productTotalCents, deferredSale, financeConfig]
   );
 
   const shiftBlocksSale =
     salesSettings.requireCashShift && !openCashShift && !modalMode;
   const dueDateValid = !deferredSale || isIsoDateYmd(dueDate);
+  const hasCheckoutItems = cart.length > 0 || chargeLines.length > 0;
   const canCheckout =
-    cart.length > 0 && paymentValid.ok && dueDateValid && !creating && !shiftBlocksSale;
+    hasCheckoutItems &&
+    paymentValid.ok &&
+    dueDateValid &&
+    !creating &&
+    !mixedBusy &&
+    !shiftBlocksSale;
 
   const subtotalMasked = useMemo(() => {
     try {
@@ -341,7 +403,7 @@ export default function SalesNewSaleTab({
     }
   }, [discountDisplayValue]);
 
-  const totalMasked = useMemo(() => formatSaleTotalBRL(totalFinal), [totalFinal]);
+  const totalMasked = useMemo(() => formatSaleTotalBRL(checkoutTotal), [checkoutTotal]);
 
   const descGeralMasked = useMemo(() => formatBRLFromCents(descGeralCents), [descGeralCents]);
 
@@ -369,37 +431,41 @@ export default function SalesNewSaleTab({
 
   useEffect(() => {
     if (!onSubmitStateChange) return;
+    const busy = creating || mixedBusy;
     onSubmitStateChange({
       canSubmit: canCheckout,
-      busy: creating,
+      busy,
       label:
-        creating
-          ? 'Registrando venda…'
-          : cart.length === 0
-            ? 'Concluir venda'
-            : `Concluir venda — ${formatSaleTotalBRL(totalFinal)}`,
+        busy
+          ? 'Registrando…'
+          : !hasCheckoutItems
+            ? 'Concluir'
+            : `Concluir — ${formatSaleTotalBRL(checkoutTotal)}`,
       footerHint: canCheckout || localError || error
         ? null
         : getSaleFooterHint({
-            cartLength: cart.length,
+            cartLength: cart.length + chargeLines.length,
             paymentValid: paymentValid.ok,
             deferredSale,
             dueDateValid,
-            busy: creating,
+            busy,
             allowPartial: true,
           }),
       footerError: localError || error ? friendlySaleError(localError || error) : null,
     });
   }, [
     canCheckout,
+    hasCheckoutItems,
     cart.length,
+    chargeLines.length,
     creating,
+    mixedBusy,
     deferredSale,
     dueDateValid,
     paymentValid.ok,
     localError,
     error,
-    totalFinal,
+    checkoutTotal,
     onSubmitStateChange,
   ]);
 
@@ -794,6 +860,10 @@ export default function SalesNewSaleTab({
     setAlunoId(s.id);
     setAlunoNomeSel(`${s.nome}${s.phone ? ` • ${s.phone}` : ''}`);
     setAlunoPhoneSel(String(s.phone || '').trim());
+    setAlunoPlanName(String(s.plan || s.plan_name || '').trim());
+    setAlunoPlanPrice(
+      s.plan_price != null && Number.isFinite(Number(s.plan_price)) ? Number(s.plan_price) : null
+    );
     setClienteNome('');
     setClienteTelefone('');
     setAlunoSuggestions([]);
@@ -842,6 +912,9 @@ export default function SalesNewSaleTab({
     setAlunoPhoneSel('');
     setAlunoSearchText('');
     setAlunoActiveIndex(-1);
+    setAlunoPlanName('');
+    setAlunoPlanPrice(null);
+    setChargeLines([]);
   };
 
   const clientDisplayName = alunoNomeSel || clienteNome.trim() || 'Cliente avulso';
@@ -855,8 +928,8 @@ export default function SalesNewSaleTab({
   const submit = async (e) => {
     e.preventDefault();
     setLocalError('');
-    if (cart.length === 0) {
-      setLocalError('Adicione pelo menos um item');
+    if (cart.length === 0 && chargeLines.length === 0) {
+      setLocalError('Adicione pelo menos um item ou cobrança');
       focusCheckoutPanel();
       return;
     }
@@ -865,6 +938,19 @@ export default function SalesNewSaleTab({
       focusCheckoutPanel();
       return;
     }
+
+    const mixedCheck = validateMixedCart({
+      alunoId,
+      productLines: cart,
+      chargeLines,
+      deferred: deferredSale,
+    });
+    if (!mixedCheck.ok) {
+      setLocalError(mixedCheck.message || 'Revise o carrinho.');
+      focusCheckoutPanel();
+      return;
+    }
+
     if (deferredSale) {
       if (!isIsoDateYmd(dueDate)) {
         setLocalError('Informe a data de vencimento da venda a prazo.');
@@ -896,58 +982,17 @@ export default function SalesNewSaleTab({
       }
     }
 
-    const itens = cart.map((it) => ({
-      item_estoque_id: it.product_variant_id || it.item_estoque_id,
-      product_variant_id: it.product_variant_id || it.item_estoque_id,
-      quantidade: Number(it.quantidade),
+    const discountedProductLines = cart.map((it) => ({
+      ...it,
       preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
-      line_kind: normalizeLineKind(it.line_kind),
-      expected_quantity:
-        it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
     }));
 
     const now = new Date();
     const pagamentos = deferredSale ? [] : serializePagamentosForApi(payments);
 
-    await createSale({
-      aluno_id: alunoId || null,
-      pagamentos,
-      deferred: deferredSale,
-      due_date: deferredSale && isIsoDateYmd(dueDate) ? String(dueDate).slice(0, 10) : null,
-      cliente_nome: !alunoId ? clienteNome.trim() || null : null,
-      cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
-      venda_colaborador: vendaColaborador,
-      itens,
-      idempotency_key: idempotencyKeyRef.current,
-      sale_source: modalMode ? 'modal' : 'pdv',
-    });
-
-    const st = useSalesStore.getState();
-    if (st.error === 'no_stock' || st.error === 'stock_stale') {
-      addToast({
-        type: 'warning',
-        message: 'Estoque insuficiente — o catálogo foi atualizado. Revise os itens.',
-      });
-      void reloadCatalog();
-      return;
-    }
-    if (st.error) {
-      addToast({
-        type: 'error',
-        message:
-          friendlySaleError(st.error, { detail: st.errorDetail }) ||
-          'Não foi possível registrar a venda. Revise as informações e tente novamente.',
-      });
-      return;
-    }
-
-    addToast({
-      type: 'success',
-      message: deferredSale ? 'Venda a prazo registrada' : 'Venda concluída',
-    });
-
     const clearAfterSale = () => {
       setCart([]);
+      setChargeLines([]);
       setPayments([createEmptyPaymentRow(0)]);
       setDescGeralCents(0);
       setDescGeralPct(0);
@@ -959,47 +1004,202 @@ export default function SalesNewSaleTab({
       void refreshStockStores();
     };
 
-    if (modalMode) {
+    // Path legado: só produtos
+    if (chargeLines.length === 0) {
+      await createSale({
+        aluno_id: alunoId || null,
+        pagamentos,
+        deferred: deferredSale,
+        due_date: deferredSale && isIsoDateYmd(dueDate) ? String(dueDate).slice(0, 10) : null,
+        cliente_nome: !alunoId ? clienteNome.trim() || null : null,
+        cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
+        venda_colaborador: vendaColaborador,
+        itens: discountedProductLines.map((it) => ({
+          item_estoque_id: it.product_variant_id || it.item_estoque_id,
+          product_variant_id: it.product_variant_id || it.item_estoque_id,
+          quantidade: Number(it.quantidade),
+          preco_unitario: Number(it.preco_unitario),
+          line_kind: normalizeLineKind(it.line_kind),
+          expected_quantity:
+            it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
+        })),
+        idempotency_key: idempotencyKeyRef.current,
+        sale_source: modalMode ? 'modal' : 'pdv',
+      });
+
+      const st = useSalesStore.getState();
+      if (st.error === 'no_stock' || st.error === 'stock_stale') {
+        addToast({
+          type: 'warning',
+          message: 'Estoque insuficiente — o catálogo foi atualizado. Revise os itens.',
+        });
+        void reloadCatalog();
+        return;
+      }
+      if (st.error) {
+        addToast({
+          type: 'error',
+          message:
+            friendlySaleError(st.error, { detail: st.errorDetail }) ||
+            'Não foi possível registrar a venda. Revise as informações e tente novamente.',
+        });
+        return;
+      }
+
+      addToast({
+        type: 'success',
+        message: deferredSale ? 'Venda a prazo registrada' : 'Venda concluída',
+      });
+
+      if (modalMode) {
+        clearAfterSale();
+        onSaleComplete?.();
+        return;
+      }
+
+      const vendaId = st.lastSale?.venda_id || '';
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const trocoWarnings = Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [];
+      const clientPhone = clienteTelefone.trim() || alunoPhoneSel || '';
+
+      setReceipt({
+        vendaId,
+        date: dateStr,
+        time: timeStr,
+        status: st.lastSale?.status || (deferredSale ? 'pendente' : paymentValid.partial ? 'parcial' : 'concluida'),
+        clientName: clientDisplayName,
+        clientPhone: clientPhone.trim(),
+        forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
+        pagamentos,
+        trocoWarnings,
+        dueDate: deferredSale ? dueDate : null,
+        items: cart.map((it) => ({
+          display_label: it.display_label,
+          quantidade: Number(it.quantidade),
+          preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
+          subtotal: roundSaleMoney(
+            Number(it.quantidade) *
+              applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral)
+          ),
+        })),
+        total: totalFinal,
+      });
+
+      if (salesSettings.autoPrintReceipt && pdvMode && !deferredSale) {
+        window.setTimeout(() => window.print(), 300);
+      }
+
       clearAfterSale();
-      onSaleComplete?.();
       return;
     }
 
-    const vendaId = st.lastSale?.venda_id || '';
-    const dateStr = now.toLocaleDateString('pt-BR');
-    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const trocoWarnings = Array.isArray(st.lastSale?.troco_warnings) ? st.lastSale.troco_warnings : [];
-
-    const clientPhone = clienteTelefone.trim() || alunoPhoneSel || '';
-
-    setReceipt({
-      vendaId,
-      date: dateStr,
-      time: timeStr,
-      status: st.lastSale?.status || (deferredSale ? 'pendente' : paymentValid.partial ? 'parcial' : 'concluida'),
-      clientName: clientDisplayName,
-      clientPhone: clientPhone.trim(),
-      forma: deferredSale ? 'A receber' : buildFormaPagamentoResumo(pagamentos),
-      pagamentos,
-      trocoWarnings,
-      dueDate: deferredSale ? dueDate : null,
-      items: cart.map((it) => ({
-        display_label: it.display_label,
-        quantidade: Number(it.quantidade),
-        preco_unitario: applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral),
-        subtotal: roundSaleMoney(
-          Number(it.quantidade) *
-            applySaleGeneralDiscountToUnitPrice(it.preco_unitario, fatorGeral)
-        ),
-      })),
-      total: totalFinal,
+    // Checkout misto: produtos + cobranças (ou só cobranças)
+    const saleGross = productLinesGross(discountedProductLines);
+    const alloc = allocatePaymentsForMixedCheckout(pagamentos, {
+      saleGross,
+      charges: chargeLines.map((c) => ({ id: c.id, amount: c.amount })),
+    });
+    const defaultAccount = resolveDefaultBankAccountLabel(financeConfig) || '';
+    const salePayload =
+      discountedProductLines.length > 0
+        ? buildSalePayloadFromMixed({
+            alunoId,
+            productLines: discountedProductLines,
+            salePagamentos: alloc.salePagamentos,
+            idempotency_key: idempotencyKeyRef.current,
+            sale_source: modalMode ? 'modal' : 'pdv',
+            venda_colaborador: vendaColaborador,
+          })
+        : null;
+    const paymentPayloads = buildStudentPaymentPayloadsFromMixed({
+      alunoId,
+      academyId,
+      userId,
+      chargeLines,
+      chargeAllocations: alloc.charges.map((c) => ({ ...c, account: defaultAccount })),
+      defaultAccount,
     });
 
-    if (salesSettings.autoPrintReceipt && pdvMode && !deferredSale) {
-      window.setTimeout(() => window.print(), 300);
-    }
+    setMixedBusy(true);
+    try {
+      const result = await submitMixedCheckout({
+        deps: {
+          createSale: async (payload) => {
+            const doc = await createSale(payload);
+            const st = useSalesStore.getState();
+            if (st.error) {
+              const err = new Error(st.error);
+              err.code = st.error;
+              err.detail = st.errorDetail;
+              throw err;
+            }
+            return doc || st.lastSale;
+          },
+          createPayment: (data, opts) => createPayment(data, opts),
+          cancelSale: ({ venda_id, motivo }) => cancelSale({ venda_id, motivo }),
+        },
+        salePayload,
+        paymentPayloads,
+        createPaymentOpts: {
+          financeConfig,
+          toast: toastAdapterFromAddToast(addToast),
+        },
+      });
 
-    clearAfterSale();
+      if (!result.ok) {
+        if (result.error === 'sale_failed') {
+          const code = result.cause?.code || result.cause?.message;
+          if (code === 'no_stock' || code === 'stock_stale') {
+            addToast({
+              type: 'warning',
+              message: 'Estoque insuficiente — o catálogo foi atualizado. Revise os itens.',
+            });
+            void reloadCatalog();
+            return;
+          }
+          addToast({
+            type: 'error',
+            message:
+              friendlySaleError(code, { detail: result.cause?.detail }) ||
+              result.message ||
+              'Não foi possível registrar a venda.',
+          });
+          return;
+        }
+        addToast({
+          type: 'error',
+          message:
+            studentPaymentFriendlyError(result.cause, 'save') ||
+            result.message ||
+            'Não foi possível concluir o checkout misto.',
+        });
+        if (result.compensated) {
+          addToast({
+            type: 'warning',
+            message: 'A venda criada nesta tentativa foi cancelada automaticamente.',
+            duration: 8000,
+          });
+        }
+        return;
+      }
+
+      const summary = summarizeMixedCheckout({
+        saleGross,
+        chargeLines,
+      });
+      const partsLabel = summary.parts.map((p) => `${p.label} ${formatBRL(p.amount)}`).join(' + ');
+      addToast({
+        type: 'success',
+        message: `Checkout concluído: ${partsLabel}`,
+        duration: 8000,
+      });
+
+      clearAfterSale();
+      if (modalMode) onSaleComplete?.();
+    } finally {
+      setMixedBusy(false);
+    }
   };
 
   const copyReceipt = async (text) => {
@@ -1011,7 +1211,8 @@ export default function SalesNewSaleTab({
     }
   };
 
-  const cartCount = cart.reduce((n, it) => n + Number(it.quantidade || 0), 0);
+  const cartCount =
+    cart.reduce((n, it) => n + Number(it.quantidade || 0), 0) + chargeLines.length;
 
   return (
     <>
@@ -1224,12 +1425,78 @@ export default function SalesNewSaleTab({
                 subtotalMasked={subtotalMasked}
                 subtotalValue={totalCart}
                 descGeralMasked={descGeralMaskedOut}
-                totalMasked={totalMasked}
+                totalMasked={formatSaleTotalBRL(totalFinal)}
                 totalValue={totalFinal}
                 inlineValidate
                 priceTouched={priceTouched}
                 onPriceBlur={handlePriceBlur}
               />
+
+              <MixedCheckoutChargeForm
+                disabled={!alunoId}
+                studentPlanName={alunoPlanName}
+                studentPlanPrice={alunoPlanPrice}
+                onAdd={(line) => {
+                  setChargeLines((prev) => [...prev, line]);
+                  if (deferredSale) {
+                    setDeferredSale(false);
+                    setLocalError('');
+                  }
+                }}
+              />
+
+              {chargeLines.length > 0 ? (
+                <ul className="mixed-checkout-charges" style={{ listStyle: 'none', padding: 0, margin: '8px 0' }}>
+                  {chargeLines.map((line) => (
+                    <li
+                      key={line.id}
+                      className="mixed-checkout-charges__item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        padding: '6px 0',
+                        borderBottom: '1px solid var(--border, rgba(0,0,0,0.08))',
+                      }}
+                    >
+                      <span>
+                        <span className="text-small" style={{ fontWeight: 600 }}>
+                          {CHARGE_BADGE[line.kind] || line.kind}
+                        </span>
+                        {line.note ? (
+                          <span className="text-small text-muted"> — {line.note}</span>
+                        ) : null}
+                        {line.kind === PAYMENT_CATEGORY.PLAN && line.reference_month ? (
+                          <span className="text-small text-muted"> · {line.reference_month}</span>
+                        ) : null}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <strong className="text-small">{formatBRL(line.amount)}</strong>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          aria-label="Remover cobrança"
+                          onClick={() =>
+                            setChargeLines((prev) => prev.filter((c) => c.id !== line.id))
+                          }
+                        >
+                          <X size={14} aria-hidden />
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {chargeLines.length > 0 || cart.length > 0 ? (
+                <p className="text-small text-muted" role="status" style={{ margin: '4px 0 8px' }}>
+                  Total na máquina: <strong>{totalMasked}</strong>
+                  {chargeLines.length > 0 && cart.length > 0
+                    ? ` (venda ${formatBRL(totalFinal)} + cobranças ${formatBRL(chargesGross)})`
+                    : null}
+                </p>
+              ) : null}
 
               <SalesGeneralDiscountFields
                 descGeralTipo={descGeralTipo}
@@ -1244,7 +1511,7 @@ export default function SalesNewSaleTab({
                 <>
                   <SalesQuickPayBar
                     totalCents={totalFinalCents}
-                    disabled={creating || cart.length === 0}
+                    disabled={creating || mixedBusy || !hasCheckoutItems}
                     onApply={applyQuickPay}
                     onFocusCashReceived={focusCashReceived}
                     compact={!pdvMode}
@@ -1254,7 +1521,7 @@ export default function SalesNewSaleTab({
                     type="button"
                     className="btn-ghost sales-manual-pay-toggle"
                     onClick={() => setManualPaymentOpen((v) => !v)}
-                    disabled={cart.length === 0}
+                    disabled={!hasCheckoutItems}
                   >
                     {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
                   </button>
@@ -1263,7 +1530,7 @@ export default function SalesNewSaleTab({
                       totalCents={totalFinalCents}
                       payments={payments}
                       onChange={setPayments}
-                      disabled={creating || cart.length === 0}
+                      disabled={creating || mixedBusy || !hasCheckoutItems}
                       inlineValidate
                       financeConfig={financeConfig}
                       allowPartial
@@ -1280,7 +1547,7 @@ export default function SalesNewSaleTab({
                     value={dueDate}
                     onChange={(e) => setDueDate(String(e?.target?.value || '').slice(0, 10))}
                     required
-                    disabled={creating || cart.length === 0}
+                    disabled={creating || mixedBusy || cart.length === 0}
                     aria-label="Data de vencimento da venda a prazo"
                   />
                 </div>
@@ -1290,7 +1557,7 @@ export default function SalesNewSaleTab({
                 <input
                   type="checkbox"
                   checked={deferredSale}
-                  disabled={creating || cart.length === 0}
+                  disabled={creating || mixedBusy || cart.length === 0 || chargeLines.length > 0}
                   onChange={(e) => {
                     const on = e.target.checked;
                     setDeferredSale(on);
@@ -1301,7 +1568,10 @@ export default function SalesNewSaleTab({
                     setLocalError('');
                   }}
                 />
-                <span className="sales-collab-toggle__text">Vender a prazo (sem pagamento agora)</span>
+                <span className="sales-collab-toggle__text">
+                  Vender a prazo (sem pagamento agora)
+                  {chargeLines.length > 0 ? ' — indisponível com cobranças' : ''}
+                </span>
               </label>
 
               <details
@@ -1353,11 +1623,11 @@ export default function SalesNewSaleTab({
                 >
                   <ShoppingCart size={18} aria-hidden />
                   <span>
-                    {creating
-                      ? 'Registrando venda…'
-                      : cart.length === 0
-                        ? 'Concluir venda'
-                        : `Concluir venda — ${totalMasked}`}
+                    {creating || mixedBusy
+                      ? 'Registrando…'
+                      : !hasCheckoutItems
+                        ? 'Concluir'
+                        : `Concluir — ${totalMasked}`}
                   </span>
                 </button>
               ) : null}

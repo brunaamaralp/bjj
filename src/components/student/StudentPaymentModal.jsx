@@ -33,6 +33,7 @@ import { useSalesStore } from '../../store/useSalesStore';
 import PaymentReceiptDateBanner from '../finance/PaymentReceiptDateBanner.jsx';
 import { suggestPaidAtYmd } from '../../lib/paymentReceiptDate.js';
 import { resolveStudentPlanFinalPrice } from '../../lib/planBilling.js';
+import { writeMixedCheckoutPrefill } from '../../lib/mixedCheckoutPrefill.js';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -299,6 +300,24 @@ export default function StudentPaymentModal({
       }
     >
         {formError ? <PaymentFormErrorBanner message={formError} /> : null}
+        {!isProduct && salesEnabled && !editingPaymentId ? (
+          <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
+            Precisa cobrar produto + mensalidade/taxa no mesmo cartão?{' '}
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ padding: 0, fontSize: 'inherit', textDecoration: 'underline' }}
+              disabled={saving}
+              onClick={() => {
+                writeMixedCheckoutPrefill(student);
+                requestClose();
+                navigate('/loja?tab=vendas&subtab=new');
+              }}
+            >
+              Abrir checkout completo na Loja
+            </button>
+          </p>
+        ) : null}
         {!isProduct && showPaidDate ? (
           <PaymentReceiptDateBanner
             payForm={payForm}

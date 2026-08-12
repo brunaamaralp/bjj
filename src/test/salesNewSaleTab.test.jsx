@@ -8,6 +8,7 @@ vi.mock('../store/useSalesStore', () => ({
   useSalesStore: (selector) =>
     selector({
       createSale: vi.fn(),
+      cancelSale: vi.fn(),
       creating: false,
       lastSale: null,
       error: null,
@@ -19,6 +20,7 @@ vi.mock('../store/useLeadStore', () => ({
     selector({
       academyId: 'acad-1',
       financeConfig: { captureMethods: [] },
+      userId: 'user-1',
     }),
 }));
 
@@ -44,6 +46,18 @@ vi.mock('../lib/appwrite', () => ({
 describe('SalesNewSaleTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (!window.matchMedia) {
+      window.matchMedia = vi.fn().mockImplementation((query) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    }
   });
 
   it('monta sem ReferenceError (TDZ)', () => {
@@ -66,6 +80,6 @@ describe('SalesNewSaleTab', () => {
       </MemoryRouter>
     );
     expect(onSubmitStateChange).toHaveBeenCalled();
-    expect(screen.getByText(/Checkout/i)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /^Checkout$/i })).toBeTruthy();
   });
 });

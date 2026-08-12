@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-08-12: Checkout misto — produto + mensalidade/pacote/taxa no mesmo fluxo PDV/Loja; perfil aponta para Loja (`pdv-nova-venda.md`, spec [2026-08-12-checkout-misto-design.md](../superpowers/specs/2026-08-12-checkout-misto-design.md)).
 - 2026-07-23: plan price snapshot — código alinhado aos fluxos (config financeiro, mensalidades, funil, perfil); spec [2026-07-23-plan-price-snapshot-design.md](../superpowers/specs/2026-07-23-plan-price-snapshot-design.md).
 - 2026-07-23: A pagar — KPI compacto único (como A receber); Visão só com próximos vencimentos (sem métricas duplicadas); subnav com Importar/Nova/Atualizar (`a-pagar-contas-fixas.md`).
 - 2026-07-22: A receber → Visão geral — exclui espelho `student_payment`/templates do total; deep link `?tx=` busca o lançamento mesmo fora do período (`a-receber-mensalidades.md`).
