@@ -29,17 +29,37 @@ function getDb(): Databases | null {
   return cachedDb;
 }
 
+function parseFinanceConfig(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 export async function buildContractVariableMap(input: {
   academyId: string;
   leadId?: string;
 }): Promise<ContractVariableMap> {
   let academyName = '';
+  let financeConfig: Record<string, unknown> = {};
   const db = getDb();
 
   if (db && ACADEMIES_COL()) {
     try {
       const academy = await db.getDocument(DB_ID, ACADEMIES_COL(), String(input.academyId));
       academyName = String(academy.name || academy.academy_name || '').trim();
+      financeConfig = parseFinanceConfig(academy.financeConfig ?? academy.finance_config);
     } catch {
       void 0;
     }
@@ -47,17 +67,21 @@ export async function buildContractVariableMap(input: {
 
   const leadId = String(input.leadId || '').trim();
   if (!leadId || !db) {
-    return mapLeadDocToContractVariables(null, academyName);
+    return mapLeadDocToContractVariables(null, academyName, financeConfig);
   }
 
   const cols = [STUDENTS_COL(), LEADS_COL()].filter(Boolean);
   for (const col of cols) {
     try {
       const lead = await db.getDocument(DB_ID, col, leadId);
-      return mapLeadDocToContractVariables(lead as Record<string, unknown>, academyName);
+      return mapLeadDocToContractVariables(
+        lead as Record<string, unknown>,
+        academyName,
+        financeConfig
+      );
     } catch {
       /* try next */
     }
   }
-  return mapLeadDocToContractVariables(null, academyName);
+  return mapLeadDocToContractVariables(null, academyName, financeConfig);
 }

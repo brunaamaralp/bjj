@@ -23,6 +23,7 @@ export const CONTRACT_TEMPLATE_VARIABLES: ContractVariableDef[] = [
   { key: 'faixa', label: 'Faixa / cinto', group: 'aluno' },
   { key: 'sexo', label: 'Sexo', group: 'aluno' },
   { key: 'plano', label: 'Plano', group: 'aluno' },
+  { key: 'valor_pago', label: 'Valor pago (plano)', group: 'aluno' },
   { key: 'data_ingresso', label: 'Data de ingresso', group: 'aluno' },
   { key: 'origem', label: 'Origem do cadastro', group: 'aluno' },
   { key: 'nome_responsavel', label: 'Nome do responsável', group: 'responsavel' },

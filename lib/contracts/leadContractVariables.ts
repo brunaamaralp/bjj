@@ -1,4 +1,8 @@
 import { formatContractDate, type ContractVariableMap } from './contractVariables.js';
+import {
+  getStudentAgreedPlanPrice,
+  resolveStudentPlanFinalPrice,
+} from '../../src/lib/planBilling.js';
 
 function formatDateField(raw: unknown): string {
   const s = String(raw || '').trim().slice(0, 10);
@@ -65,6 +69,29 @@ function formatPhoneDisplay(raw: unknown): string {
   return String(raw || '').trim();
 }
 
+/** Formata valor monetário no padrão do sistema (ex.: R$ 330,00). */
+export function formatContractMoney(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return '';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/**
+ * Valor efetivamente cobrado do plano do aluno (snapshot/desconto/catálogo).
+ * Vazio quando não há plano nem preço acordado.
+ */
+export function resolveContractPaidAmount(
+  lead: Record<string, unknown> | null | undefined,
+  financeConfig: Record<string, unknown> | null | undefined = null
+): string {
+  if (!lead) return '';
+  const planName = String(lead.plan || lead.plano || '').trim();
+  const snap = getStudentAgreedPlanPrice(lead);
+  if (!planName && snap == null) return '';
+  const amount = resolveStudentPlanFinalPrice(lead, financeConfig || {});
+  return formatContractMoney(amount);
+}
+
 export function emptyContractVariableMap(): ContractVariableMap {
   const today = formatContractDate();
   const todayYmd = todayYmdLocal();
@@ -79,6 +106,7 @@ export function emptyContractVariableMap(): ContractVariableMap {
     faixa: '',
     sexo: '',
     plano: '',
+    valor_pago: '',
     data_ingresso: '',
     origem: '',
     nome_responsavel: '',
@@ -98,7 +126,8 @@ export function emptyContractVariableMap(): ContractVariableMap {
 /** Preenche variáveis a partir de um documento lead/aluno (Appwrite ou objeto da UI). */
 export function mapLeadDocToContractVariables(
   lead: Record<string, unknown> | null | undefined,
-  academyName = ''
+  academyName = '',
+  financeConfig: Record<string, unknown> | null | undefined = null
 ): ContractVariableMap {
   const vars = emptyContractVariableMap();
   vars.nome_academia = String(academyName || '').trim();
@@ -114,6 +143,7 @@ export function mapLeadDocToContractVariables(
   vars.faixa = String(lead.belt || '').trim();
   vars.sexo = String(lead.sexo || '').trim();
   vars.plano = String(lead.plan || lead.plano || '').trim();
+  vars.valor_pago = resolveContractPaidAmount(lead, financeConfig);
   vars.data_ingresso = formatDateField(lead.enrollmentDate || lead.enrollment_date);
   vars.origem = String(lead.origin || '').trim();
   vars.nome_responsavel = String(

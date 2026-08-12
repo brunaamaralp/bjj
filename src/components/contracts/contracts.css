@@ -40,15 +40,32 @@
   margin: 0;
 }
 
+/* Keep <td> as table-cell; flex on an inner wrapper so the actions column
+   participates in table layout and is not clipped by parent overflow. */
 .contracts-table-actions {
-  display: flex;
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
+  text-align: right;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--surface, #fff);
+  box-shadow: -6px 0 8px -6px rgba(15, 23, 42, 0.12);
+}
+
+.contracts-table thead .contracts-table-actions {
+  background: var(--surface-2, #faf9fc);
+  z-index: 2;
+}
+
+.contracts-table-actions__btns {
+  display: inline-flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  width: 1%;
-  white-space: nowrap;
 }
 
 .contracts-table-icon-btn {
@@ -227,6 +244,11 @@
 
 .contracts-table-wrap {
   overflow-x: auto;
+}
+
+.contracts-templates-library-card {
+  padding: 0;
+  overflow: visible;
 }
 
 .contracts-table {
@@ -1445,10 +1467,22 @@
 
   .contracts-table-actions {
     justify-content: flex-start;
+    text-align: left;
+    position: static;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .contracts-table thead .contracts-table-actions {
+    background: transparent;
   }
 
   .contracts-table-actions::before {
     align-self: center;
+  }
+
+  .contracts-table-actions__btns {
+    justify-content: flex-start;
   }
 }
 

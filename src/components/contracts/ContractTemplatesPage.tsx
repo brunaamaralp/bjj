@@ -584,88 +584,92 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
             </div>
           ) : null}
           {!isLoading && templates.length > 0 ? (
-            <div className="card">
-              <table className="contracts-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>Tipo</th>
-                    <th>Planos</th>
-                    <th>Status</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {templates.map((t) => (
-                    <tr key={t.$id}>
-                      <td>
-                        {t.name}
-                        {t.isDefault ? (
-                          <span className="contracts-status-badge" style={{ marginLeft: 8 }}>
-                            Padrão
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="text-small text-muted">
-                        {CONTRACT_TEMPLATE_PURPOSE_LABELS[normalizeTemplatePurpose(t.purpose)]}
-                      </td>
-                      <td className="text-small text-muted">
-                        {plansLabelForTemplate(
-                          t.$id,
-                          normalizeTemplatePurpose(t.purpose) as ContractTemplatePurpose
-                        )}
-                      </td>
-                      <td>{t.active ? 'Ativo' : 'Inativo'}</td>
-                      <td className="contracts-table-actions" data-label="Ações">
-                        <button
-                          type="button"
-                          className="contracts-table-icon-btn"
-                          aria-label="Editar"
-                          title="Editar"
-                          onClick={() => openEdit(t)}
-                        >
-                          <Pencil size={16} aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          className="contracts-table-icon-btn"
-                          aria-label={t.active ? 'Desativar' : 'Ativar'}
-                          title={t.active ? 'Desativar' : 'Ativar'}
-                          onClick={async () => {
-                            try {
-                              await updateMutation.mutateAsync({
-                                id: t.$id,
-                                patch: { active: !t.active },
-                              });
-                              refetch();
-                            } catch (err) {
-                              addToast({
-                                type: 'error',
-                                message: err instanceof Error ? err.message : 'Erro',
-                              });
-                            }
-                          }}
-                        >
-                          {t.active ? (
-                            <PowerOff size={16} aria-hidden />
-                          ) : (
-                            <Power size={16} aria-hidden />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className="contracts-table-icon-btn contracts-table-icon-btn--danger"
-                          aria-label="Excluir"
-                          title="Excluir"
-                          onClick={() => handleDelete(t.$id, t.name)}
-                        >
-                          <Trash2 size={16} aria-hidden />
-                        </button>
-                      </td>
+            <div className="card contracts-templates-library-card">
+              <div className="contracts-table-wrap">
+                <table className="contracts-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Tipo</th>
+                      <th>Planos</th>
+                      <th>Status</th>
+                      <th className="contracts-table-actions">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {templates.map((t) => (
+                      <tr key={t.$id}>
+                        <td data-label="Nome">
+                          {t.name}
+                          {t.isDefault ? (
+                            <span className="contracts-status-badge" style={{ marginLeft: 8 }}>
+                              Padrão
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="text-small text-muted" data-label="Tipo">
+                          {CONTRACT_TEMPLATE_PURPOSE_LABELS[normalizeTemplatePurpose(t.purpose)]}
+                        </td>
+                        <td className="text-small text-muted" data-label="Planos">
+                          {plansLabelForTemplate(
+                            t.$id,
+                            normalizeTemplatePurpose(t.purpose) as ContractTemplatePurpose
+                          )}
+                        </td>
+                        <td data-label="Status">{t.active ? 'Ativo' : 'Inativo'}</td>
+                        <td className="contracts-table-actions" data-label="Ações">
+                          <div className="contracts-table-actions__btns">
+                            <button
+                              type="button"
+                              className="contracts-table-icon-btn"
+                              aria-label="Editar"
+                              title="Editar"
+                              onClick={() => openEdit(t)}
+                            >
+                              <Pencil size={16} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="contracts-table-icon-btn"
+                              aria-label={t.active ? 'Desativar' : 'Ativar'}
+                              title={t.active ? 'Desativar' : 'Ativar'}
+                              onClick={async () => {
+                                try {
+                                  await updateMutation.mutateAsync({
+                                    id: t.$id,
+                                    patch: { active: !t.active },
+                                  });
+                                  refetch();
+                                } catch (err) {
+                                  addToast({
+                                    type: 'error',
+                                    message: err instanceof Error ? err.message : 'Erro',
+                                  });
+                                }
+                              }}
+                            >
+                              {t.active ? (
+                                <PowerOff size={16} aria-hidden />
+                              ) : (
+                                <Power size={16} aria-hidden />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              className="contracts-table-icon-btn contracts-table-icon-btn--danger"
+                              aria-label="Excluir"
+                              title="Excluir"
+                              onClick={() => handleDelete(t.$id, t.name)}
+                            >
+                              <Trash2 size={16} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : null}
         </section>

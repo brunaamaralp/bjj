@@ -14,4 +14,6 @@ export {
   computeServiceMonths,
   formatRescissionRequestDate,
   formatServiceMonthsLabel,
+  formatContractMoney,
+  resolveContractPaidAmount,
 } from '../../lib/contracts/leadContractVariables.js';
