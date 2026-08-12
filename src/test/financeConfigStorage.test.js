@@ -60,13 +60,42 @@ describe('financeConfigStorage', () => {
       cardFees: { pix: { percent: 0, fixed: 0 } },
       legacyBlob: 'z'.repeat(1800),
     };
-    const built = buildAcademyFinanceConfigUpdate({}, merged, {
-      hasSettingsAttribute: true,
-    });
+    const built = buildAcademyFinanceConfigUpdate(
+      { financeBankAccounts: '', settings: '{}' },
+      merged,
+      {
+        hasSettingsAttribute: true,
+      }
+    );
     expect(built.bankAccountsOffloaded).toBe(true);
     expect(built.bankAccountsOffloadVia).toBe('root');
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
     expect(JSON.parse(built.financeBankAccounts)).toHaveLength(4);
+  });
+
+  it('offloads bank accounts to settings when root financeBankAccounts attribute is missing', () => {
+    const plans = [{ name: 'Mensal', price: 200 }];
+    const banks = Array.from({ length: 4 }, (_, i) => ({
+      bankName: `Banco ${i}`,
+      account: String(1000 + i),
+      branch: String(i),
+      pixKey: `pix-${i}@mail.com`,
+    }));
+    const merged = {
+      plans,
+      bankAccounts: banks,
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: 'z'.repeat(1800),
+    };
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+    });
+    expect(built.bankAccountsOffloaded).toBe(true);
+    expect(built.financeBankAccounts).toBeUndefined();
+    expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
+    const settings = JSON.parse(built.settings);
+    expect(settings.financeBankAccountsOffloaded).toBe(true);
+    expect(settings.financeBankAccounts).toHaveLength(4);
   });
 
   it('offloads bank accounts to root attribute when settings is unavailable', () => {
@@ -84,7 +113,7 @@ describe('financeConfigStorage', () => {
       legacyBlob: 'z'.repeat(2000),
     };
     const built = buildAcademyFinanceConfigUpdate(
-      { settings: '{}', onboardingChecklist: '[]' },
+      { settings: '{}', onboardingChecklist: '[]', financeBankAccounts: '' },
       merged,
       { hasSettingsAttribute: false }
     );
@@ -92,6 +121,31 @@ describe('financeConfigStorage', () => {
     expect(built.bankAccountsOffloadVia).toBe('root');
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
     expect(JSON.parse(built.financeBankAccounts)).toHaveLength(6);
+  });
+
+  it('offloads bank accounts to onboarding when root attr and settings are unavailable', () => {
+    const plans = [{ name: 'Mensal', price: 200 }];
+    const banks = Array.from({ length: 6 }, (_, i) => ({
+      bankName: `Banco ${i}`,
+      account: String(i),
+      branch: '1',
+      pixKey: `pix-${i}`,
+    }));
+    const merged = {
+      plans,
+      bankAccounts: banks,
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: 'z'.repeat(2000),
+    };
+    const built = buildAcademyFinanceConfigUpdate(
+      { onboardingChecklist: '[]' },
+      merged,
+      { hasSettingsAttribute: false }
+    );
+    expect(built.bankAccountsOffloaded).toBe(true);
+    expect(built.financeBankAccounts).toBeUndefined();
+    expect(built.offloadVia).toBe('fba');
+    expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
   });
 
   it('mergeFinanceConfigFromAcademyDoc reads offloaded banks from settings', () => {

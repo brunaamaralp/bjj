@@ -353,6 +353,18 @@ export function academyDocSupportsSettings(academyDoc, { hasSettingsAttribute } 
 }
 
 /**
+ * Root attribute `financeBankAccounts` só existe se provisionado.
+ * Sem a chave no documento, não enviar no update (Appwrite: Unknown attribute).
+ */
+export function academyDocSupportsFinanceBankAccountsRoot(
+  academyDoc,
+  { hasFinanceBankAccountsAttribute } = {}
+) {
+  if (typeof hasFinanceBankAccountsAttribute === 'boolean') return hasFinanceBankAccountsAttribute;
+  return Object.prototype.hasOwnProperty.call(academyDoc || {}, 'financeBankAccounts');
+}
+
+/**
  * Monta o objeto financeConfig completo a partir do documento da academia.
  * @param {object} academyDoc
  */
@@ -525,11 +537,12 @@ function clearFinanceOverflowKeys(settings) {
 /**
  * @param {object} academyDoc — documento atual da academia
  * @param {object} mergedCfg — financeConfig já mesclado
- * @param {{ hasSettingsAttribute?: boolean }} opts
+ * @param {{ hasSettingsAttribute?: boolean, hasFinanceBankAccountsAttribute?: boolean }} opts
  */
 export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}) {
   const settings = parseAcademySettings(academyDoc?.settings);
   const supportsSettings = academyDocSupportsSettings(academyDoc, opts);
+  const supportsBankRoot = academyDocSupportsFinanceBankAccountsRoot(academyDoc, opts);
   const compacted = compactFinanceConfigForStorage(mergedCfg);
 
   const banks = filterBankAccountsWithBank(compacted.bankAccounts);
@@ -574,7 +587,12 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
 
   const banksStr = JSON.stringify(banks);
 
-  if (level.stripBanks && !needsSettingsOverflow && fitsBankAccountsRootLimit(banksStr)) {
+  if (
+    level.stripBanks &&
+    supportsBankRoot &&
+    !needsSettingsOverflow &&
+    fitsBankAccountsRootLimit(banksStr)
+  ) {
     const nextSettings = clearFinanceOverflowKeys(settings);
     const onboardingStr = serializeOnboardingChecklistForDb(
       parseOnboardingChecklist(academyDoc?.onboardingChecklist),
@@ -601,14 +619,17 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
       return {
         financeConfig: financeStr,
         settings: settingsStr,
-        financeBankAccounts: '',
+        // Só limpa o atributo raiz se ele existir no schema — senão Appwrite rejeita.
+        ...(supportsBankRoot ? { financeBankAccounts: '' } : {}),
         bankAccountsOffloaded: true,
+        bankAccountsOffloadVia: 'settings',
       };
     }
   }
 
   if (needsSettingsOverflow && supportsSettings) {
-    const banksInRoot = level.stripBanks && fitsBankAccountsRootLimit(banksStr);
+    const banksInRoot =
+      level.stripBanks && supportsBankRoot && fitsBankAccountsRootLimit(banksStr);
     const nextSettings = {
       ...clearFinanceOverflowKeys(settings),
       ...(level.stripBanks && !banksInRoot
@@ -683,22 +704,41 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
   if (!aid) throw new Error('Academia não selecionada.');
 
   const { getAcademyDocument } = await import('./getAcademyDocument.js');
+  const { parseUnknownAttributeFromMessage } = await import('./appwriteErrors.js');
   const doc = await getAcademyDocument(aid, { force: true, allowClientFallback: false });
   const serverMerged = mergeFinanceConfigFromAcademyDoc(doc);
   const safeCfg = unionFinanceConfigForPersist(serverMerged, mergedCfg);
-  const built = buildAcademyFinanceConfigUpdate(doc, safeCfg, {
-    hasSettingsAttribute: academyDocSupportsSettings(doc),
-  });
-  const payload = { financeConfig: built.financeConfig };
-  if (built.settings !== undefined) payload.settings = built.settings;
-  if (built.financeBankAccounts !== undefined) {
-    payload.financeBankAccounts = built.financeBankAccounts;
-  }
-  if (built.onboardingChecklist !== undefined) {
-    payload.onboardingChecklist = built.onboardingChecklist;
-  }
 
-  await databases.updateDocument(DB_ID, ACADEMIES_COL, aid, payload);
+  const buildOpts = {
+    hasSettingsAttribute: academyDocSupportsSettings(doc),
+    hasFinanceBankAccountsAttribute: academyDocSupportsFinanceBankAccountsRoot(doc),
+  };
+
+  const runUpdate = async (opts) => {
+    const built = buildAcademyFinanceConfigUpdate(doc, safeCfg, opts);
+    const payload = { financeConfig: built.financeConfig };
+    if (built.settings !== undefined) payload.settings = built.settings;
+    if (built.financeBankAccounts !== undefined) {
+      payload.financeBankAccounts = built.financeBankAccounts;
+    }
+    if (built.onboardingChecklist !== undefined) {
+      payload.onboardingChecklist = built.onboardingChecklist;
+    }
+    await databases.updateDocument(DB_ID, ACADEMIES_COL, aid, payload);
+    return built;
+  };
+
+  let built;
+  try {
+    built = await runUpdate(buildOpts);
+  } catch (e) {
+    const unknown = parseUnknownAttributeFromMessage(e?.message ?? e);
+    if (unknown === 'financeBankAccounts' && buildOpts.hasFinanceBankAccountsAttribute !== false) {
+      built = await runUpdate({ ...buildOpts, hasFinanceBankAccountsAttribute: false });
+    } else {
+      throw e;
+    }
+  }
 
   try {
     const { invalidateAcademyDocumentCache } = await import('./getAcademyDocument.js');
