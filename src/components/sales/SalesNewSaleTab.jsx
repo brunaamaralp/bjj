@@ -1409,6 +1409,52 @@ export default function SalesNewSaleTab({
                 </div>
               </div>
 
+              <MixedCheckoutChargeForm
+                disabled={!alunoId}
+                studentPlanName={alunoPlanName}
+                studentPlanPrice={alunoPlanPrice}
+                onAdd={(line) => {
+                  setChargeLines((prev) => [...prev, line]);
+                  if (deferredSale) {
+                    setDeferredSale(false);
+                    setLocalError('');
+                  }
+                }}
+              />
+
+              {chargeLines.length > 0 ? (
+                <ul className="mixed-checkout-charges">
+                  {chargeLines.map((line) => (
+                    <li key={line.id} className="mixed-checkout-charges__item">
+                      <span>
+                        <span className="mixed-checkout-charges__badge">
+                          {CHARGE_BADGE[line.kind] || line.kind}
+                        </span>
+                        {line.note ? (
+                          <span className="text-small text-muted"> — {line.note}</span>
+                        ) : null}
+                        {line.kind === PAYMENT_CATEGORY.PLAN && line.reference_month ? (
+                          <span className="text-small text-muted"> · {line.reference_month}</span>
+                        ) : null}
+                      </span>
+                      <span className="mixed-checkout-charges__right">
+                        <strong className="text-small">{formatBRL(line.amount)}</strong>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          aria-label="Remover cobrança"
+                          onClick={() =>
+                            setChargeLines((prev) => prev.filter((c) => c.id !== line.id))
+                          }
+                        >
+                          <X size={14} aria-hidden />
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
               <p className="sales-price-hint text-small text-muted" role="status">
                 {salesSettings.lockPriceEdit
                   ? 'Preços bloqueados pela academia'
@@ -1431,63 +1477,6 @@ export default function SalesNewSaleTab({
                 priceTouched={priceTouched}
                 onPriceBlur={handlePriceBlur}
               />
-
-              <MixedCheckoutChargeForm
-                disabled={!alunoId}
-                studentPlanName={alunoPlanName}
-                studentPlanPrice={alunoPlanPrice}
-                onAdd={(line) => {
-                  setChargeLines((prev) => [...prev, line]);
-                  if (deferredSale) {
-                    setDeferredSale(false);
-                    setLocalError('');
-                  }
-                }}
-              />
-
-              {chargeLines.length > 0 ? (
-                <ul className="mixed-checkout-charges" style={{ listStyle: 'none', padding: 0, margin: '8px 0' }}>
-                  {chargeLines.map((line) => (
-                    <li
-                      key={line.id}
-                      className="mixed-checkout-charges__item"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        padding: '6px 0',
-                        borderBottom: '1px solid var(--border, rgba(0,0,0,0.08))',
-                      }}
-                    >
-                      <span>
-                        <span className="text-small" style={{ fontWeight: 600 }}>
-                          {CHARGE_BADGE[line.kind] || line.kind}
-                        </span>
-                        {line.note ? (
-                          <span className="text-small text-muted"> — {line.note}</span>
-                        ) : null}
-                        {line.kind === PAYMENT_CATEGORY.PLAN && line.reference_month ? (
-                          <span className="text-small text-muted"> · {line.reference_month}</span>
-                        ) : null}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <strong className="text-small">{formatBRL(line.amount)}</strong>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          aria-label="Remover cobrança"
-                          onClick={() =>
-                            setChargeLines((prev) => prev.filter((c) => c.id !== line.id))
-                          }
-                        >
-                          <X size={14} aria-hidden />
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
 
               {chargeLines.length > 0 || cart.length > 0 ? (
                 <p className="text-small text-muted" role="status" style={{ margin: '4px 0 8px' }}>
