@@ -62,7 +62,7 @@ flowchart TD
 | 4 | Nova venda | Ajustar qty/preço | Editar linha | Total recalcula |
 | 5 | Nova venda | Vincular aluno (opcional) | Busca typeahead | `searchStudentsForSale` |
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
-| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock`; **Recebido via** em cartão (2+ meios) |
+| 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock` sempre visível; atalhos F2–F4 no PDV |
 | 7b | Checkout | Cobrança mista | Aluno + mensalidade/pacote/taxa | `MixedCheckoutChargeForm`; submit via `submitMixedCheckout` |
 | 8 | Checkout | Venda a prazo | Toggle visível + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias; bloqueado se houver cobranças |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |

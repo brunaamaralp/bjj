@@ -27,7 +27,6 @@ import SalesVariantPicker from './SalesVariantPicker';
 import SalesCart from './SalesCart';
 import SalesReceiptPanel from './SalesReceiptPanel';
 import SalesPaymentBlock from './SalesPaymentBlock';
-import SalesQuickPayBar from './SalesQuickPayBar';
 import SalesPosHints from './SalesPosHints';
 import CashShiftBanner from './CashShiftBanner';
 import Hint from '../shared/Hint.jsx';
@@ -157,7 +156,6 @@ export default function SalesNewSaleTab({
 
   const [deferredSale, setDeferredSale] = useState(false);
   const [dueDate, setDueDate] = useState('');
-  const [manualPaymentOpen, setManualPaymentOpen] = useState(!pdvMode);
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const [suspendedOpen, setSuspendedOpen] = useState(false);
   const [suspendedList, setSuspendedList] = useState([]);
@@ -472,10 +470,6 @@ export default function SalesNewSaleTab({
   ]);
 
   useEffect(() => {
-    setManualPaymentOpen(!pdvMode);
-  }, [pdvMode]);
-
-  useEffect(() => {
     if (!academyId) {
       setSuspendedList([]);
       return;
@@ -484,7 +478,6 @@ export default function SalesNewSaleTab({
   }, [academyId, suspendedOpen, cart.length]);
 
   const focusCashReceived = useCallback(() => {
-    setManualPaymentOpen(true);
     window.setTimeout(() => {
       const el = document.querySelector('.sales-payment-row__cash input');
       el?.focus();
@@ -583,14 +576,10 @@ export default function SalesNewSaleTab({
     addToast({ type: 'success', message: 'Carrinho retomado' });
   };
 
-  const applyQuickPay = useCallback(
-    (rows) => {
-      setDeferredSale(false);
-      setPayments(rows);
-      setManualPaymentOpen(true);
-    },
-    []
-  );
+  const applyQuickPay = useCallback((rows) => {
+    setDeferredSale(false);
+    setPayments(rows);
+  }, []);
 
   useEffect(() => {
     setPayments((prev) => rebalancePaymentsForTotal(prev, totalFinalCents));
@@ -717,16 +706,16 @@ export default function SalesNewSaleTab({
     enabled: !modalMode,
     modalOpen: Boolean(variantPickerParent),
     onQuickPix: () => {
-      if (cart.length === 0 || deferredSale) return;
+      if (!hasCheckoutItems || deferredSale) return;
       applyQuickPay(buildQuickPayment('pix', totalFinalCents));
     },
     onQuickCash: () => {
-      if (cart.length === 0 || deferredSale) return;
+      if (!hasCheckoutItems || deferredSale) return;
       applyQuickPay(buildQuickPayment('dinheiro', totalFinalCents));
       focusCashReceived();
     },
     onQuickDebit: () => {
-      if (cart.length === 0 || deferredSale) return;
+      if (!hasCheckoutItems || deferredSale) return;
       applyQuickPay(buildQuickPayment('cartao_debito', totalFinalCents));
     },
     onSubmit: () => formRef.current?.requestSubmit(),
@@ -1527,35 +1516,15 @@ export default function SalesNewSaleTab({
               ) : null}
 
               {!deferredSale ? (
-                <>
-                  <SalesQuickPayBar
-                    totalCents={totalFinalCents}
-                    disabled={creating || mixedBusy || !hasCheckoutItems}
-                    onApply={applyQuickPay}
-                    onFocusCashReceived={focusCashReceived}
-                    compact={!pdvMode}
-                    financeConfig={financeConfig}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost sales-manual-pay-toggle"
-                    onClick={() => setManualPaymentOpen((v) => !v)}
-                    disabled={!hasCheckoutItems}
-                  >
-                    {manualPaymentOpen ? 'Ocultar pagamento manual' : 'Pagamento manual'}
-                  </button>
-                  {manualPaymentOpen ? (
-                    <SalesPaymentBlock
-                      totalCents={totalFinalCents}
-                      payments={payments}
-                      onChange={setPayments}
-                      disabled={creating || mixedBusy || !hasCheckoutItems}
-                      inlineValidate
-                      financeConfig={financeConfig}
-                      allowPartial
-                    />
-                  ) : null}
-                </>
+                <SalesPaymentBlock
+                  totalCents={totalFinalCents}
+                  payments={payments}
+                  onChange={setPayments}
+                  disabled={creating || mixedBusy || !hasCheckoutItems}
+                  inlineValidate
+                  financeConfig={financeConfig}
+                  allowPartial
+                />
               ) : (
                 <div className="form-group sales-checkout__field">
                   <label htmlFor="sales-deferred-due">
@@ -1581,7 +1550,6 @@ export default function SalesNewSaleTab({
                     const on = e.target.checked;
                     setDeferredSale(on);
                     if (on) {
-                      setManualPaymentOpen(false);
                       setDueDate((prev) => prev || defaultDeferredDueYmd());
                     }
                     setLocalError('');
