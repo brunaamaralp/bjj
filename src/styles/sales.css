@@ -528,6 +528,39 @@
   margin: 0;
 }
 
+.sales-checkout__sticky-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light, rgba(15, 23, 42, 0.12));
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface, #fff);
+}
+.sales-checkout__sticky-total-label {
+  font-size: var(--font-sm, 0.8125rem);
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+.sales-checkout__sticky-total-value {
+  font-size: var(--font-xl, 1.25rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.sales-checkout__save-stage {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+}
+.sales-checkout__breakdown {
+  margin: 0 0 4px;
+}
+
 .student-product-sale {
   display: flex;
   flex-direction: column;

@@ -71,4 +71,28 @@ describe('submitMixedCheckout', () => {
     expect(r.payments[0].$id).toBe('p1');
     expect(cancelSale).not.toHaveBeenCalled();
   });
+
+  it('emite onProgress por etapa', async () => {
+    const onProgress = vi.fn();
+    const createSale = vi.fn(async () => ({ $id: 'sale1' }));
+    const createPayment = vi
+      .fn()
+      .mockResolvedValueOnce({ $id: 'p1' })
+      .mockResolvedValueOnce({ $id: 'p2' });
+    await submitMixedCheckout({
+      deps: { createSale, createPayment, cancelSale: vi.fn() },
+      salePayload: { itens: [{}], pagamentos: [], idempotency_key: 'k1' },
+      paymentPayloads: [
+        { lead_id: 'L', academy_id: 'A', amount: 10, payment_category: 'plan' },
+        { lead_id: 'L', academy_id: 'A', amount: 5, payment_category: 'fee' },
+      ],
+      onProgress,
+    });
+    expect(onProgress.mock.calls.map((c) => c[0])).toEqual([
+      { stage: 'sale', label: 'Registrando venda…' },
+      { stage: 'payment', index: 0, total: 2, label: 'Registrando mensalidade (1/2)…' },
+      { stage: 'payment', index: 1, total: 2, label: 'Registrando taxa (2/2)…' },
+      { stage: 'done', label: 'Concluído' },
+    ]);
+  });
 });

@@ -141,6 +141,7 @@ export default function SalesNewSaleTab({
   const [alunoPlanName, setAlunoPlanName] = useState('');
   const [alunoPlanPrice, setAlunoPlanPrice] = useState(null);
   const [mixedBusy, setMixedBusy] = useState(false);
+  const [saveStageLabel, setSaveStageLabel] = useState('');
   const [localError, setLocalError] = useState('');
   const [flashProductId, setFlashProductId] = useState(null);
   const [variantPickerParent, setVariantPickerParent] = useState(null);
@@ -432,15 +433,15 @@ export default function SalesNewSaleTab({
   useEffect(() => {
     if (!onSubmitStateChange) return;
     const busy = creating || mixedBusy;
+    const busyLabel = saveStageLabel || (creating ? 'Registrando venda…' : 'Registrando…');
     onSubmitStateChange({
       canSubmit: canCheckout,
       busy,
-      label:
-        busy
-          ? 'Registrando…'
-          : !hasCheckoutItems
-            ? 'Concluir'
-            : `Concluir — ${formatSaleTotalBRL(checkoutTotal)}`,
+      label: busy
+        ? busyLabel
+        : !hasCheckoutItems
+          ? 'Concluir'
+          : `Concluir — ${formatSaleTotalBRL(checkoutTotal)}`,
       footerHint: canCheckout || localError || error
         ? null
         : getSaleFooterHint({
@@ -460,6 +461,7 @@ export default function SalesNewSaleTab({
     chargeLines.length,
     creating,
     mixedBusy,
+    saveStageLabel,
     deferredSale,
     dueDateValid,
     paymentValid.ok,
@@ -999,33 +1001,52 @@ export default function SalesNewSaleTab({
       setDeferredSale(false);
       setDueDate('');
       setMobilePanel('catalog');
+      setSaveStageLabel('');
       resetSaleSession();
-      void reloadCatalog();
-      void refreshStockStores();
+      // Libera o balcão; catálogo/estoque atualizam em background.
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(
+          () => {
+            void reloadCatalog();
+            void refreshStockStores();
+          },
+          { timeout: 2500 }
+        );
+      } else {
+        window.setTimeout(() => {
+          void reloadCatalog();
+          void refreshStockStores();
+        }, 0);
+      }
     };
 
     // Path legado: só produtos
     if (chargeLines.length === 0) {
-      await createSale({
-        aluno_id: alunoId || null,
-        pagamentos,
-        deferred: deferredSale,
-        due_date: deferredSale && isIsoDateYmd(dueDate) ? String(dueDate).slice(0, 10) : null,
-        cliente_nome: !alunoId ? clienteNome.trim() || null : null,
-        cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
-        venda_colaborador: vendaColaborador,
-        itens: discountedProductLines.map((it) => ({
-          item_estoque_id: it.product_variant_id || it.item_estoque_id,
-          product_variant_id: it.product_variant_id || it.item_estoque_id,
-          quantidade: Number(it.quantidade),
-          preco_unitario: Number(it.preco_unitario),
-          line_kind: normalizeLineKind(it.line_kind),
-          expected_quantity:
-            it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
-        })),
-        idempotency_key: idempotencyKeyRef.current,
-        sale_source: modalMode ? 'modal' : 'pdv',
-      });
+      setSaveStageLabel('Registrando venda…');
+      try {
+        await createSale({
+          aluno_id: alunoId || null,
+          pagamentos,
+          deferred: deferredSale,
+          due_date: deferredSale && isIsoDateYmd(dueDate) ? String(dueDate).slice(0, 10) : null,
+          cliente_nome: !alunoId ? clienteNome.trim() || null : null,
+          cliente_telefone: !alunoId ? String(clienteTelefone || '').replace(/\D/g, '') || null : null,
+          venda_colaborador: vendaColaborador,
+          itens: discountedProductLines.map((it) => ({
+            item_estoque_id: it.product_variant_id || it.item_estoque_id,
+            product_variant_id: it.product_variant_id || it.item_estoque_id,
+            quantidade: Number(it.quantidade),
+            preco_unitario: Number(it.preco_unitario),
+            line_kind: normalizeLineKind(it.line_kind),
+            expected_quantity:
+              it.expected_quantity != null ? Number(it.expected_quantity) : Number(it.disponivel),
+          })),
+          idempotency_key: idempotencyKeyRef.current,
+          sale_source: modalMode ? 'modal' : 'pdv',
+        });
+      } finally {
+        setSaveStageLabel('');
+      }
 
       const st = useSalesStore.getState();
       if (st.error === 'no_stock' || st.error === 'stock_stale') {
@@ -1122,6 +1143,7 @@ export default function SalesNewSaleTab({
     });
 
     setMixedBusy(true);
+    setSaveStageLabel('Registrando…');
     try {
       const result = await submitMixedCheckout({
         deps: {
@@ -1144,6 +1166,9 @@ export default function SalesNewSaleTab({
         createPaymentOpts: {
           financeConfig,
           toast: toastAdapterFromAddToast(addToast),
+        },
+        onProgress: (evt) => {
+          if (evt?.label) setSaveStageLabel(String(evt.label));
         },
       });
 
@@ -1199,6 +1224,7 @@ export default function SalesNewSaleTab({
       if (modalMode) onSaleComplete?.();
     } finally {
       setMixedBusy(false);
+      setSaveStageLabel('');
     }
   };
 
@@ -1326,7 +1352,9 @@ export default function SalesNewSaleTab({
               ) : null}
 
               <div className="form-group sales-checkout__field sales-checkout__field--aluno">
-                <label htmlFor={SALE_ALUNO_SEARCH_ID}>Aluno (opcional)</label>
+                <label htmlFor={SALE_ALUNO_SEARCH_ID}>
+                  {chargeLines.length > 0 ? 'Aluno (obrigatório para cobranças)' : 'Aluno (opcional)'}
+                </label>
                 <input
                   id={SALE_ALUNO_SEARCH_ID}
                   className="form-input"
@@ -1478,12 +1506,9 @@ export default function SalesNewSaleTab({
                 onPriceBlur={handlePriceBlur}
               />
 
-              {chargeLines.length > 0 || cart.length > 0 ? (
-                <p className="text-small text-muted" role="status" style={{ margin: '4px 0 8px' }}>
-                  Total na máquina: <strong>{totalMasked}</strong>
-                  {chargeLines.length > 0 && cart.length > 0
-                    ? ` (venda ${formatBRL(totalFinal)} + cobranças ${formatBRL(chargesGross)})`
-                    : null}
+              {chargeLines.length > 0 && cart.length > 0 ? (
+                <p className="text-small text-muted sales-checkout__breakdown" role="status">
+                  Produtos {formatBRL(totalFinal)} + cobranças {formatBRL(chargesGross)}
                 </p>
               ) : null}
 
@@ -1495,6 +1520,11 @@ export default function SalesNewSaleTab({
                 descGeralPct={descGeralPct}
                 onPctChange={(e) => setDescGeralPct(e.target.value)}
               />
+              {cart.length > 0 ? (
+                <p className="text-small text-muted" style={{ margin: '-4px 0 4px' }}>
+                  Desconto aplica só aos produtos, não à mensalidade/taxa.
+                </p>
+              ) : null}
 
               {!deferredSale ? (
                 <>
@@ -1604,6 +1634,23 @@ export default function SalesNewSaleTab({
                 />
               ) : null}
 
+              {hasCheckoutItems ? (
+                <div
+                  className="sales-checkout__sticky-total"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="sales-checkout__sticky-total-label">A cobrar na máquina</span>
+                  <strong className="sales-checkout__sticky-total-value">{totalMasked}</strong>
+                </div>
+              ) : null}
+
+              {saveStageLabel ? (
+                <p className="text-small sales-checkout__save-stage" aria-live="polite" role="status">
+                  {saveStageLabel}
+                </p>
+              ) : null}
+
               {!hideSubmitButton ? (
                 <button
                   type="submit"
@@ -1613,7 +1660,7 @@ export default function SalesNewSaleTab({
                   <ShoppingCart size={18} aria-hidden />
                   <span>
                     {creating || mixedBusy
-                      ? 'Registrando…'
+                      ? saveStageLabel || 'Registrando…'
                       : !hasCheckoutItems
                         ? 'Concluir'
                         : `Concluir — ${totalMasked}`}
