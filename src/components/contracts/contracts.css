@@ -65,7 +65,7 @@
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 6px;
 }
 
 .contracts-table-icon-btn {
@@ -74,27 +74,55 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
-  border: none;
+  border: 1px solid var(--color-card-border, var(--border, #e8e5f5));
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
+  background: var(--color-card-bg, var(--surface, #fff));
+  color: var(--color-text-primary, var(--text, #18162a));
   cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.contracts-table-icon-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
   flex-shrink: 0;
 }
 
 .contracts-table-icon-btn:hover:not(:disabled) {
-  background: var(--v50, var(--azul-gelo));
-  color: var(--text);
+  background: var(--color-primary-surface, var(--v50, #ede9fb));
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary-light, #afa9ec) 55%,
+    var(--color-card-border, #e8e5f5)
+  );
+  color: var(--color-primary, var(--primary, #6c47d8));
 }
 
 .contracts-table-icon-btn--danger {
-  color: var(--color-danger, #c53030);
+  color: var(--color-danger, #e24b4a);
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger, #e24b4a) 30%,
+    var(--color-card-border, #e8e5f5)
+  );
 }
 
 .contracts-table-icon-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-danger, #c53030) 12%, transparent);
-  color: var(--color-danger, #c53030);
+  background: color-mix(in srgb, var(--color-danger, #e24b4a) 12%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger, #e24b4a) 45%,
+    var(--color-card-border, #e8e5f5)
+  );
+  color: var(--color-danger, #e24b4a);
 }
 
 .contracts-page-header {
