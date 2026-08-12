@@ -96,7 +96,7 @@ export default function ContractTemplateMetaForm({
         {planNames.length === 0 ? (
           <p className="text-small text-muted contract-template-meta-form__plans-hint">
             Nenhum plano cadastrado.{' '}
-            <Link to="/financeiro?tab=configuracao" className="edit-link">
+            <Link to="/empresa?tab=financeiro&section=planos" className="edit-link">
               Criar planos no Financeiro
             </Link>
           </p>

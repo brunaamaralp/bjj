@@ -274,34 +274,34 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
         >
           {mode === 'visual' ? (
             <>
-              <button type="button" className="contract-rich-editor-btn" title="Negrito" disabled={disabled} onClick={() => exec('bold')}>
+              <button type="button" className="contract-rich-editor-btn" title="Negrito" aria-label="Negrito" disabled={disabled} onClick={() => exec('bold')}>
                 <Bold size={16} aria-hidden />
               </button>
-              <button type="button" className="contract-rich-editor-btn" title="Itálico" disabled={disabled} onClick={() => exec('italic')}>
+              <button type="button" className="contract-rich-editor-btn" title="Itálico" aria-label="Itálico" disabled={disabled} onClick={() => exec('italic')}>
                 <Italic size={16} aria-hidden />
               </button>
-              <button type="button" className="contract-rich-editor-btn" title="Sublinhado" disabled={disabled} onClick={() => exec('underline')}>
+              <button type="button" className="contract-rich-editor-btn" title="Sublinhado" aria-label="Sublinhado" disabled={disabled} onClick={() => exec('underline')}>
                 <Underline size={16} aria-hidden />
               </button>
               <span className="contract-rich-editor-sep" aria-hidden />
-              <button type="button" className="contract-rich-editor-btn" title="Título 1" disabled={disabled} onClick={() => exec('formatBlock', 'h1')}>
+              <button type="button" className="contract-rich-editor-btn" title="Título 1" aria-label="Título 1" disabled={disabled} onClick={() => exec('formatBlock', 'h1')}>
                 <Heading1 size={16} aria-hidden />
               </button>
-              <button type="button" className="contract-rich-editor-btn" title="Título 2" disabled={disabled} onClick={() => exec('formatBlock', 'h2')}>
+              <button type="button" className="contract-rich-editor-btn" title="Título 2" aria-label="Título 2" disabled={disabled} onClick={() => exec('formatBlock', 'h2')}>
                 <Heading2 size={16} aria-hidden />
               </button>
-              <button type="button" className="contract-rich-editor-btn" title="Parágrafo" disabled={disabled} onClick={() => exec('formatBlock', 'p')}>
+              <button type="button" className="contract-rich-editor-btn" title="Parágrafo" aria-label="Parágrafo" disabled={disabled} onClick={() => exec('formatBlock', 'p')}>
                 P
               </button>
               <span className="contract-rich-editor-sep" aria-hidden />
-              <button type="button" className="contract-rich-editor-btn" title="Lista com marcadores" disabled={disabled} onClick={() => exec('insertUnorderedList')}>
+              <button type="button" className="contract-rich-editor-btn" title="Lista com marcadores" aria-label="Lista com marcadores" disabled={disabled} onClick={() => exec('insertUnorderedList')}>
                 <List size={16} aria-hidden />
               </button>
-              <button type="button" className="contract-rich-editor-btn" title="Lista numerada" disabled={disabled} onClick={() => exec('insertOrderedList')}>
+              <button type="button" className="contract-rich-editor-btn" title="Lista numerada" aria-label="Lista numerada" disabled={disabled} onClick={() => exec('insertOrderedList')}>
                 <ListOrdered size={16} aria-hidden />
               </button>
               <span className="contract-rich-editor-sep" aria-hidden />
-              <button type="button" className="contract-rich-editor-btn" title="Remover formatação" disabled={disabled} onClick={() => exec('removeFormat')}>
+              <button type="button" className="contract-rich-editor-btn" title="Remover formatação" aria-label="Remover formatação" disabled={disabled} onClick={() => exec('removeFormat')}>
                 <RemoveFormatting size={16} aria-hidden />
               </button>
             </>
@@ -321,6 +321,7 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
               type="button"
               className={`contract-rich-editor-btn${mode === 'visual' ? ' contract-rich-editor-btn--active' : ''}`}
               title="Editor visual"
+              aria-label="Editor visual"
               disabled={disabled}
               aria-pressed={mode === 'visual'}
               onClick={() => {
@@ -334,6 +335,7 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
               type="button"
               className={`contract-rich-editor-btn${mode === 'source' ? ' contract-rich-editor-btn--active' : ''}`}
               title="Código HTML"
+              aria-label="Código HTML"
               disabled={disabled}
               aria-pressed={mode === 'source'}
               onClick={() => {
@@ -354,6 +356,7 @@ const ContractRichTextEditor = forwardRef<ContractRichTextEditorHandle, Contract
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
+            aria-label="Texto do contrato"
             data-placeholder="Escreva o contrato aqui…"
             onInput={emitChange}
             onBlur={handleVisualBlur}

@@ -26,9 +26,8 @@ export default function ContractTemplateEditor({
   return (
     <div className="contract-template-editor">
       <p className="contract-template-pdf-notice" role="note">
-        O <strong>rodapé de assinaturas</strong> (caixas roxas tracejadas no final) é incluído
-        automaticamente. É ali que a Autentique coloca a assinatura digital no PDF — no envio, as
-        caixas viram linhas normais.
+        O <strong>rodapé de assinaturas</strong> (caixas roxas no final) entra automaticamente no PDF.
+        É onde a Autentique posiciona a assinatura digital.
       </p>
 
       <ContractRichTextEditor

@@ -13,6 +13,11 @@ import {
 } from './contractTemplateService.js';
 import { parseContractTemplatePurpose, type ContractTemplatePurpose } from './contractTemplatePurpose.js';
 import { API_KEY, DB_ID, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
+import {
+  academyDocSupportsSettings,
+  buildAcademyFinanceConfigUpdate,
+  mergeFinanceConfigFromAcademyDoc,
+} from '../../src/lib/financeConfigStorage.js';
 
 const ACADEMIES_COL = () =>
   String(
@@ -58,6 +63,12 @@ function parseFinanceConfig(raw: unknown): FinanceConfigLike {
   } catch {
     return { plans: [] };
   }
+}
+
+function readAcademyFinanceConfig(academyDoc: Record<string, unknown>): FinanceConfigLike {
+  const merged = mergeFinanceConfigFromAcademyDoc(academyDoc);
+  if (merged && typeof merged === 'object') return merged as FinanceConfigLike;
+  return parseFinanceConfig(academyDoc.financeConfig);
 }
 
 function templatesForPurpose(
@@ -118,7 +129,7 @@ export async function ensureAcademyContractSetup(
 
   const databases = requireDb();
   const academyDoc = await databases.getDocument(DB_ID, col, String(academyId));
-  let financeConfig = parseFinanceConfig(academyDoc.financeConfig);
+  let financeConfig = readAcademyFinanceConfig(academyDoc as Record<string, unknown>);
 
   let templates = await listContractTemplates(academyId);
   const templatesCreated: ContractTemplatePurpose[] = [];
@@ -160,8 +171,21 @@ export async function ensureAcademyContractSetup(
 
   const financeConfigUpdated = migrated.changed || linked.changed;
   if (financeConfigUpdated) {
-    await databases.updateDocument(DB_ID, col, String(academyId), {
-      financeConfig: JSON.stringify(financeConfig),
+    const built = buildAcademyFinanceConfigUpdate(academyDoc, financeConfig, {
+      hasSettingsAttribute: academyDocSupportsSettings(academyDoc),
+    });
+    const payload: Record<string, unknown> = { financeConfig: built.financeConfig };
+    if (built.settings !== undefined) payload.settings = built.settings;
+    if (built.financeBankAccounts !== undefined) {
+      payload.financeBankAccounts = built.financeBankAccounts;
+    }
+    if (built.onboardingChecklist !== undefined) {
+      payload.onboardingChecklist = built.onboardingChecklist;
+    }
+    await databases.updateDocument(DB_ID, col, String(academyId), payload);
+    financeConfig = readAcademyFinanceConfig({
+      ...(academyDoc as Record<string, unknown>),
+      ...payload,
     });
   }
 

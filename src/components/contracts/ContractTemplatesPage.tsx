@@ -13,6 +13,10 @@ import { useLeadStore } from '../../store/useLeadStore.js';
 import { useUserRole } from '../../lib/useUserRole.js';
 import { databases, DB_ID, ACADEMIES_COL } from '../../lib/appwrite.js';
 import {
+  FinanceConfigTooLargeError,
+  persistAcademyFinanceConfig,
+} from '../../lib/financeConfigStorage.js';
+import {
   DEFAULT_CONTRACT_TEMPLATE_HTML,
 } from '../../lib/contractTemplateVariables.js';
 import { ensureContractSignatureFooter } from '../../lib/contractSignatureFooter.js';
@@ -121,10 +125,14 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
       templates,
     });
     if (!changed) return;
-    await databases.updateDocument(DB_ID, ACADEMIES_COL, academyId, {
-      financeConfig: JSON.stringify(config),
+    // Sempre via persistAcademyFinanceConfig: o atributo financeConfig no Appwrite
+    // tem teto legado de 2500 chars; o helper compacta e faz overflow em settings.
+    const savedCfg = await persistAcademyFinanceConfig(academyId, config, {
+      databases,
+      DB_ID,
+      ACADEMIES_COL,
     });
-    useLeadStore.getState().setFinanceConfig(config);
+    useLeadStore.getState().setFinanceConfig(savedCfg, academyId);
   };
 
   const handleEnsureSetup = async () => {
@@ -335,13 +343,34 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
     closeEditor,
   ]);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!dirty || !editorMode) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty, editorMode]);
+
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const errors: { name?: string; body?: string } = {};
     if (!name.trim()) errors.name = 'Informe o nome do modelo.';
     if (!bodyHtml.trim()) errors.body = 'Escreva o conteúdo do contrato.';
     if (errors.name || errors.body) {
       setFieldErrors(errors);
+      requestAnimationFrame(() => {
+        if (errors.name) {
+          document.getElementById('contract-template-name')?.focus();
+          return;
+        }
+        if (errors.body) {
+          document
+            .querySelector<HTMLElement>('.contract-rich-editor-surface, .contract-rich-editor-source')
+            ?.focus();
+        }
+      });
       return;
     }
     setFieldErrors({});
@@ -373,6 +402,19 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
       closeEditor();
       refetch();
     } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err || '');
+      if (
+        err instanceof FinanceConfigTooLargeError ||
+        /financeConfig.*2500|longer than 2500/i.test(rawMsg)
+      ) {
+        addToast({
+          type: 'error',
+          message:
+            'O modelo foi salvo, mas não foi possível vincular os planos: a configuração financeira está grande demais. Abra Financeiro e salve a configuração, ou peça ao suporte para ampliar o limite no Appwrite.',
+        });
+        refetch();
+        return;
+      }
       addToast({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao salvar' });
     }
   };
@@ -481,18 +523,49 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
               <ChevronLeft size={16} aria-hidden />
               Biblioteca de modelos
             </button>
-            {embeddedFinance ? (
-              <FinanceSettingsSectionHeader
-                as="h3"
-                title={editorTitle}
-                className="contract-template-editor-focus__title-wrap"
-              />
-            ) : (
-              <h2 className="navi-section-heading contract-template-editor-focus__title">{editorTitle}</h2>
-            )}
+            <div className="contract-template-editor-focus__title-row">
+              {embeddedFinance ? (
+                <FinanceSettingsSectionHeader
+                  as="h3"
+                  title={editorTitle}
+                  className="contract-template-editor-focus__title-wrap"
+                />
+              ) : (
+                <h2 className="navi-section-heading contract-template-editor-focus__title">{editorTitle}</h2>
+              )}
+              {dirty ? (
+                <span className="contract-template-editor-dirty" aria-live="polite">
+                  Alterações não salvas
+                </span>
+              ) : null}
+            </div>
           </div>
 
-          <form className="contract-template-editor-focus__form" onSubmit={handleSave}>
+          <form className="contract-template-editor-focus__form" onSubmit={(e) => void handleSave(e)}>
+            <div className="contract-template-editor-focus__sticky-save" role="region" aria-label="Salvar modelo">
+              <div className="contract-template-editor-focus__sticky-save-inner">
+                <p className="contract-template-editor-focus__sticky-hint text-small">
+                  {dirty
+                    ? 'Há alterações neste modelo.'
+                    : editorMode === 'create'
+                      ? 'Preencha o modelo e salve para usar nos planos.'
+                      : 'Nenhuma alteração pendente.'}
+                </p>
+                <div className="contract-template-editor-focus__sticky-actions">
+                  <button type="button" className="btn-outline btn-sm" onClick={requestCloseEditor} disabled={saving}>
+                    {dirty ? 'Descartar' : 'Voltar'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary btn-sm"
+                    disabled={saving || (editorMode === 'edit' && !dirty)}
+                  >
+                    {saving ? 'Salvando…' : 'Salvar modelo'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <ContractTemplateMetaForm
               name={name}
               description={description}
@@ -530,7 +603,7 @@ export default function ContractTemplatesPage({ embedded = false, embeddedFinanc
 
             <div className="contract-template-editor-focus__actions">
               <button type="button" className="btn-outline" onClick={requestCloseEditor} disabled={saving}>
-                Descartar
+                {dirty ? 'Descartar alterações' : 'Voltar'}
               </button>
               <button
                 type="submit"
