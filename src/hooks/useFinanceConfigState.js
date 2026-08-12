@@ -145,6 +145,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
   const [pendingRemovePlan, setPendingRemovePlan] = useState(null);
   const [pendingRemoveBank, setPendingRemoveBank] = useState(null);
   const [pendingRemoveVendor, setPendingRemoveVendor] = useState(null);
+  const [lastSavedPlans, setLastSavedPlans] = useState([]);
 
   const [savedDigests, setSavedDigests] = useState({
     accounts: digestBankAccounts([], defaultFinanceConfig()),
@@ -168,6 +169,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     setOverdueLabel(coll.overdueLabel);
     const labels = readExceptionStatusLabels(mergedCfg);
     setExceptionLabels(labels);
+    setLastSavedPlans(Array.isArray(cfg.plans) ? cfg.plans.map((p) => ({ ...p })) : []);
     setSavedDigests({
       accounts: digestBankAccounts(cfg.bankAccounts, cfg),
       fees: digestFeesSection(cfg),
@@ -420,6 +422,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
       useLeadStore.getState().setFinanceConfig(savedCfg, academyId);
       const coll = readCollectionSettingsFromFinanceConfig(savedCfg);
       const labels = readExceptionStatusLabels(savedCfg);
+      setLastSavedPlans(Array.isArray(savedCfg.plans) ? savedCfg.plans.map((p) => ({ ...p })) : []);
       setSavedDigests({
         accounts: digestBankAccounts(savedCfg.bankAccounts, savedCfg),
         fees: digestFeesSection(savedCfg),
@@ -464,17 +467,21 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     });
   }, []);
 
-  const addPlan = useCallback(() => {
+  const addPlan = useCallback((payload = {}) => {
+    const name = String(payload.name ?? '').trim();
+    const isExempt = payload.isExempt === true;
+    const priceRaw = Number(payload.price);
+    const price = Number.isFinite(priceRaw) ? Math.round(priceRaw * 100) / 100 : 0;
     setFinanceConfig((prev) => ({
       ...prev,
       plans: [
         ...(prev.plans || []),
         {
-          name: '',
-          price: 0,
-          description: '',
-          applyCardFee: true,
-          isExempt: false,
+          name,
+          price: isExempt ? 0 : price,
+          description: String(payload.description ?? ''),
+          applyCardFee: payload.applyCardFee !== false,
+          isExempt,
         },
       ],
     }));
@@ -582,6 +589,7 @@ export function useFinanceConfigState(academyId, { isOwner = true } = {}) {
     updatePlan,
     addPlan,
     removePlan,
+    lastSavedPlans,
     setEnrollmentDiscountPresets,
     updateBankAccount,
     addBankAccount,

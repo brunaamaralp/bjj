@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-08-12: Planos — criar em modal; ConfirmDialog no Salvar ao mudar preço de lista (`config-inicial-financeiro.md`, spec [2026-08-12-planos-ux-reajuste-design.md](../superpowers/specs/2026-08-12-planos-ux-reajuste-design.md)).
 - 2026-07-23: modelos de contrato saem do Financeiro → aba **Contratos** em Minha academia (`/empresa?tab=contratos`); deep links legados redirecionam (`config-inicial-financeiro.md`).
 - 2026-07-23: plan price snapshot — código alinhado aos fluxos (config financeiro, mensalidades, funil, perfil); spec [2026-07-23-plan-price-snapshot-design.md](../superpowers/specs/2026-07-23-plan-price-snapshot-design.md).
 - 2026-07-23: A pagar — KPI compacto único (como A receber); Visão só com próximos vencimentos (sem métricas duplicadas); subnav com Importar/Nova/Atualizar (`a-pagar-contas-fixas.md`).
@@ -223,7 +224,7 @@ Harness: `monthlyClosing`, `financeClosingData`.
 
 | Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
 |---|---|---|---|---|
-| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | 16 owner + 5 admin | 21 | 5 (2026-06-17) | 21 |
+| [config-inicial-financeiro](financeiro/config-inicial-financeiro.md) | ~20 owner + 5 admin | 22 | 2026-08-12 | staging |
 | [plano-contas-categorias](financeiro/plano-contas-categorias.md) | 12 | 12 | 0 | 12 |
 
 **Permissões Empresa → Financeiro** (`financeSettingsSections.js`):
@@ -247,7 +248,8 @@ Harness: `monthlyClosing`, `financeClosingData`.
 | 4 | Default section admin = recebimento | ✅ Código | `getFinanceDefaultSection(false)` |
 | 5 | Sidebar admin sem owner-only | ✅ Código | `buildFinanceSettingsNavItems(false)` — teste Vitest |
 | 6 | Deep link planos → redirect admin | ✅ Código | `activeSection` fallback em `FinanceiroConfigTab` |
-| 7 | Planos CRUD + ConfirmDialog remover | ✅ Código | `FinanceSettingsPlansSection`, `useFinanceConfigState` |
+| 7 | Planos: modal criar + acordeão editar + ConfirmDialog remover | ✅ Código + teste | `FinanceSettingsPlansSection`, `financeSettingsPlansSection.test.jsx` |
+| 7b | Salvar com preço de lista alterado → ConfirmDialog (snapshot intacto) | ✅ Código + teste | `planListPriceChange.js`, gate em `FinanceiroConfigTab` |
 | 8 | Recebimento modal + defaults por método | ✅ Código | `FinanceSettingsBanksSection`, `#contas` |
 | 8b | **Formas de recebimento** — ativar forma, conta, automações, preview | ✅ Código | `FinanceSettingsPaymentMethodsSection`, `FinancePaymentMethodPreview` |
 | 8c | **Meios de captura** (crédito/débito) — CRUD, matriz taxas/prazos | ✅ Código + teste | `FinanceSettingsCaptureMethodPanel`, `captureMethods.test.js` |

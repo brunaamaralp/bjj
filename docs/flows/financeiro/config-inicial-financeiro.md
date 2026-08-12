@@ -8,7 +8,7 @@
 | **rotas** | `/empresa?tab=financeiro`, `/empresa?tab=financeiro&section=<slug>` |
 | **pré-requisitos** | Módulo `finance` ativo na academia; papel owner ou admin |
 | **status** | revisado (código) |
-| **última revisão** | 2026-07-23 |
+| **última revisão** | 2026-08-12 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -20,9 +20,9 @@
 - [2026-06-28-taxas-recebedor-bandeira-PRODUCT.md](../../superpowers/specs/2026-06-28-taxas-recebedor-bandeira-PRODUCT.md) — recebedores (PagBank, Asaas…) e bandeira no pagamento
 - [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — preço de lista vs `plan_price` do aluno
 
-**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees feeReceivers resolveFeeReceiver`
+**Harness relacionado:** `npm test -- financeSettingsSections financeConfigValidation captureMethods resolveAcquirerFees feeReceivers resolveFeeReceiver planListPriceChange financeSettingsPlansSection`
 
-**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/hooks/useFinanceConfigState.js`, `src/components/finance/settings/FinanceSettingsPaymentMethodsSection.jsx`, `src/components/finance/settings/FinanceSettingsCaptureMethodPanel.jsx`, `src/components/finance/settings/FinanceSettingsFeeReceiversSection.jsx`, `src/lib/captureMethods.js`, `src/lib/feeReceivers.js`, `src/lib/paymentMethodSettings.js`
+**Arquivos-chave:** `src/pages/AcademySettings.jsx`, `src/components/finance/FinanceiroConfigTab.jsx`, `src/lib/financeSettingsSections.js`, `src/lib/financeConfigValidation.js`, `src/lib/planListPriceChange.js`, `src/hooks/useFinanceConfigState.js`, `src/components/finance/settings/FinanceSettingsPlansSection.jsx`, `src/components/finance/settings/FinanceSettingsPaymentMethodsSection.jsx`, `src/components/finance/settings/FinanceSettingsCaptureMethodPanel.jsx`, `src/components/finance/settings/FinanceSettingsFeeReceiversSection.jsx`, `src/lib/captureMethods.js`, `src/lib/feeReceivers.js`, `src/lib/paymentMethodSettings.js`
 
 ---
 
@@ -65,7 +65,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/empresa?tab=financeiro` | `AcademySettings` + `FinanceiroConfigTab` | Abrir **Minha academia → Financeiro** | Layout sidebar + painel da seção ativa |
-| 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | Adicionar/editar plano | Nome, preço de **lista** (default para novas matrículas), repasse de taxas, contratos opcionais; alunos existentes usam `plan_price` no perfil |
+| 2 | `&section=planos` (owner) | `FinanceSettingsPlansSection` | **Adicionar plano** abre modal (nome, preço de lista, isento); editar no acordeão | Dirty até **Salvar**; alunos existentes usam `plan_price` no perfil |
 | 3 | `&section=recebimento` | `FinanceSettingsBanksSection` | Adicionar conta bancária/PIX | Modal; saldo inicial; **Salvar** no modal persiste na academia |
 | 3b | `&section=formas-recebimento` | `FinanceSettingsPaymentMethodsSection` | Ativar formas; conta padrão; automações; preview | `paymentMethodSettings` |
 | 3c | `&section=formas-recebimento` (crédito/débito) | `FinanceSettingsCaptureMethodPanel` | CRUD meios de captura; vínculo a recebedor de taxas | `captureMethods[]` |
@@ -114,9 +114,12 @@ Deep link `?section=planos` para admin → redirect para primeira seção permit
 ### Checklist passo a passo — owner
 
 1. [ ] `/empresa?tab=financeiro` abre com sidebar e seção **Planos** (default)
-2. [ ] Adicionar plano com nome e preço de lista → barra **Alterações não salvas** aparece
+2. [ ] **Adicionar plano** abre modal; Cancelar não altera a lista
+2b. [ ] Adicionar com nome e preço de lista → plano aparece expandido; barra **Alterações não salvas** aparece
 3. [ ] Salvar → toast sucesso; plano persiste após reload; editar preço de lista **não** altera `plan_price` de alunos já matriculados
+3a. [ ] Editar preço de lista de plano existente → Salvar → `ConfirmDialog` (de→para + alunos mantêm valor acordado); Cancelar não persiste; Confirmar persiste
 3b. [ ] Plano com nome vazio + Salvar → hint na barra fixa; link **Ir para Planos de mensalidade**; persistência bloqueada
+3c. [ ] Lead da seção fala em preço de lista vs valor acordado (não implica reajuste automático dos matriculados)
 4. [ ] **Contas bancárias** (`#contas`): adicionar banco/PIX, saldo inicial
 4b. [ ] **Formas de recebimento**: ativar/desativar forma; conta padrão; toggles de automação; preview «Se você registrar hoje»; coluna OK
 4c. [ ] **Meios de captura** (cartão crédito/débito): adicionar meio (nome, canal, conta); matriz 1x–12x ou «usar taxas da conta»

@@ -1,7 +1,7 @@
 # UX Planos de mensalidade + confirmação de reajuste — design
 
 **Data:** 2026-08-12  
-**Status:** aprovado em conversa — aguardando review do arquivo antes do plano de implementação
+**Status:** aprovado — implementado
 
 **Contexto:** o owner cria e edita planos de mensalidade em Minha academia → Financeiro → Planos. O fluxo atual é acordeão inline + barra sticky Salvar; criar plano injeta linha vazia. O copy de introdução ainda sugere que a cobrança mensal usa o preço do plano, embora o snapshot `students.plan_price` (spec [2026-07-23-plan-price-snapshot-design.md](./2026-07-23-plan-price-snapshot-design.md)) já isole alunos matriculados do reajuste de lista. Na prática, o owner ainda cria plano novo para “reajustar” com segurança.
 

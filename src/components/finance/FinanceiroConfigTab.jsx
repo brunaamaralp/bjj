@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { templatesForPurpose } from '../../lib/contractPlanTemplates.js';
 import {
@@ -12,6 +12,12 @@ import {
 import { useAcademyTabSection } from '../../lib/academyTabSection.js';
 import { useFinanceConfigState } from '../../hooks/useFinanceConfigState.js';
 import { useAccountingStore } from '../../store/useAccountingStore';
+import { useStudentStore } from '../../store/useStudentStore.js';
+import {
+  buildPlanPriceChangeConfirmCopy,
+  countStudentsOnPlan,
+  detectPlanListPriceChanges,
+} from '../../lib/planListPriceChange.js';
 import CaixaAccountingPanel from './CaixaAccountingPanel.jsx';
 import JournalTab from './JournalTab.jsx';
 import AcademyTabSettingsLayout from '../academy/settings/AcademyTabSettingsLayout.jsx';
@@ -44,6 +50,9 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
     defaultSection,
     isFinanceSettingsSection
   );
+  const [planPriceConfirm, setPlanPriceConfirm] = useState(null);
+  const students = useStudentStore((s) => s.students);
+  const studentsLastFetchedAt = useStudentStore((s) => s.lastFetchedAt);
 
   useEffect(() => {
     if (academyId) useAccountingStore.getState().loadByAcademy(academyId);
@@ -121,6 +130,26 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
   const persistFinanceConfig = async (nextFinanceConfig) => {
     state.setFinanceConfig(nextFinanceConfig);
     return state.persistAll({ financeConfigOverride: nextFinanceConfig });
+  };
+
+  const requestPersistAll = () => {
+    const changes = detectPlanListPriceChanges(
+      state.lastSavedPlans,
+      state.financeConfig?.plans || []
+    );
+    if (changes.length === 0) {
+      return state.persistAll();
+    }
+    const countsReliable = studentsLastFetchedAt != null;
+    const countsByPlanName = {};
+    if (countsReliable) {
+      for (const change of changes) {
+        countsByPlanName[change.name] = countStudentsOnPlan(students, change.name);
+      }
+    }
+    const copy = buildPlanPriceChangeConfirmCopy(changes, countsByPlanName, { countsReliable });
+    setPlanPriceConfirm(copy);
+    return undefined;
   };
 
   if (!academyId) {
@@ -246,7 +275,7 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         <FinanceSettingsStickySave
           visible={state.hasDirty}
           saving={state.saving}
-          onSave={state.persistAll}
+          onSave={requestPersistAll}
           onDiscard={state.discardChanges}
           saveHint={state.saveValidationHint}
           saveIssueSectionId={state.saveValidationSection}
@@ -260,6 +289,20 @@ export default function FinanceiroConfigTab({ academyId, isOwner }) {
         />
         {sectionBody}
       </AcademyTabSettingsLayout>
+
+      <ConfirmDialog
+        open={Boolean(planPriceConfirm)}
+        title={planPriceConfirm?.title || 'Confirmar novo preço de lista'}
+        description={planPriceConfirm?.description || ''}
+        confirmLabel="Salvar preços de lista"
+        confirmVariant="primary"
+        loading={state.saving}
+        onClose={() => setPlanPriceConfirm(null)}
+        onConfirm={async () => {
+          const ok = await state.persistAll();
+          if (ok) setPlanPriceConfirm(null);
+        }}
+      />
 
       <ConfirmDialog
         open={typeof state.pendingRemovePlan === 'number'}
