@@ -14,6 +14,9 @@ import {
 } from '../lib/financeConfigStorage.js';
 import { defaultFeeReceiver, emptyFeeReceiverFeeTable, readFeeReceivers } from '../lib/feeReceivers.js';
 
+/** Cabe no financeConfig sozinho, mas estoura com bancos/planos/recebedores extras. */
+const NEAR_LIMIT_BLOB = 'z'.repeat(15800);
+
 describe('financeConfigStorage', () => {
   it('compactPlanForStorage omits legacy durationDays', () => {
     const compact = compactPlanForStorage({
@@ -58,15 +61,47 @@ describe('financeConfigStorage', () => {
       plans,
       bankAccounts: banks,
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'z'.repeat(1800),
+      legacyBlob: NEAR_LIMIT_BLOB,
     };
-    const built = buildAcademyFinanceConfigUpdate({}, merged, {
-      hasSettingsAttribute: true,
-    });
+    const built = buildAcademyFinanceConfigUpdate(
+      { settings: '{}', financeBankAccounts: '' },
+      merged,
+      {
+        hasSettingsAttribute: true,
+        hasFinanceBankAccountsAttribute: true,
+      }
+    );
     expect(built.bankAccountsOffloaded).toBe(true);
     expect(built.bankAccountsOffloadVia).toBe('root');
     expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
     expect(JSON.parse(built.financeBankAccounts)).toHaveLength(4);
+  });
+
+  it('offloads bank accounts to settings when root financeBankAccounts attribute is missing', () => {
+    const plans = [{ name: 'Mensal', price: 200 }];
+    const banks = Array.from({ length: 4 }, (_, i) => ({
+      bankName: `Banco ${i}`,
+      account: String(1000 + i),
+      branch: String(i),
+      pixKey: `pix-${i}@mail.com`,
+    }));
+    const merged = {
+      plans,
+      bankAccounts: banks,
+      cardFees: { pix: { percent: 0, fixed: 0 } },
+      legacyBlob: NEAR_LIMIT_BLOB,
+    };
+    const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
+      hasSettingsAttribute: true,
+      hasFinanceBankAccountsAttribute: false,
+    });
+    expect(built.bankAccountsOffloaded).toBe(true);
+    expect(built.bankAccountsOffloadVia).toBe('settings');
+    expect(built.financeBankAccounts).toBeUndefined();
+    expect(JSON.parse(built.financeConfig).bankAccounts).toEqual([]);
+    const settings = JSON.parse(built.settings);
+    expect(settings.financeBankAccountsOffloaded).toBe(true);
+    expect(settings.financeBankAccounts).toHaveLength(4);
   });
 
   it('offloads bank accounts to root attribute when settings is unavailable', () => {
@@ -81,12 +116,12 @@ describe('financeConfigStorage', () => {
       plans,
       bankAccounts: banks,
       cardFees: { pix: { percent: 0, fixed: 0 } },
-      legacyBlob: 'z'.repeat(2000),
+      legacyBlob: NEAR_LIMIT_BLOB,
     };
     const built = buildAcademyFinanceConfigUpdate(
-      { settings: '{}', onboardingChecklist: '[]' },
+      { settings: '{}', onboardingChecklist: '[]', financeBankAccounts: '' },
       merged,
-      { hasSettingsAttribute: false }
+      { hasSettingsAttribute: false, hasFinanceBankAccountsAttribute: true }
     );
     expect(built.bankAccountsOffloaded).toBe(true);
     expect(built.bankAccountsOffloadVia).toBe('root');
@@ -195,7 +230,7 @@ describe('financeConfigStorage', () => {
       bankAccounts: [],
       cardFees: { pix: { percent: 0, fixed: 0 } },
       collectionRules: [{ day: 1, label: '1ª', defaultMessage: 'm'.repeat(200), escalate: false }],
-      legacyBlob: 'z'.repeat(2000),
+      legacyBlob: NEAR_LIMIT_BLOB,
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
@@ -399,7 +434,7 @@ describe('financeConfigStorage', () => {
       feeReceivers: receivers,
       defaultFeeReceiverId: receivers[0].id,
       feeReceiversMigrated: true,
-      legacyBlob: 'x'.repeat(1800),
+      legacyBlob: NEAR_LIMIT_BLOB,
     };
     const built = buildAcademyFinanceConfigUpdate({ settings: '{}' }, merged, {
       hasSettingsAttribute: true,
@@ -432,7 +467,7 @@ describe('financeConfigStorage', () => {
       feeReceivers: receivers,
       defaultFeeReceiverId: receivers[0].id,
       feeReceiversMigrated: true,
-      legacyBlob: 'x'.repeat(1800),
+      legacyBlob: NEAR_LIMIT_BLOB,
     };
     const built = buildAcademyFinanceConfigUpdate({}, merged);
     expect(built.feeReceiversOffloaded).toBe(true);

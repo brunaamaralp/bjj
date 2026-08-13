@@ -15,6 +15,7 @@ import { parseContractTemplatePurpose, type ContractTemplatePurpose } from './co
 import { API_KEY, DB_ID, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
 import {
   academyDocSupportsSettings,
+  academyDocSupportsFinanceBankAccounts,
   buildAcademyFinanceConfigUpdate,
   mergeFinanceConfigFromAcademyDoc,
 } from '../../src/lib/financeConfigStorage.js';
@@ -173,10 +174,14 @@ export async function ensureAcademyContractSetup(
   if (financeConfigUpdated) {
     const built = buildAcademyFinanceConfigUpdate(academyDoc, financeConfig, {
       hasSettingsAttribute: academyDocSupportsSettings(academyDoc),
+      hasFinanceBankAccountsAttribute: academyDocSupportsFinanceBankAccounts(academyDoc),
     });
     const payload: Record<string, unknown> = { financeConfig: built.financeConfig };
     if (built.settings !== undefined) payload.settings = built.settings;
-    if (built.financeBankAccounts !== undefined) {
+    if (
+      built.financeBankAccounts !== undefined &&
+      academyDocSupportsFinanceBankAccounts(academyDoc)
+    ) {
       payload.financeBankAccounts = built.financeBankAccounts;
     }
     if (built.onboardingChecklist !== undefined) {

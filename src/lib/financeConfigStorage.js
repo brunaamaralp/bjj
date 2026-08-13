@@ -353,6 +353,20 @@ export function academyDocSupportsSettings(academyDoc, { hasSettingsAttribute } 
 }
 
 /**
+ * Indica se o atributo raiz `financeBankAccounts` existe no schema Appwrite.
+ * Sem provision:academy-attrs o updateDocument falha com "Unknown attribute".
+ */
+export function academyDocSupportsFinanceBankAccounts(
+  academyDoc,
+  { hasFinanceBankAccountsAttribute } = {}
+) {
+  if (typeof hasFinanceBankAccountsAttribute === 'boolean') {
+    return hasFinanceBankAccountsAttribute;
+  }
+  return Object.prototype.hasOwnProperty.call(academyDoc || {}, 'financeBankAccounts');
+}
+
+/**
  * Monta o objeto financeConfig completo a partir do documento da academia.
  * @param {object} academyDoc
  */
@@ -451,8 +465,9 @@ export function auditBankAccountsFromAcademyDoc(academyDoc) {
 }
 
 function fitsFinanceConfigLimit(json) {
-  // Limite efetivo no Appwrite costuma ser 2500 até provision:academy-attrs ampliar o atributo.
-  return json.length <= FINANCE_CONFIG_LEGACY_MAX_CHARS - SAVE_BUFFER_CHARS;
+  // Após provision (ensure-academy-attrs / updateStringAttribute), o teto é 16384.
+  // Academias ainda em 2500 precisam rodar o provision; o overflow em settings continua como rede de segurança.
+  return json.length <= FINANCE_CONFIG_TARGET_MAX_CHARS - SAVE_BUFFER_CHARS;
 }
 
 function fitsBankAccountsRootLimit(json) {
@@ -525,11 +540,12 @@ function clearFinanceOverflowKeys(settings) {
 /**
  * @param {object} academyDoc — documento atual da academia
  * @param {object} mergedCfg — financeConfig já mesclado
- * @param {{ hasSettingsAttribute?: boolean }} opts
+ * @param {{ hasSettingsAttribute?: boolean, hasFinanceBankAccountsAttribute?: boolean }} opts
  */
 export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}) {
   const settings = parseAcademySettings(academyDoc?.settings);
   const supportsSettings = academyDocSupportsSettings(academyDoc, opts);
+  const supportsRootBanks = academyDocSupportsFinanceBankAccounts(academyDoc, opts);
   const compacted = compactFinanceConfigForStorage(mergedCfg);
 
   const banks = filterBankAccountsWithBank(compacted.bankAccounts);
@@ -574,7 +590,13 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
 
   const banksStr = JSON.stringify(banks);
 
-  if (level.stripBanks && !needsSettingsOverflow && fitsBankAccountsRootLimit(banksStr)) {
+  // Preferir atributo raiz só quando o schema Appwrite já o tem (senão: Unknown attribute).
+  if (
+    level.stripBanks &&
+    !needsSettingsOverflow &&
+    supportsRootBanks &&
+    fitsBankAccountsRootLimit(banksStr)
+  ) {
     const nextSettings = clearFinanceOverflowKeys(settings);
     const onboardingStr = serializeOnboardingChecklistForDb(
       parseOnboardingChecklist(academyDoc?.onboardingChecklist),
@@ -598,17 +620,21 @@ export function buildAcademyFinanceConfigUpdate(academyDoc, mergedCfg, opts = {}
     };
     const settingsStr = JSON.stringify(nextSettings);
     if (fitsSettingsLimit(settingsStr)) {
-      return {
+      const payload = {
         financeConfig: financeStr,
         settings: settingsStr,
-        financeBankAccounts: '',
         bankAccountsOffloaded: true,
+        bankAccountsOffloadVia: 'settings',
       };
+      // Limpa atributo raiz só se existir no schema.
+      if (supportsRootBanks) payload.financeBankAccounts = '';
+      return payload;
     }
   }
 
   if (needsSettingsOverflow && supportsSettings) {
-    const banksInRoot = level.stripBanks && fitsBankAccountsRootLimit(banksStr);
+    const banksInRoot =
+      level.stripBanks && supportsRootBanks && fitsBankAccountsRootLimit(banksStr);
     const nextSettings = {
       ...clearFinanceOverflowKeys(settings),
       ...(level.stripBanks && !banksInRoot
@@ -688,10 +714,14 @@ export async function persistAcademyFinanceConfig(academyId, mergedCfg, { databa
   const safeCfg = unionFinanceConfigForPersist(serverMerged, mergedCfg);
   const built = buildAcademyFinanceConfigUpdate(doc, safeCfg, {
     hasSettingsAttribute: academyDocSupportsSettings(doc),
+    hasFinanceBankAccountsAttribute: academyDocSupportsFinanceBankAccounts(doc),
   });
   const payload = { financeConfig: built.financeConfig };
   if (built.settings !== undefined) payload.settings = built.settings;
-  if (built.financeBankAccounts !== undefined) {
+  if (
+    built.financeBankAccounts !== undefined &&
+    academyDocSupportsFinanceBankAccounts(doc)
+  ) {
     payload.financeBankAccounts = built.financeBankAccounts;
   }
   if (built.onboardingChecklist !== undefined) {

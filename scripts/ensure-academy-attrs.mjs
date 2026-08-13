@@ -66,10 +66,35 @@ async function ensureStringAttr(databases, key, size, required = false) {
       console.log(`⚠️  Limite de atributos — não foi possível criar ${key}.`);
     } else if (e.code === 409 || msg.includes('already exists')) {
       console.log(`⏭️  ${key} já existe`);
+      if (size) {
+        await maybeEnlargeStringAttr(databases, key, size);
+      }
     } else {
       console.error(`❌ ${key}: ${e.message}`);
       throw e;
     }
+  }
+}
+
+async function maybeEnlargeStringAttr(databases, key, targetSize) {
+  try {
+    const attr = await databases.getAttribute(DB_ID, ACADEMIES_COL, key);
+    const current = Number(attr?.size || 0);
+    if (!Number.isFinite(current) || current >= targetSize) return;
+    console.log(`🔧 Ampliando ${key}: ${current} → ${targetSize}…`);
+    await databases.updateStringAttribute({
+      databaseId: DB_ID,
+      collectionId: ACADEMIES_COL,
+      key,
+      required: false,
+      xdefault: null,
+      size: targetSize,
+    });
+    await sleep(1500);
+    const again = await databases.getAttribute(DB_ID, ACADEMIES_COL, key);
+    console.log(`✅ ${key} agora size=${again?.size} status=${again?.status}`);
+  } catch (e) {
+    console.log(`⚠️  Não foi possível ampliar ${key}: ${e.message || e}`);
   }
 }
 
@@ -136,8 +161,15 @@ async function main() {
   await ensureBooleanAttr(databases, 'pagbank_enabled', false, false);
   await ensureIntegerAttr(databases, 'pagbank_max_retries', false, 3);
   console.log('\n✅ Concluído.');
-  console.log('Se financeConfig já existir com limite menor (ex.: 2500), aumente manualmente no console Appwrite ou via verify-and-fix-schema-crm.');
-  console.log('Motivos de trancamento/desligamento: gravados em settings.student_freeze_reasons / student_exit_reasons (JSON).');
+  console.log(
+    'Se financeConfig já existir com limite menor (ex.: 2500), o script tenta ampliar para 16384 automaticamente.'
+  );
+  console.log(
+    'financeBankAccounts: só é criado se houver slot livre (coleção academies = máx. 56 attrs). Sem ele, contas grandes vão para settings.'
+  );
+  console.log(
+    'Motivos de trancamento/desligamento: gravados em settings.student_freeze_reasons / student_exit_reasons (JSON).'
+  );
 }
 
 main().catch((e) => {
