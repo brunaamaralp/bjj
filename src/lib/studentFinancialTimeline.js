@@ -190,10 +190,19 @@ export function filterTimelineItems(items, { typeFilter = 'all', periodKey = '12
   }
 
   return (items || []).filter((item) => {
-    if (typeFilter !== 'all' && item.kind !== typeFilter) return false;
+    if (!timelineItemMatchesTypeFilter(item, typeFilter)) return false;
     if (cutoffMs != null && timelineSortKey(item.sortDate) < cutoffMs) return false;
     return true;
   });
+}
+
+/** Filtro "Mensalidades" inclui mensalidade avulsa e pacote (âncora). */
+export function timelineItemMatchesTypeFilter(item, typeFilter) {
+  if (!typeFilter || typeFilter === TIMELINE_FILTER_TYPES.ALL) return true;
+  if (typeFilter === TIMELINE_FILTER_TYPES.PLAN) {
+    return item.kind === TIMELINE_FILTER_TYPES.PLAN || item.kind === TIMELINE_FILTER_TYPES.BUNDLE;
+  }
+  return item.kind === typeFilter;
 }
 
 export function countTimelineHistory(payments, sales) {
@@ -392,7 +401,7 @@ export function filterTypeCounts(allItems) {
     fee: 0,
   };
   for (const item of allItems) {
-    if (item.kind === 'plan') c.plan += 1;
+    if (item.kind === 'plan' || item.kind === 'bundle') c.plan += 1;
     if (item.kind === 'bundle') c.bundle += 1;
     if (item.kind === 'product') c.product += 1;
     if (item.kind === 'fee') c.fee += 1;

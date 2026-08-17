@@ -132,11 +132,16 @@ describe('studentFinancialTimeline', () => {
   it('filterTimelineItems filtra por tipo', () => {
     const items = [
       { kind: 'plan', sortDate: '2026-03-01T00:00:00.000Z' },
+      { kind: 'bundle', sortDate: '2026-02-01T00:00:00.000Z' },
       { kind: 'product', sortDate: '2026-02-01T00:00:00.000Z' },
     ];
-    const onlyPlan = filterTimelineItems(items, { typeFilter: 'plan', periodKey: 'all' });
-    expect(onlyPlan).toHaveLength(1);
-    expect(onlyPlan[0].kind).toBe('plan');
+    const mensalidades = filterTimelineItems(items, { typeFilter: 'plan', periodKey: 'all' });
+    expect(mensalidades).toHaveLength(2);
+    expect(mensalidades.map((i) => i.kind).sort()).toEqual(['bundle', 'plan']);
+
+    const onlyBundle = filterTimelineItems(items, { typeFilter: 'bundle', periodKey: 'all' });
+    expect(onlyBundle).toHaveLength(1);
+    expect(onlyBundle[0].kind).toBe('bundle');
   });
 
   it('buildFinancialSummary reflete bundle ativo', () => {
@@ -183,6 +188,33 @@ describe('studentFinancialTimeline', () => {
     const items = buildFinancialTimelineItems(payments, sales);
     const typeCounts = filterTypeCounts(items);
     expect(typeCounts.plan).toBeGreaterThanOrEqual(1);
+    expect(typeCounts.plan).toBe(typeCounts.bundle + 1);
+  });
+
+  it('filterTypeCounts inclui pacotes no contador de Mensalidades', () => {
+    const payments = [
+      {
+        $id: 'a1',
+        payment_category: 'bundle',
+        bundle_origin_id: 'a1',
+        bundle_months: 12,
+        reference_month: '2026-08',
+        status: 'paid',
+        amount: 3414,
+        paid_at: '2026-08-10T12:00:00.000Z',
+      },
+    ];
+    const items = buildFinancialTimelineItems(payments, []);
+    const typeCounts = filterTypeCounts(items);
+    expect(typeCounts.bundle).toBe(1);
+    expect(typeCounts.plan).toBe(1);
+
+    const mensalidades = filterTimelineItems(items, {
+      typeFilter: DEFAULT_TIMELINE_TYPE_FILTER,
+      periodKey: 'all',
+    });
+    expect(mensalidades).toHaveLength(1);
+    expect(mensalidades[0].kind).toBe('bundle');
   });
 
   it('buildFinancialSummary usa plan_price acordado em vez do catálogo', () => {
