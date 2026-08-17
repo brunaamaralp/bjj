@@ -13,6 +13,15 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
+  "functions": {
+    "api/finance.js": {
+      "includeFiles": "node_modules/pdfkit/js/data/**",
+      "maxDuration": 60
+    },
+    "api/leads.js": {
+      "includeFiles": "node_modules/pdfkit/js/data/**"
+    }
+  },
   "rewrites": [
     { "source": "/api/billing/:action(.*)", "destination": "/api/billing.js?action=$1" },
     { "source": "/api/agent/:action(.*)", "destination": "/api/agent.js?action=$1" },

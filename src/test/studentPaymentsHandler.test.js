@@ -642,4 +642,57 @@ describe('handleListStudentPayments — repair de pacote', () => {
     expect(bundleCreate.repairBundleCoverageForMonth).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(200);
   });
+
+  it('gera PDF de mensalidade mesmo se a busca do aluno falhar', async () => {
+    process.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID = 'payments-col';
+    handlerMocks.assertOrRepairStudentInAcademy.mockRejectedValueOnce(Object.assign(new Error('forbidden'), { code: 'FORBIDDEN' }));
+    handlerMocks.getDocument.mockResolvedValueOnce({
+      $id: 'pay-pdf-1',
+      academy_id: 'acad-1',
+      lead_id: 'lead-missing',
+      status: 'paid',
+      amount: 180,
+      paid_amount: 180,
+      method: 'pix',
+      plan_name: 'Mensal',
+      reference_month: '2026-08',
+      payment_category: 'plan',
+      paid_at: '2026-08-10T12:00:00.000Z',
+    });
+
+    const { handlePaymentReceiptPdf } = await import('../../lib/server/studentPaymentsHandler.js');
+    const res = {
+      statusCode: 200,
+      body: null,
+      headers: {},
+      setHeader(k, v) {
+        this.headers[k] = v;
+        return this;
+      },
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+      send(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+
+    await handlePaymentReceiptPdf(
+      { query: { id: 'pay-pdf-1', format: 'pdf' } },
+      res,
+      'acad-1',
+      { name: 'Academia Teste', settings: '{}' }
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(String(res.headers['Content-Type'] || '')).toContain('application/pdf');
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect(res.body.slice(0, 5).toString()).toBe('%PDF-');
+  });
 });

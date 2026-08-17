@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderReceiptPdf, receiptGeneratedAt, RECEIPT_COLORS } from '../../lib/receipts/receiptPdfLayout.js';
+import { renderReceiptPdf, receiptGeneratedAt, RECEIPT_COLORS, pdfSafeText } from '../../lib/receipts/receiptPdfLayout.js';
 
 describe('receiptPdfLayout', () => {
   it('accent color is a valid hex for PDFKit', () => {
@@ -21,5 +21,10 @@ describe('receiptPdfLayout', () => {
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.slice(0, 5).toString()).toBe('%PDF-');
     expect(buf.length).toBeGreaterThan(500);
+  });
+
+  it('pdfSafeText remove caracteres fora de WinAnsi', () => {
+    expect(pdfSafeText('João — 🥋')).toBe('João - ');
+    expect(pdfSafeText('“ok”')).toBe('"ok"');
   });
 });
