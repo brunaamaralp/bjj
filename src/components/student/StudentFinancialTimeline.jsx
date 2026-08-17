@@ -218,14 +218,6 @@ function BundleTimelineRow({ item, onCancelCoverage, cancelling, canManagePaymen
             </div>
           ))}
       </div>
-      {canDownloadPaymentReceipt(item.anchor) ? (
-        <div style={{ marginBottom: 10 }}>
-          <ReceiptPdfButton
-            onDownload={() => downloadPaymentReceiptPdf(item.anchor.$id)}
-            variant="outline"
-          />
-        </div>
-      ) : null}
       {futureCovered.length > 0 && onCancelCoverage ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <select

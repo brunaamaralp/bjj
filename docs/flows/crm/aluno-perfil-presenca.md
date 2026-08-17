@@ -107,7 +107,7 @@ flowchart TD
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
 9e. [ ] Aba Pagamentos: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
 9e2. [ ] Owner/admin: **Cobertura histórica** no perfil — N meses (1–24) como `covered` / R$ 0 / sem Caixa; pula meses já pagos
-9f. [ ] Lista em linhas compactas (ações só ao expandir); default Mensalidades · 3 meses; sem lista duplicada do extrato
+9f. [ ] Lista em linhas compactas (ações só ao expandir); default Mensalidades · 3 meses; sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
 9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba
 9h. [ ] Sem presença configurada: `StatusBanner` com ação **Abrir Recepção** (sem botão de check-in morto)
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil

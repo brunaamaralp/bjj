@@ -34,6 +34,8 @@ import PaymentReceiptDateBanner from '../finance/PaymentReceiptDateBanner.jsx';
 import { suggestPaidAtYmd } from '../../lib/paymentReceiptDate.js';
 import { resolveStudentPlanFinalPrice } from '../../lib/planBilling.js';
 import { writeMixedCheckoutPrefill } from '../../lib/mixedCheckoutPrefill.js';
+import { downloadPaymentReceiptPdf } from '../../lib/receiptDownload.js';
+import ReceiptPdfButton from '../shared/ReceiptPdfButton.jsx';
 
 export const PAYMENT_MODAL_PRODUCT = 'product';
 
@@ -125,6 +127,7 @@ export default function StudentPaymentModal({
   fieldErrors = null,
   requireBankAccountForSave = false,
   canConfigureBankAccounts = false,
+  receiptPayment = null,
 }) {
   const navigate = useNavigate();
   const creatingSale = useSalesStore((s) => s.creating);
@@ -215,7 +218,16 @@ export default function StudentPaymentModal({
     { value: PAYMENT_CATEGORY.OTHER, label: 'Outro' },
   ];
 
-  const modalTitle = isProduct ? 'Venda de produto' : editingPaymentId ? 'Editar pagamento' : 'Registrar pagamento';
+  const showReceipt = Boolean(receiptPayment?.$id);
+  const modalTitle = showReceipt
+    ? editingPaymentId
+      ? 'Pagamento atualizado'
+      : 'Pagamento registrado'
+    : isProduct
+      ? 'Venda de produto'
+      : editingPaymentId
+        ? 'Editar pagamento'
+        : 'Registrar pagamento';
 
   return (
     <>
@@ -231,7 +243,15 @@ export default function StudentPaymentModal({
       dialogClassName={`student-payment-modal${isProduct ? ' student-payment-modal--product' : ''}`}
       ariaLabelledBy="student-payment-modal-title"
       footer={
-        isProduct ? (
+        showReceipt ? (
+          <div className="payment-modal-footer">
+            <div className="payment-modal-footer__actions">
+              <button type="button" className="btn-primary" style={{ flex: 1 }} onClick={handleClose}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        ) : isProduct ? (
           <div className="sales-modal-footer">
             {productSubmitState.footerError || productSubmitState.footerHint ? (
               <p
@@ -299,6 +319,15 @@ export default function StudentPaymentModal({
         )
       }
     >
+        {showReceipt ? (
+          <div className="student-payment-modal__receipt">
+            <p className="text-small" style={{ margin: 0 }}>
+              O lançamento foi salvo. Você já pode baixar o comprovante.
+            </p>
+            <ReceiptPdfButton onDownload={() => downloadPaymentReceiptPdf(receiptPayment.$id)} />
+          </div>
+        ) : (
+          <>
         {formError ? <PaymentFormErrorBanner message={formError} /> : null}
         {!isProduct && salesEnabled && !editingPaymentId ? (
           <p className="text-small text-muted" style={{ margin: '0 0 12px' }}>
@@ -678,6 +707,8 @@ export default function StudentPaymentModal({
                 </div>
               ) : null}
             </div>
+          </>
+        )}
           </>
         )}
     </ModalShell>

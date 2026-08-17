@@ -107,21 +107,24 @@ vi.mock('../store/useStudentStore', () => {
   };
 });
 
-vi.mock('../store/useLeadStore', () => ({
-  LEAD_STATUS: {},
-  useLeadStore: (selector) =>
-    selector({
-      academyId: 'academy-1',
-      modules: { finance: true, sales: false },
-      financeConfig: {
-        plans: [{ name: 'Mensal', price: 200 }],
-        bankAccounts: [{ id: 'acc-1', name: 'Conta principal' }],
-      },
-      userId: 'user-1',
-      academyList: [{ id: 'academy-1', ownerId: 'owner-1', teamId: 'team-1', settings: null }],
-      labels: {},
-    }),
-}));
+vi.mock('../store/useLeadStore', () => {
+  const state = {
+    academyId: 'academy-1',
+    modules: { finance: true, sales: false },
+    financeConfig: {
+      plans: [{ name: 'Mensal', price: 200 }],
+      bankAccounts: [{ id: 'acc-1', name: 'Conta principal' }],
+    },
+    financeConfigAcademyId: 'academy-1',
+    userId: 'user-1',
+    academyList: [{ id: 'academy-1', ownerId: 'owner-1', teamId: 'team-1', settings: null }],
+    labels: {},
+  };
+  const useLeadStore = Object.assign((selector) => selector(state), {
+    getState: () => state,
+  });
+  return { LEAD_STATUS: {}, useLeadStore };
+});
 
 vi.mock('../hooks/useToast', () => ({
   useToast: () => profileMocks.toast,
@@ -146,6 +149,7 @@ vi.mock('../lib/whatsappIntegrationState.js', () => ({
 
 vi.mock('../lib/canManageStudentPayments.js', () => ({
   useCanManageStudentPayments: () => true,
+  useCanManageAcademySales: () => true,
 }));
 
 vi.mock('../lib/canViewStudentFinance.js', () => ({
@@ -204,6 +208,7 @@ vi.mock('../lib/studentPayments.js', () => ({
 vi.mock('../lib/studentPaymentsApi.js', () => ({
   apiCreateStudentPayment: profileMocks.apiCreateStudentPayment,
   apiUpdateStudentPayment: profileMocks.apiUpdateStudentPayment,
+  apiCreateHistoricalCoverage: vi.fn(),
 }));
 
 vi.mock('../components/student/StudentPaymentModal.jsx', () => ({
@@ -236,11 +241,15 @@ vi.mock('../components/student/StudentPaymentModal.jsx', () => ({
     plan_name: payment?.plan_name || student?.plan || 'Mensal',
     note: payment?.note || '',
   }),
-  default: ({ open, onSave }) =>
+  default: ({ open, onSave, receiptPayment }) =>
     open ? (
-      <button type="button" onClick={() => void onSave()}>
-        Salvar pagamento
-      </button>
+      receiptPayment ? (
+        <button type="button">Baixar recibo</button>
+      ) : (
+        <button type="button" onClick={() => void onSave()}>
+          Salvar pagamento
+        </button>
+      )
     ) : null,
 }));
 
@@ -389,6 +398,7 @@ vi.mock('../lib/studentDisplayStatus.js', () => ({
 
 vi.mock('../lib/paymentStatus.js', () => ({
   normalizeProfilePaymentStatus: (status) => status,
+  expectedAmountForStudent: () => 200,
 }));
 
 vi.mock('../lib/studentExitConfig.js', () => ({
@@ -435,9 +445,13 @@ vi.mock('../lib/paymentReceiptDate.js', () => ({
   paidAtCoverageDivergenceConfirmDescription: () => '',
 }));
 
-vi.mock('../lib/planBilling.js', () => ({
-  isStudentOnExemptPlan: () => false,
-}));
+vi.mock('../lib/planBilling.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    isStudentOnExemptPlan: () => false,
+  };
+});
 
 describe('StudentProfile payment flow', () => {
   beforeEach(() => {
@@ -492,12 +506,11 @@ describe('StudentProfile payment flow', () => {
     await waitFor(() => expect(profileMocks.apiCreateStudentPayment).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(profileMocks.getStudentPayments).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(profileMocks.fetchStudentById).toHaveBeenCalledWith('student-1'));
-    expect(profileMocks.toast.show).toHaveBeenCalledWith(
+    expect(profileMocks.toast.show).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'success', message: 'Pagamento registrado.' })
     );
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Salvar pagamento' })).toBeNull()
-    );
+    expect(await screen.findByRole('button', { name: 'Baixar recibo' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Salvar pagamento' })).toBeNull();
   });
 
   it('usa studentPaymentsApi ao atualizar pagamento pelo perfil', async () => {
@@ -535,9 +548,10 @@ describe('StudentProfile payment flow', () => {
       })
     );
     await waitFor(() => expect(profileMocks.getStudentPayments).toHaveBeenCalledTimes(2));
-    expect(profileMocks.toast.show).toHaveBeenCalledWith(
+    expect(profileMocks.toast.show).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'success', message: 'Pagamento atualizado.' })
     );
+    expect(await screen.findByRole('button', { name: 'Baixar recibo' })).toBeTruthy();
   });
 
   it('envia amount explícito igual a zero ao criar pagamento pelo perfil', async () => {

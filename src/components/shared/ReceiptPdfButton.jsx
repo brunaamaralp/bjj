@@ -8,6 +8,7 @@ import AsyncButton from './AsyncButton.jsx';
  * @param {'outline'|'secondary'} [variant]
  * @param {string} [className]
  * @param {boolean} [disabled]
+ * @param {string} [label]
  */
 export default function ReceiptPdfButton({
   onDownload,
@@ -15,6 +16,7 @@ export default function ReceiptPdfButton({
   className = '',
   disabled = false,
   size = 'sm',
+  label = 'Baixar recibo',
 }) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export default function ReceiptPdfButton({
     setLoading(true);
     try {
       await onDownload();
-      toast.success('PDF baixado.');
+      toast.success('Recibo baixado.');
     } catch (e) {
       const msg = String(e?.message || e || '');
       if (msg.includes('session_required')) {
@@ -50,7 +52,7 @@ export default function ReceiptPdfButton({
       onClick={handleClick}
     >
       <FileDown size={16} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
-      Baixar PDF
+      {label}
     </AsyncButton>
   );
 }

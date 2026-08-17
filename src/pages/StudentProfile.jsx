@@ -110,6 +110,7 @@ import {
 import NaviChatWidgetPanel from '../components/chat-widget/NaviChatWidgetPanel.jsx';
 import { validatePreferredPaymentAccount, hasConfiguredBankAccounts } from '../lib/bankAccounts.js';
 import { trocoFieldsForPaymentPayload } from '../lib/studentPaymentTroco.js';
+import { canDownloadPaymentReceipt } from '../lib/receiptDownload.js';
 import {
     validateMensalidadesPaymentForm,
     focusFirstStudentPaymentError,
@@ -465,6 +466,7 @@ export default function StudentProfile() {
     const effectivePaymentStatus = studentPlanIsExempt ? { status: 'exempt', payment: null } : paymentStatus;
     const [payForm, setPayForm] = useState(() => buildDefaultPayForm(null));
     const [savingPayment, setSavingPayment] = useState(false);
+    const [receiptAfterSave, setReceiptAfterSave] = useState(null);
     const [deletePaymentTarget, setDeletePaymentTarget] = useState(null);
     const [deletePaymentBusy, setDeletePaymentBusy] = useState(false);
     const [cancellingCoverage, setCancellingCoverage] = useState(false);
@@ -1540,6 +1542,7 @@ export default function StudentProfile() {
         setEditingPaymentId(null);
         setPayFormError('');
         setPayFormErrors({});
+        setReceiptAfterSave(null);
     }, []);
 
     const updatePayForm = useCallback((updater) => {
@@ -1552,6 +1555,7 @@ export default function StudentProfile() {
         setEditingPaymentId(null);
         setPayFormError('');
         setPayFormErrors({});
+        setReceiptAfterSave(null);
         setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: presetType });
         setShowPaymentModal(true);
     }, [student, financeConfig]);
@@ -1596,6 +1600,7 @@ export default function StudentProfile() {
             setEditingPaymentId(payment.$id);
             setPayFormError('');
             setPayFormErrors({});
+            setReceiptAfterSave(null);
             setPayForm(paymentFormFromDoc(payment, student, financeConfig));
             setShowPaymentModal(true);
         },
@@ -1719,6 +1724,10 @@ export default function StudentProfile() {
                 const profileSt = normalizeProfilePaymentStatus(doc.status);
                 if (profileSt === 'paid') setPaymentStatus({ status: 'paid', payment: doc });
                 else if (profileSt === 'pending') setPaymentStatus({ status: 'pending', payment: doc });
+            }
+            if (canDownloadPaymentReceipt(doc)) {
+                setReceiptAfterSave(doc);
+                return;
             }
             closePaymentModal();
             toast.show({
@@ -3603,6 +3612,7 @@ export default function StudentProfile() {
                 fieldErrors={payFormErrors}
                 requireBankAccountForSave={hasConfiguredBankAccounts(financeConfig)}
                 canConfigureBankAccounts={canConfigureBankAccounts}
+                receiptPayment={receiptAfterSave}
             />
 
             <ConfirmDialog
