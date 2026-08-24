@@ -147,6 +147,47 @@ export function scheduleTimeStatusLabel(status) {
 }
 
 /**
+ * Delta for container.scrollLeft to center child horizontally (page-safe; no scrollIntoView).
+ * @param {{
+ *   containerLeft: number,
+ *   containerWidth: number,
+ *   childLeft: number,
+ *   childWidth: number,
+ * }} rects
+ */
+export function computeHorizontalCenterScrollDelta(rects) {
+  const containerWidth = Number(rects?.containerWidth) || 0;
+  const childWidth = Number(rects?.childWidth) || 0;
+  if (!(containerWidth > 0) || childWidth < 0) return 0;
+  const containerLeft = Number(rects?.containerLeft) || 0;
+  const childLeft = Number(rects?.childLeft) || 0;
+  const containerCenter = containerLeft + containerWidth / 2;
+  const childCenter = childLeft + childWidth / 2;
+  return childCenter - containerCenter;
+}
+
+/**
+ * Horizontally center `child` inside `container` only (no page scroll).
+ * @param {HTMLElement | null | undefined} container
+ * @param {HTMLElement | null | undefined} child
+ * @param {{ behavior?: ScrollBehavior }} [opts]
+ */
+export function scrollChildHorizontallyIntoContainer(container, child, opts = {}) {
+  if (!container || !child || typeof container.scrollBy !== 'function') return false;
+  const cRect = container.getBoundingClientRect();
+  const tRect = child.getBoundingClientRect();
+  const delta = computeHorizontalCenterScrollDelta({
+    containerLeft: cRect.left,
+    containerWidth: cRect.width,
+    childLeft: tRect.left,
+    childWidth: tRect.width,
+  });
+  if (Math.abs(delta) < 1) return false;
+  container.scrollBy({ left: delta, behavior: opts.behavior ?? 'smooth' });
+  return true;
+}
+
+/**
  * @param {object} item
  * @param {{ isToday?: boolean, slotByScheduleId?: Map<string, object>, nowDate?: Date }} ctx
  */

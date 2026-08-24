@@ -16,6 +16,7 @@ import {
   getTodayWeekdayId,
   readModalityFilter,
   resolveScheduleGridColumns,
+  scrollChildHorizontallyIntoContainer,
   writeModalityFilter,
 } from '../../lib/recepcaoScheduleGrid.js';
 
@@ -145,7 +146,10 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   useEffect(() => {
     if (!gridWrapRef.current || !todayColRef.current || didScrollToTodayRef.current) return;
     didScrollToTodayRef.current = true;
-    todayColRef.current.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    // Horizontal only — scrollIntoView also scrolled the page.
+    scrollChildHorizontallyIntoContainer(gridWrapRef.current, todayColRef.current, {
+      behavior: 'smooth',
+    });
   }, [schedules.length]);
 
   const handleModalityFilter = useCallback((value) => {

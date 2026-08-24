@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   buildWeeklyScheduleGrid,
   SCHEDULE_WEEKDAY_LABELS,
@@ -6,6 +6,7 @@ import {
 import {
   classifyScheduleTimeStatus,
   capacityTone,
+  computeHorizontalCenterScrollDelta,
   flattenTodaySchedules,
   formatOccupancyLabel,
   readModalityFilter,
@@ -13,6 +14,7 @@ import {
   resolveScheduleCardStyle,
   resolveScheduleGridColumns,
   scheduleTimeStatusLabel,
+  scrollChildHorizontallyIntoContainer,
   slotByScheduleIdForDate,
   writeModalityFilter,
 } from '../lib/recepcaoScheduleGrid.js';
@@ -131,6 +133,55 @@ describe('recepcaoScheduleGrid', () => {
     expect(readModalityFilter()).toBe('bjj');
     writeModalityFilter('');
     expect(readModalityFilter()).toBe('');
+  });
+
+  it('computeHorizontalCenterScrollDelta centers child inside overflow container only', () => {
+    // Container [0, 400] center 200; child [300, 400] center 350 → delta +150
+    expect(
+      computeHorizontalCenterScrollDelta({
+        containerLeft: 0,
+        containerWidth: 400,
+        childLeft: 300,
+        childWidth: 100,
+      })
+    ).toBe(150);
+
+    // Already centered → no horizontal move
+    expect(
+      computeHorizontalCenterScrollDelta({
+        containerLeft: 0,
+        containerWidth: 400,
+        childLeft: 150,
+        childWidth: 100,
+      })
+    ).toBe(0);
+
+    // Invalid geometry → 0 (do not scroll page as fallback)
+    expect(
+      computeHorizontalCenterScrollDelta({
+        containerLeft: 0,
+        containerWidth: 0,
+        childLeft: 100,
+        childWidth: 50,
+      })
+    ).toBe(0);
+  });
+
+  it('scrollChildHorizontallyIntoContainer uses scrollBy on the wrap, not scrollIntoView', () => {
+    const scrollBy = vi.fn();
+    const scrollIntoView = vi.fn();
+    const container = {
+      scrollBy,
+      getBoundingClientRect: () => ({ left: 0, width: 400, top: 0, height: 200 }),
+    };
+    const child = {
+      scrollIntoView,
+      getBoundingClientRect: () => ({ left: 300, width: 100, top: 80, height: 40 }),
+    };
+
+    expect(scrollChildHorizontallyIntoContainer(container, child)).toBe(true);
+    expect(scrollBy).toHaveBeenCalledWith({ left: 150, behavior: 'smooth' });
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });
 
