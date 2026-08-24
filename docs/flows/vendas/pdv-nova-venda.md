@@ -75,6 +75,7 @@ flowchart TD
 | 16 | Histórico | Cancelar (owner/admin) | `SalesCancelModal` | `PATCH /api/sales` `action=cancelar` (Vercel); legado Appwrite opcional |
 | 17 | Vendas | **Configurações** | `?config=1` ou botão | `SalesSettingsSection` inline |
 | 18 | `&subtab=history` | **Resumo do dia** | Botão na toolbar ou deep link `?report=1&date=YYYY-MM-DD` | `SalesDailyReportModal` — copiar / CSV / PDF / imprimir |
+| 19 | Histórico | **Exportar CSV / PDF** | Toolbar (período + filtros) | CSV no cliente (pagina tudo); PDF `GET /api/sales?action=history_export&format=pdf` |
 
 ---
 
@@ -85,6 +86,8 @@ Independente de **turno de caixa** (`CashShiftBanner`). Agrega vendas do **dia c
 1. **Loja → Vendas → Histórico**
 2. Opcional: **Hoje** (filtro de um dia)
 3. **Resumo do dia** → preview, **Copiar resumo**, **Exportar CSV**, **Baixar PDF**, **Imprimir** (vendas + mensalidades recebidas no balcão)
+
+Na toolbar do Histórico (qualquer período): **Exportar CSV** / **Exportar PDF** — todas as vendas do intervalo com filtros ativos (status, canal, busca). Spec: [2026-08-24-historico-vendas-export-PRODUCT.md](../../superpowers/specs/2026-08-24-historico-vendas-export-PRODUCT.md)
 
 Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-07-01-relatorio-vendas-dia-PRODUCT.md)
 
@@ -128,6 +131,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 11c. [ ] Rascunho incompleto → **Descartar rascunho** (sem modal de motivo de cancelamento)
 11d. [ ] Detalhe da venda → links **Caixa** por lançamento financeiro
 11e. [ ] **Resumo do dia** no Histórico → copiar e CSV com vendas do dia (incl. perfil aluno)
+11f. [ ] Histórico → **Exportar CSV** e **Exportar PDF** do período com filtros (status/canal/busca)
 12. [ ] Legacy `/vendas` → redirect para `/loja?tab=vendas`
 13. [ ] Legacy `?tab=new` → normaliza para `?tab=vendas&subtab=new`
 14. [ ] Trocar academia → catálogo e histórico da academia atual
@@ -187,6 +191,7 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 - **Produtos:** pré-requisito em `/loja?tab=produtos`; estoque em `/loja?tab=estoque` quando `modules.inventory`
 - **Aliases:** `/vendas`, `/produtos`, `/estoque` → redirects para `/loja?tab=…`
 - **Resumo do dia:** Histórico → `SalesDailyReportModal`; API `GET /api/sales?action=daily_report&date=` (+ `&format=pdf`); deep link `?tab=vendas&subtab=history&report=1&date=YYYY-MM-DD`
+- **Export Histórico:** CSV cliente (`salesHistoryExport.js`); PDF `GET /api/sales?action=history_export&from=&to=&format=pdf` (+ status/canal/search) — [spec](../../superpowers/specs/2026-08-24-historico-vendas-export-PRODUCT.md)
 
 ---
 
@@ -197,4 +202,5 @@ Spec: [2026-07-01-relatorio-vendas-dia-PRODUCT.md](../../superpowers/specs/2026-
 | 2026-06-15 | — | Criação Fase 3 |
 | 2026-06-17 | — | Checkout: «Recebido via» em cartão (`SalesPaymentBlock`) |
 | 2026-07-01 | — | Relatório diário de vendas (Histórico → Resumo do dia) |
+| 2026-08-24 | — | Export CSV/PDF do Histórico (período + filtros) |
 | 2026-07-10 | — | Spec correções de fluxo: cancel Vercel, turno caixa, histórico em aberto — ver [spec](../../superpowers/specs/2026-07-10-vendas-fluxo-correcoes-evolucao-PRODUCT.md) |

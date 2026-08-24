@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, ShoppingBag, ChevronRight } from 'lucide-react';
+import { Search, ShoppingBag, ChevronRight, Download, FileText } from 'lucide-react';
 import useMatchMobile from '../../hooks/useMatchMobile.js';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 import { DateInputField } from '../DateInput';
@@ -24,6 +24,12 @@ import {
   saleIsDraft,
   toDateInput,
 } from '../../lib/salesHistory';
+import {
+  exportSalesHistoryCsv,
+  fetchAllSalesForPeriod,
+  filterSalesForHistoryExport,
+} from '../../lib/salesHistoryExport.js';
+import { downloadSalesHistoryPdf, ReceiptDownloadError } from '../../lib/receiptDownload.js';
 import { resolveDailyReportDateYmd } from '../../lib/salesDailyReport.js';
 import {
   clearSalesDailyReportDeepLink,
@@ -38,6 +44,7 @@ import SaleDetailModal from './SaleDetailModal';
 import SalesCancelModal from './SalesCancelModal';
 import SalesEditItemModal from './SalesEditItemModal';
 import CancelReceiptPanel from './CancelReceiptPanel';
+
 
 export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -82,7 +89,10 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
   const [academyName, setAcademyName] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDateYmd, setReportDateYmd] = useState(() => toDateInput(new Date()));
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const isMobile = useMatchMobile();
+
 
   useEffect(() => {
     if (initialPeriod?.from && initialPeriod?.to) {
@@ -251,6 +261,69 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
     }
   };
 
+  const exportFilters = () => ({
+    from: period.from,
+    to: period.to,
+    status: statusFilter,
+    canal: canalFilter,
+    search,
+  });
+
+  const handleExportCsv = async () => {
+    if (!academyId || exportingCsv || exportingPdf) return;
+    setExportingCsv(true);
+    try {
+      const { sales: all, truncated } = await fetchAllSalesForPeriod(fetchSalesList, {
+        from: period.from,
+        to: period.to,
+      });
+      const rows = filterSalesForHistoryExport(all, {
+        status: statusFilter,
+        canal: canalFilter,
+        search,
+      });
+      if (!rows.length) {
+        addToast({ type: 'warning', message: 'Nenhuma venda para exportar com os filtros atuais.' });
+        return;
+      }
+      exportSalesHistoryCsv(rows, exportFilters());
+      addToast({
+        type: truncated ? 'warning' : 'success',
+        message: truncated
+          ? `CSV baixado (${rows.length} vendas — período truncado pelo limite).`
+          : 'CSV baixado.',
+      });
+    } catch (e) {
+      addToast({ type: 'error', message: friendlyError(e, 'action') || 'Não foi possível exportar o CSV.' });
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!academyId || exportingCsv || exportingPdf) return;
+    if (!filtered.length && !hasMore && !loading) {
+      addToast({ type: 'warning', message: 'Nenhuma venda para exportar com os filtros atuais.' });
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await downloadSalesHistoryPdf(exportFilters());
+      addToast({ type: 'success', message: 'PDF baixado.' });
+    } catch (e) {
+      const msg =
+        e instanceof ReceiptDownloadError
+          ? e.message === 'invalid_period'
+            ? 'Período inválido para exportar.'
+            : friendlyError(e, 'action')
+          : friendlyError(e, 'action');
+      addToast({ type: 'error', message: msg || 'Não foi possível exportar o PDF.' });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+
   useEffect(() => {
     const { open, dateYmd } = resolveSalesDailyReportDeepLink(searchParams);
     if (!open) {
@@ -334,12 +407,33 @@ export default function SalesHistoryTab({ onSwitchTab, initialPeriod = null }) {
           <button type="button" className="btn-primary btn-sm" onClick={() => openDailyReport()}>
             Resumo do dia
           </button>
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            disabled={exportingCsv || exportingPdf || loading}
+            onClick={() => void handleExportCsv()}
+            title="Exportar CSV do período com filtros"
+          >
+            <Download size={14} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+            {exportingCsv ? 'Exportando…' : 'Exportar CSV'}
+          </button>
+          <button
+            type="button"
+            className="btn-outline btn-sm"
+            disabled={exportingCsv || exportingPdf || loading}
+            onClick={() => void handleExportPdf()}
+            title="Exportar PDF do período com filtros"
+          >
+            <FileText size={14} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+            {exportingPdf ? 'Exportando…' : 'Exportar PDF'}
+          </button>
           {period.from !== period.to ? (
             <span className="text-small text-muted">
               Resumo usa a data de hoje — filtre um único dia para o dia selecionado.
             </span>
           ) : null}
         </div>
+
 
         <div className="sales-history-totals mt-3">
           <div className="sales-history-total">

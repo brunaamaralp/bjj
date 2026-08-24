@@ -103,3 +103,29 @@ export async function downloadSalesDailyReportPdf(dateYmd) {
   );
   triggerBrowserDownload(blob, `fechamento-dia-${date}.pdf`);
 }
+
+/**
+ * PDF do Histórico de vendas (período + filtros).
+ * @param {{ from: string, to: string, status?: string, canal?: string, search?: string }} opts
+ */
+export async function downloadSalesHistoryPdf({ from, to, status = 'all', canal = 'all', search = '' } = {}) {
+  const fromYmd = String(from || '').trim().slice(0, 10);
+  const toYmd = String(to || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(toYmd)) {
+    throw new ReceiptDownloadError('invalid_period');
+  }
+
+  const params = new URLSearchParams({
+    action: 'history_export',
+    from: fromYmd,
+    to: toYmd,
+    format: 'pdf',
+    status: String(status || 'all'),
+    canal: String(canal || 'all'),
+  });
+  const q = String(search || '').trim();
+  if (q) params.set('search', q);
+
+  const blob = await receiptPdfFetch(`/api/sales?${params.toString()}`);
+  triggerBrowserDownload(blob, `historico-vendas-${fromYmd}_${toYmd}.pdf`);
+}

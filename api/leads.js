@@ -257,6 +257,10 @@ export default async function handler(req, res) {
       const { default: salesDailyReportHandler } = await import('../lib/server/salesDailyReportHandler.js');
       return salesDailyReportHandler(req, res);
     }
+    if (action === 'history_export' && req.method === 'GET') {
+      const { default: salesHistoryExportHandler } = await import('../lib/server/salesHistoryExportHandler.js');
+      return salesHistoryExportHandler(req, res);
+    }
     if (
       action === 'shift' ||
       action === 'shift_open' ||
