@@ -38,12 +38,10 @@ import StudentPaymentModal, {
     PAYMENT_MODAL_PRODUCT,
 } from '../components/student/StudentPaymentModal.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
-import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileComunicacaoSection from '../components/profile/ProfileComunicacaoSection.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
 import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
 import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
-import { isWhatsAppIntegrationConnected, isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import FieldError from '../components/shared/FieldError.jsx';
 import { useCanManageStudentPayments, useCanManageAcademySales } from '../lib/canManageStudentPayments.js';
 import { useAcademyRoleDoc } from '../hooks/useAcademyRoleDoc.js';
@@ -426,12 +424,10 @@ export default function StudentProfile() {
     const [activeTab, setActiveTab] = useState('frequency');
     const profileBundleRef = useRef(null);
     const controlIdCfg = useAcademyControlId(academyId, { fetch: activeTab === 'frequency' });
-    const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
+    const { waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
         statusPollWhileMounted: true,
         watchAcademyStatus: true,
     });
-    const waConnected = isWhatsAppIntegrationConnected(waStatus, waStatusChecked);
-    const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
     // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
     const showConversationTab = true;
     const [note, setNote] = useState('');
@@ -1519,7 +1515,7 @@ export default function StudentProfile() {
         if (showConversationTab) {
             actions.push({
                 key: 'conversation',
-                label: waOfflineUi ? 'Conversa (offline)' : 'Conversa',
+                label: 'Conversa',
                 icon: MessageCircle,
                 onClick: () => setProfileTab('conversation'),
             });
@@ -1532,8 +1528,6 @@ export default function StudentProfile() {
         academyId,
         terms.attendance,
         showConversationTab,
-        waStatusChecked,
-        waConnected,
         setProfileTab,
     ]);
 
@@ -2625,10 +2619,6 @@ export default function StudentProfile() {
                 </button>
             </div>
 
-            {waOfflineUi ? (
-                <ProfileWhatsAppOfflineBanner className="student-profile-wa-offline-banner" />
-            ) : null}
-
             <div className="student-panel-left__scroll">
                 <div className="student-profile-hd">
                     {canEditProfile ? (
@@ -2868,10 +2858,7 @@ export default function StudentProfile() {
                 )}
 
                 <ProfileComunicacaoSection
-                    waConnected={waConnected}
-                    waOfflineUi={waOfflineUi}
                     waStatusChecked={waStatusChecked}
-                    phoneDigits={String(student.phone || '').replace(/\D/g, '')}
                     onOpenConversation={() => setProfileTab('conversation')}
                 />
 
@@ -3014,19 +3001,16 @@ export default function StudentProfile() {
         </div>
     );
 
-    const tabBtn = (id, label) => {
-        const isOfflineConversation = id === 'conversation' && waOfflineUi;
-        return (
+    const tabBtn = (id, label) => (
         <button
             key={id}
             type="button"
             onClick={() => setProfileTab(id)}
-            className={`profile-panel-tab${activeTab === id ? ' profile-panel-tab--active' : ''}${isOfflineConversation ? ' student-profile-panel-tab--offline' : ''}`}
+            className={`profile-panel-tab${activeTab === id ? ' profile-panel-tab--active' : ''}`}
         >
             {label}
         </button>
-        );
-    };
+    );
 
     const rightColumn = (
         <div
@@ -3110,12 +3094,7 @@ export default function StudentProfile() {
                 {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
-                {showConversationTab
-                    ? tabBtn(
-                          'conversation',
-                          waOfflineUi ? 'Conversa (offline)' : 'Conversa'
-                      )
-                    : null}
+                {showConversationTab ? tabBtn('conversation', 'Conversa') : null}
             </div>
 
             <div

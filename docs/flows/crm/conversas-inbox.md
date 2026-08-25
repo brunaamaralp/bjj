@@ -57,7 +57,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/inbox` | `Inbox.jsx` | Abrir **Conversas** | Layout lista + thread (desktop) ou sheet (mobile) |
-| 2 | `/inbox` | `InboxGlobalBanners` | Ver status conexão | Banner se WhatsApp desconectado |
+| 2 | `/inbox` | `InboxGlobalBanners` | Ver status conexão | Sem banner global de desconexão; feedback ao tentar enviar |
 | 3 | `/inbox` | `InboxListSection` | Filtrar Todos / Precisa de mim / Não lidos | Lista filtrada |
 | 4 | `/inbox` | Item da lista | Selecionar conversa | Thread carrega; mensagens em ordem cronológica |
 | 5 | `/inbox` | `InboxThreadSection` | Digitar e enviar | Mensagem outbound; otimistic update |
@@ -84,7 +84,7 @@ flowchart TD
 ### Checklist passo a passo
 
 1. [ ] `/inbox` carrega lista sem erro persistente
-2. [ ] Banner de desconexão aparece quando WhatsApp offline
+2. [ ] Sem banner global de desconexão; erro/toast ao tentar enviar com WhatsApp offline
 3. [ ] Filtro **Não lidos** — só conversas com unread
 4. [ ] Filtro **Precisa de mim** — tickets em handoff ou aguardando humano
 5. [ ] Selecionar conversa — histórico carrega; scroll no fim das novas mensagens

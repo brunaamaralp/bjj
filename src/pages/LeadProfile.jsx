@@ -71,11 +71,8 @@ import {
     leadProfileNeedsGuardianHint,
 } from '../lib/leadDisplayName.js';
 import ErrorBanner from '../components/shared/ErrorBanner.jsx';
-import ProfileWhatsAppOfflineBanner from '../components/profile/ProfileWhatsAppOfflineBanner.jsx';
 import ProfileMobileQuickActions from '../components/profile/ProfileMobileQuickActions.jsx';
 import ProfileInlineField from '../components/profile/ProfileInlineField.jsx';
-import { useZapsterWhatsAppConnection } from '../hooks/useZapsterWhatsAppConnection.js';
-import { isWhatsAppIntegrationDisconnected } from '../lib/whatsappIntegrationState.js';
 import {
     leadHistoryFilterFromUrlParam,
     leadHistoryFilterToUrlParam,
@@ -296,12 +293,6 @@ const LeadProfile = () => {
     const academyId = useLeadStore((s) => s.academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
     const modules = useLeadStore((s) => s.modules);
-
-    const { waStatus, waStatusChecked } = useZapsterWhatsAppConnection(academyId, {
-        statusPollWhileMounted: true,
-        watchAcademyStatus: true,
-    });
-    const waOfflineUi = isWhatsAppIntegrationDisconnected(waStatus, waStatusChecked);
 
     const { turmas: academyTurmas } = useAcademyTurmas(academyId);
     const userId = useLeadStore((s) => s.userId);
@@ -1127,10 +1118,9 @@ const LeadProfile = () => {
     );
 
     const conversationTabLabel = useMemo(() => {
-        if (waOfflineUi) return 'Conversa (offline)';
         if (conversationUnreadCount > 0) return `Conversa (${conversationUnreadCount})`;
         return 'Conversa';
-    }, [waOfflineUi, conversationUnreadCount]);
+    }, [conversationUnreadCount]);
 
     const mobilePanelQuickActions = useMemo(() => {
         if (!lead) return [];
@@ -1807,10 +1797,7 @@ const LeadProfile = () => {
         setProfileTab('timeline');
     };
 
-    const panelTabBtn = (tabId, label) => {
-        const isOfflineConversation =
-            tabId === 'conversation' && waOfflineUi;
-        return (
+    const panelTabBtn = (tabId, label) => (
         <button
             key={tabId}
             type="button"
@@ -1818,13 +1805,12 @@ const LeadProfile = () => {
             id={`lead-profile-panel-tab-${tabId}`}
             aria-selected={activeProfileTab === tabId}
             aria-controls={`lead-profile-panel-${tabId}`}
-            className={`lead-profile-panel-tab${activeProfileTab === tabId ? ' lead-profile-panel-tab--active' : ''}${isOfflineConversation ? ' lead-profile-panel-tab--offline' : ''}`}
+            className={`lead-profile-panel-tab${activeProfileTab === tabId ? ' lead-profile-panel-tab--active' : ''}`}
             onClick={() => setProfileTab(tabId)}
         >
             {label}
         </button>
-        );
-    };
+    );
 
     const heroOperationalStatusLabel = operationalStatusDisplayLabel(terms, lead.status);
     const heroShowOperationalStatusTag =
@@ -1947,10 +1933,6 @@ const LeadProfile = () => {
                     completing={savingFollowupOutcome}
                     sendingWhatsapp={sendingWhatsapp}
                 />
-            ) : null}
-
-            {waOfflineUi ? (
-                <ProfileWhatsAppOfflineBanner className="lead-profile-wa-offline-banner" />
             ) : null}
 
             <div className="lead-profile-left__scroll">

@@ -164,17 +164,14 @@ describe('Inbox — banner WhatsApp', () => {
     expect(document.querySelector('.inbox-global-error')).not.toBeInTheDocument();
   });
 
-  it('exibe banner desconectado e some ao reconectar', async () => {
+  it('não exibe banner global de desconexão', async () => {
     const { rerender } = render(
       <MemoryRouter initialEntries={['/inbox']}>
         <Inbox />
       </MemoryRouter>
     );
 
-    expect(document.querySelector('.inbox-global-error')).toBeInTheDocument();
-    const link = screen.getByRole('button', { name: /Reconectar/i });
-    link.click();
-    expect(inboxMocks.navigate).toHaveBeenCalledWith('/integracoes?tab=whatsapp');
+    expect(document.querySelector('.inbox-global-error')).not.toBeInTheDocument();
 
     inboxMocks.setWaStatus('connected');
     rerender(

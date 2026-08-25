@@ -11,7 +11,6 @@ import InboxComposer from './InboxComposer';
 import NaviChatThread from '../chat-widget/NaviChatThread';
 import ProfileConversationEmpty from './ProfileConversationEmpty.jsx';
 import ProfileWhatsAppOfflineEmptyActions from '../profile/ProfileWhatsAppOfflineEmptyActions.jsx';
-import ProfileWhatsAppOfflinePanelBanner from '../profile/ProfileWhatsAppOfflinePanelBanner.jsx';
 import { primaryInboxPhone } from '../../lib/normalizeInboxPhone.js';
 
 function HandoffBanner({ onDismiss }) {
@@ -165,8 +164,6 @@ export default function ProfileConversationTab({
 
   return (
     <div className="profile-conversation-tab">
-      {waOfflineUi ? <ProfileWhatsAppOfflinePanelBanner /> : null}
-
       <NaviChatThread
         messages={messages}
         loading={loading}

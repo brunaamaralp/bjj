@@ -11,7 +11,6 @@ describe('ProfileComunicacaoSection', () => {
     render(
       <MemoryRouter>
         <ProfileComunicacaoSection
-          waConnected
           waStatusChecked
           phoneDigits="5511999999999"
           onOpenConversation={onOpenConversation}
@@ -24,20 +23,21 @@ describe('ProfileComunicacaoSection', () => {
     expect(onOpenConversation).toHaveBeenCalledTimes(1);
   });
 
-  it('mostra CTAs offline quando WA desconectado', () => {
+  it('mostra hint e Abrir Conversa independente do status WA', () => {
+    const onOpenConversation = vi.fn();
     render(
       <MemoryRouter>
         <ProfileComunicacaoSection
-          waConnected={false}
-          waOfflineUi
           waStatusChecked
-          phoneDigits="5511999999999"
+          onOpenConversation={onOpenConversation}
         />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: 'Configurar WhatsApp' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Abrir WhatsApp Web' })).toBeInTheDocument();
+    expect(screen.getByText(/Mensagens pelo WhatsApp integrado na aba/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir Conversa' }));
+    expect(onOpenConversation).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('link', { name: 'Configurar WhatsApp' })).not.toBeInTheDocument();
   });
 });
 

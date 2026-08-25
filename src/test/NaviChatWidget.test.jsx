@@ -237,7 +237,7 @@ describe('NaviChatWidgetPanel embedded', () => {
     expect(screen.queryByPlaceholderText(/Digite uma mensagem/i)).not.toBeInTheDocument();
   });
 
-  it('mostra banner e composer desabilitado quando offline com histórico', () => {
+  it('mostra composer desabilitado quando offline com histórico', () => {
     mockWaConnection.waStatus = 'disconnected';
     mockWaConnection.waStatusChecked = true;
     mockInboxConversation.messages = [
@@ -259,9 +259,7 @@ describe('NaviChatWidgetPanel embedded', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/WhatsApp desconectado — não é possível enviar mensagens/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Reconectar' })).toHaveAttribute('href', '/integracoes?tab=whatsapp');
-    expect(screen.queryByText('WhatsApp não conectado')).not.toBeInTheDocument();
+    expect(screen.queryByText(/WhatsApp desconectado — não é possível enviar mensagens/i)).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText('Conecte o WhatsApp para enviar mensagens')).toBeDisabled();
   });
 

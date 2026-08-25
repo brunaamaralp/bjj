@@ -311,7 +311,14 @@ export function useProfileInboxComposer({
 
   const sendManual = useCallback(
     async ({ file, caption: captionArg } = {}) => {
-      if (!waConnected || !phoneDigits) return;
+      if (!phoneDigits) return;
+      if (!waConnected) {
+        toast.show({
+          type: 'warning',
+          message: 'WhatsApp desconectado. Conecte em Agente IA para enviar mensagens.',
+        });
+        return;
+      }
       if (file && scheduleOn) {
         toast.show({ type: 'error', message: 'Agendamento não está disponível para envio de mídia.' });
         return;

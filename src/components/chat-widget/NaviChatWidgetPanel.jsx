@@ -14,7 +14,6 @@ import { useProfileInboxComposer } from '../../hooks/useProfileInboxComposer.js'
 import InboxComposer from '../inbox/InboxComposer';
 import ProfileConversationEmpty from '../inbox/ProfileConversationEmpty.jsx';
 import ProfileWhatsAppOfflineEmptyActions from '../profile/ProfileWhatsAppOfflineEmptyActions.jsx';
-import ProfileWhatsAppOfflinePanelBanner from '../profile/ProfileWhatsAppOfflinePanelBanner.jsx';
 import NaviChatThread from './NaviChatThread';
 import NaviChatWidgetSwitcher from './NaviChatWidgetSwitcher';
 
@@ -325,10 +324,7 @@ export default function NaviChatWidgetPanel({
             action={<ProfileWhatsAppOfflineEmptyActions phoneDigits={phoneDigits} />}
           />
         ) : (
-          <>
-            {waOfflineUi ? <ProfileWhatsAppOfflinePanelBanner /> : null}
-
-            <NaviChatThread
+          <NaviChatThread
               messages={messages}
               loading={loading || showWaStatusLoading}
               loadingMore={loadingMore}
@@ -346,7 +342,6 @@ export default function NaviChatWidgetPanel({
               retryFailedMessage={retryFailedMessage}
               scrollClassName="navi-chat-widget__messages"
             />
-          </>
         )}
       </div>
 

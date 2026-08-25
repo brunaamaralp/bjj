@@ -1182,7 +1182,7 @@ export default function Inbox() {
     () => isWhatsAppIntegrationConnected(waStatus, waStatusChecked),
     [waStatus, waStatusChecked]
   );
-  const showWaDisconnectBanner = whatsappDisconnected;
+  const showWaDisconnectBanner = false;
 
   const inboxExtraFilterActive = !INBOX_PRIMARY_FILTERS.has(String(listFilter || ''));
   const visibleConversationCount = flatVisibleConversations.length;

@@ -10,8 +10,6 @@ import {
   INBOX_LIST_SECTION_MORE_STEP,
   INBOX_LIST_VIRTUALIZE_THRESHOLD,
 } from '../../lib/inboxUiConstants.js';
-import { INTEGRACOES_WHATSAPP_PATH } from '../../lib/integracoesRoutes.js';
-
 function normalizeGroupItems(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw == null) return [];
@@ -254,21 +252,6 @@ export default function ConversationList(props) {
         </div>
       ) : (
         rows.map((row, idx) => renderRow(row, idx))
-      )}
-      {!loading && listFetchedOnce && whatsappDisconnected && (
-        <div style={{ padding: 12 }}>
-          <EmptyState
-            variant="default"
-            tone="dashed"
-            title="Conecte seu WhatsApp para receber e enviar mensagens diretamente pelo Nave."
-            description="Configure a conexão em Integrações."
-            primaryAction={{
-              label: 'Configurar WhatsApp',
-              href: INTEGRACOES_WHATSAPP_PATH,
-            }}
-            role="status"
-          />
-        </div>
       )}
       {!loading && listFetchedOnce && !whatsappDisconnected && totalItems === 0 && whatsAppConnected && (
         <div style={{ padding: 12 }}>

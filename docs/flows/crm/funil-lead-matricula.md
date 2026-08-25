@@ -103,8 +103,8 @@ flowchart TD
 5. [ ] Abrir perfil `/lead/:id` — dados consistentes com o card
 6. [ ] Registrar nota ou evento na timeline — evento aparece ordenado
 7. [ ] Enviar mensagem ou template WhatsApp — pela aba **Conversa** (integrado); com WA offline, usar **Abrir WhatsApp Web** no empty (envio manual) ou reconectar em `/agente-ia`
-7b. [ ] Com WA desconectado — banner na coluna esquerda + empty na aba Conversa com CTAs **Configurar WhatsApp** e **Abrir WhatsApp Web**; tab “Conversa (offline)” com indicador âmbar
-7c. [ ] Com WA offline e histórico — banner no painel com **Reconectar**; composer desabilitado
+7b. [ ] Com WA desconectado — perfil sem banner global; aviso só na aba **Conversa** (empty com CTAs **Configurar WhatsApp** / **Abrir WhatsApp Web**, ou composer desabilitado com placeholder se houver histórico)
+7c. [ ] Com WA offline e histórico — composer desabilitado com placeholder; sem banner no painel
 8. [ ] Iniciar matrícula — modal exige plano/data quando aplicável e permite informar desconto individual por aluno
 8b. [ ] Informar desconto válido — preview mostra valor do plano, desconto e valor cobrado final em tempo real
 9. [ ] Confirmar matrícula — lead some do funil aberto; aluno criado em `/students` com `plan_price` do plano escolhido
@@ -121,7 +121,7 @@ flowchart TD
 | Slot lotado (link público) | Erro `slot_full` | `publicExperimentalBook` |
 | Matrícula sem plano obrigatório | Erro no modal de matrícula | `performEnrollment` |
 | Desconto maior ou igual ao plano | Validação inline no modal de matrícula | `MatriculaModal` |
-| WhatsApp desconectado no perfil | Banner warning + empty na aba Conversa (Configurar + wa.me) + tab “Conversa (offline)” + Reconectar com histórico | Spec [2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md](../superpowers/specs/2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md) |
+| WhatsApp desconectado no perfil | Sem banner na coluna esquerda; aviso contextual na aba Conversa (empty ou composer desabilitado) | Spec [2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md](../superpowers/specs/2026-06-16-lead-profile-whatsapp-offline-states-PRODUCT.md) |
 
 ### Permissões e multi-tenant
 
