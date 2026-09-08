@@ -15,6 +15,7 @@
 
 - [2026-06-15-plano-contas-categorias-PRODUCT.md](../../superpowers/specs/2026-06-15-plano-contas-categorias-PRODUCT.md)
 - [2026-06-15-plano-contas-categorias-TECH.md](../../superpowers/specs/2026-06-15-plano-contas-categorias-TECH.md)
+- [2026-09-08-expandir-categorias-fixas-design.md](../../superpowers/specs/2026-09-08-expandir-categorias-fixas-design.md)
 
 **Harness relacionado:** [docs/harness/finance-plano-contas.md](../../harness/finance-plano-contas.md) — `npm test -- financeAccountFormRules financeCategories financeAccountCategories financeAccountsDrawer financeTxCategorySelect`
 
@@ -156,3 +157,4 @@ flowchart TD
 | Data | Autor | Mudança |
 |---|---|---|
 | 2026-06-15 | — | Criação Fase 2B |
+| 2026-09-08 | — | Categorias fixas granulares (`4.1.2–4.1.4`, `6.2.3–6.2.9`); espelho usa `dreAccount` da categoria; merge de seeds faltantes |

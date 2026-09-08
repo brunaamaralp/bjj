@@ -4,6 +4,7 @@ import {
   UNCLASSIFIED_DRE_GROUP,
   isKnownDreGroup,
 } from '../lib/financeCategories.js';
+import { expandedCategorySeedAccounts } from '../lib/financeChartSeedAccounts.js';
 import { isProtectedAccountCode } from '../lib/protectedAccountCodes.js';
 
 const LS_BASE_KEY = 'bjj_accounting_v1';
@@ -74,6 +75,20 @@ export function seedAccounts() {
     { id: crypto.randomUUID(), code: '7.1.2', name: 'Receitas financeiras', type: 'receita', nature: 'credora', dreGrupo: 'Resultado Financeiro', dfcClasse: 'Operacional', dfcSubclasse: 'rendimentos', cash: false, parentCode: '7.1' },
     { id: crypto.randomUUID(), code: '6.3.1', name: 'Depreciação e Amortização', type: 'despesa', nature: 'devedora', dreGrupo: 'Depreciação/Amortização', dfcClasse: 'Operacional', dfcSubclasse: '', cash: false, parentCode: '6.3' },
   ];
+  for (const s of expandedCategorySeedAccounts()) {
+    rows.push({
+      id: crypto.randomUUID(),
+      code: s.code,
+      name: s.name,
+      type: s.type,
+      nature: s.nature,
+      dreGrupo: s.dreGrupo || '',
+      dfcClasse: s.dfcClasse || '',
+      dfcSubclasse: s.dfcSubclasse || '',
+      cash: Boolean(s.cash),
+      parentCode: s.parentCode || '',
+    });
+  }
   return rows;
 }
 

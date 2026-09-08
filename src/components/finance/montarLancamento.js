@@ -202,8 +202,17 @@ export function montarLancamento(tx, accounts, academyId) {
     }
     if (!map || gross < 0.01) return null;
 
-    const debitCode = map.debit || catResolved?.dreAccount;
-    const creditCode = map.credit || catResolved?.dreAccount;
+    const catCode = String(catResolved?.dreAccount || '').trim();
+    let debitCode = map.debit || catCode;
+    let creditCode = map.credit || catCode;
+    // Categorias fixas com conta própria: sobrescreve o lado de resultado do ACCOUNT_MAP.
+    if (catCode) {
+      if (CASH_IN_ROUTES.has(route) && creditCode && creditCode !== '1.1.1') {
+        creditCode = catCode;
+      } else if (!CASH_IN_ROUTES.has(route) && debitCode && debitCode !== '1.1.1') {
+        debitCode = catCode;
+      }
+    }
     if (!debitCode || !creditCode) return null;
 
     if (CASH_IN_ROUTES.has(route)) {

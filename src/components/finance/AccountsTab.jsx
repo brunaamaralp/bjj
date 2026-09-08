@@ -4,6 +4,10 @@ import { databases, DB_ID, ACCOUNTS_COL } from '../../lib/appwrite';
 import { Query, ID } from 'appwrite';
 import { seedAccounts, buildAccountUsageByCode, useAccountingStore } from '../../store/useAccountingStore';
 import {
+  expandedCategorySeedAccounts,
+  missingSeedAccounts,
+} from '../../lib/financeChartSeedAccounts.js';
+import {
   isProtectedAccountCode,
   PROTECTED_CODE_DELETE_MESSAGE,
   PROTECTED_CODE_EDIT_WARNING,
@@ -623,7 +627,34 @@ export default function AccountsTab({
             });
           }
         } else {
-          setAccounts(docs.map(mapDoc));
+          const mapped = docs.map(mapDoc);
+          const missing = missingSeedAccounts(mapped, expandedCategorySeedAccounts());
+          if (missing.length > 0) {
+            const payloads = missing.map((s) => ({
+              academyId,
+              code: s.code,
+              name: s.name,
+              type: s.type,
+              nature: s.nature,
+              dreGrupo: s.dreGrupo || '',
+              dfcClasse: s.dfcClasse || '',
+              dfcSubclasse: s.dfcSubclasse || '',
+              cash: Boolean(s.cash),
+              is_active: true,
+            }));
+            const results = await Promise.allSettled(
+              payloads.map((payload) =>
+                databases.createDocument(DB_ID, ACCOUNTS_COL, ID.unique(), payload)
+              )
+            );
+            const created = results
+              .filter((r) => r.status === 'fulfilled')
+              .map((r) => mapDoc(r.value));
+            if (!active) return;
+            setAccounts([...mapped, ...created]);
+          } else {
+            setAccounts(mapped);
+          }
         }
       } catch {
         void 0;

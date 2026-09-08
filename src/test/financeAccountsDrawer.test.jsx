@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountsTab from '../components/finance/AccountsTab.jsx';
+import { expandedCategorySeedAccounts } from '../lib/financeChartSeedAccounts.js';
 
 const addToast = vi.fn();
 const listDocuments = vi.fn().mockResolvedValue({ documents: [] });
@@ -48,7 +49,7 @@ vi.mock('../store/useAccountingStore.js', async (importOriginal) => {
 
 const parentAccount = {
   id: 'p1',
-  code: '6.2.5',
+  code: '6.2.10',
   name: 'Despesas custom',
   type: 'despesa',
   nature: 'devedora',
@@ -78,7 +79,7 @@ describe('financeAccountsDrawer', () => {
       documents: [
         {
           $id: 'p1',
-          code: '6.2.5',
+          code: '6.2.10',
           name: 'Despesas custom',
           type: 'despesa',
           nature: 'devedora',
@@ -86,6 +87,16 @@ describe('financeAccountsDrawer', () => {
           academyId: 'acad-1',
           is_active: true,
         },
+        ...expandedCategorySeedAccounts().map((s, i) => ({
+          $id: `exp-${i}`,
+          code: s.code,
+          name: s.name,
+          type: s.type,
+          nature: s.nature,
+          dreGrupo: s.dreGrupo || '',
+          academyId: 'acad-1',
+          is_active: true,
+        })),
       ],
     });
   });
@@ -114,11 +125,12 @@ describe('financeAccountsDrawer', () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    await screen.findByText('Despesas custom');
-    await user.click(screen.getByRole('button', { name: /Ações da conta/i }));
+    const nameEl = await screen.findByText('Despesas custom');
+    const row = nameEl.closest('tr') || nameEl.closest('[class*="account"]') || nameEl.parentElement;
+    await user.click(within(row).getByRole('button', { name: /Ações da conta/i }));
     await user.click(await screen.findByRole('menuitem', { name: /Adicionar subconta/i }));
 
-    const dialog = await screen.findByRole('dialog', { name: /Nova subconta de 6\.2\.5/i });
+    const dialog = await screen.findByRole('dialog', { name: /Nova subconta de 6\.2\.10/i });
     expect(within(dialog).getByLabelText(/^Tipo/i)).toHaveValue('despesa');
     expect(within(dialog).getByLabelText(/^Natureza/i)).toHaveValue('devedora');
     await user.click(within(dialog).getByRole('button', { name: /DRE \/ DFC/i }));

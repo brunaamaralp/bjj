@@ -14,7 +14,7 @@ describe('financeAccountFormRules', () => {
   const accounts = [
     { id: 'a1', code: '6.2.1', name: 'Despesas Gerais', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais' },
     { id: 'a2', code: '6.2.1.1', name: 'Subdespesa', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais' },
-    { id: 'a3', code: '6.2.3', name: 'Marketing', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais' },
+    { id: 'a3', code: '6.2.10', name: 'Marketing custom', type: 'despesa', nature: 'devedora', dreGrupo: 'Despesas Operacionais' },
   ];
 
   it('validateAccountForm exige código e nome', () => {
@@ -24,7 +24,7 @@ describe('financeAccountFormRules', () => {
   });
 
   it('bloqueia código duplicado', () => {
-    const { errors } = validateAccountForm({ code: '6.2.3', name: 'X', type: 'despesa', dreGrupo: 'Despesas Operacionais' }, accounts, { mode: 'create' });
+    const { errors } = validateAccountForm({ code: '6.2.10', name: 'X', type: 'despesa', dreGrupo: 'Despesas Operacionais' }, accounts, { mode: 'create' });
     expect(errors.code).toMatch(/Já existe/);
   });
 
@@ -34,7 +34,7 @@ describe('financeAccountFormRules', () => {
   });
 
   it('exige DRE para conta de resultado', () => {
-    const { errors } = validateAccountForm({ code: '4.1.2', name: 'Premium', type: 'receita', dreGrupo: '' }, accounts);
+    const { errors } = validateAccountForm({ code: '4.1.5', name: 'Premium', type: 'receita', dreGrupo: '' }, accounts);
     expect(errors.dreGrupo).toBeTruthy();
   });
 
@@ -49,11 +49,11 @@ describe('financeAccountFormRules', () => {
   });
 
   it('isDuplicateCode ignora excludeId', () => {
-    expect(isDuplicateCode('6.2.3', accounts, 'a3')).toBe(false);
+    expect(isDuplicateCode('6.2.10', accounts, 'a3')).toBe(false);
   });
 
-  it('isProtectedCodeForCreate 4.1.1', () => {
-    expect(isProtectedCodeForCreate('4.1.1')).toBe(true);
+  it('isProtectedCodeForCreate 4.1.2 (categoria expandida)', () => {
+    expect(isProtectedCodeForCreate('4.1.2')).toBe(true);
   });
 
   it('accountHasChildAccounts detecta filhos', () => {

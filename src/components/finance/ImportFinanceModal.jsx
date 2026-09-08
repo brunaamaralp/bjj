@@ -47,9 +47,11 @@ function downloadFinanceImportTemplate() {
     ['1.1', 'Circulante', 'ativo', 'devedora', '', '', '', 'Não'],
     ['1.1.1', 'Caixa', 'ativo', 'devedora', '', 'Operacional', '', 'Sim'],
     ['4.1', 'Receitas', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
-    ['4.1.2', 'Mensalidades premium', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
+    ['4.1.1', 'Receita de Vendas', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
+    ['4.1.2', 'Aulas avulsas / day pass', 'receita', 'credora', 'Receita Bruta', '', '', 'Não'],
     ['6.2', 'Despesas operacionais', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
-    ['6.2.3', 'Marketing', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
+    ['6.2.1', 'Despesas Gerais e Adm', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
+    ['6.2.3', 'Limpeza e higiene', 'despesa', 'devedora', 'Despesas Operacionais', '', '', 'Não'],
   ];
   downloadCsvTemplate(headers, sampleRows, 'modelo-plano-de-contas-nave.csv');
 }

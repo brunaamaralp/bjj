@@ -234,14 +234,29 @@ describe('financeCategories', () => {
     it('getCategoryOptionsByNature oculta conta 4.1.1 duplicando Mensalidades', () => {
       const accounts = [
         { code: '4.1.1', name: 'Receita de Vendas', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
-        { code: '4.1.2', name: 'Mensalidades premium', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+        { code: '4.1.5', name: 'Mensalidades premium', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
       ];
       const groups = getCategoryOptionsByNature('in', accounts);
       const flat = [...groups.values()].flat();
       const values = flat.map((c) => c.value || c.label);
       expect(values).toContain('Mensalidades');
       expect(values).not.toContain('acct:4.1.1');
-      expect(values).toContain('acct:4.1.2');
+      expect(values).toContain('acct:4.1.5');
+    });
+
+    it('novas categorias fixas aparecem e ocultam acct:4.1.2 / acct:6.2.3', () => {
+      const accounts = [
+        { code: '4.1.2', name: 'Aulas avulsas / day pass', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+        { code: '6.2.3', name: 'Limpeza e higiene', type: 'despesa', dreGrupo: 'Despesas Operacionais', isActive: true },
+      ];
+      const inGroups = getCategoryOptionsByNature('in', accounts);
+      const outGroups = getCategoryOptionsByNature('out', accounts);
+      const inFlat = [...inGroups.values()].flat();
+      const outFlat = [...outGroups.values()].flat();
+      expect(inFlat.map((c) => c.label)).toContain('Aulas avulsas / day pass');
+      expect(outFlat.map((c) => c.label)).toContain('Limpeza e higiene');
+      expect(inFlat.map((c) => c.value || c.label)).not.toContain('acct:4.1.2');
+      expect(outFlat.map((c) => c.value || c.label)).not.toContain('acct:6.2.3');
     });
 
     it('getCategoryOptionsByNature entrada inclui fluxo patrimonial', () => {

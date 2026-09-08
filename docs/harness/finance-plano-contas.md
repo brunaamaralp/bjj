@@ -8,7 +8,7 @@ TECH: [2026-06-15-plano-contas-categorias-TECH.md](../superpowers/specs/2026-06-
 
 | Comando | Escopo |
 |---|---|
-| `npm test -- financeAccountFormRules financeCategories financeAccountCategories financeAccountsDrawer financeTxCategorySelect` | Suite da feature |
+| `npm test -- financeAccountFormRules financeCategories financeAccountCategories financeAccountsDrawer financeTxCategorySelect montarLancamento financeChartSeedAccounts` | Suite da feature |
 | `npm run test:ci` | Gate completo antes de merge |
 
 ## Checkpoint

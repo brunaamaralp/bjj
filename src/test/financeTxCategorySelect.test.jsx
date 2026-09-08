@@ -108,12 +108,12 @@ describe('financeTxCategorySelect', () => {
   it('não lista acct:4.1.1 quando duplica Mensalidades', () => {
     const accounts = [
       { code: '4.1.1', name: 'Receita de Vendas', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
-      { code: '4.1.2', name: 'Mensalidades premium', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
+      { code: '4.1.5', name: 'Mensalidades premium', type: 'receita', dreGrupo: 'Receita Bruta', isActive: true },
     ];
     const groups = getCategoryOptionsByNature('in', accounts);
     const values = [...groups.values()].flat().map((c) => c.value || c.label);
     expect(values).not.toContain('acct:4.1.1');
-    expect(values).toContain('acct:4.1.2');
+    expect(values).toContain('acct:4.1.5');
   });
 
   it('abre a lista ao clicar no campo mesmo já focado', async () => {
