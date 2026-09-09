@@ -37,8 +37,8 @@ flowchart TD
   newLink --> modal[Modal novo lançamento]
   modal --> create[createFinanceTx]
   create --> pending[Status pendente]
-  pending --> settle[Liquidar]
-  settle --> settled[Status liquidado]
+  pending --> settle[Confirmar recebimento/pagamento]
+  settle --> settled[Confirmado no caixa]
   list --> rowClick[Clicar linha]
   rowClick --> drawer[FinanceTxDetailDrawer]
   list --> filters[Filtros URL status/dir/q]
@@ -54,11 +54,11 @@ flowchart TD
 | 1 | `/financeiro?tab=movimentacoes` | `TransacoesTab` | Abrir **Lançamentos** | Lista paginada com toolbar de filtros |
 | 2 | `?new=1` | Modal novo TX | Atalho sidebar ou URL | Modal de criação aberto |
 | 3 | Modal | Preencher tipo, valor, categoria, aluno | Campos obrigatórios | Validação inline (`FieldError`) |
-| 4 | Modal | Receber agora / pendente | Toggle regime | Cria liquidado ou pendente |
+| 4 | Modal | Já no caixa / depois | Segmented control | Cria confirmado ou pendente |
 | 5 | Lista | Filtros status/direção/banco/busca | Chips e campos | URL atualiza (`?status`, `?dir`, `?q`) |
 | 6 | Lista | Clicar linha | Abrir drawer | `FinanceTxDetailDrawer` — «Liquida em…» / crédito previsto (meio de captura) |
 | 7 | `?tx=<id>` | Drawer | Deep link | Drawer abre após load |
-| 8 | Drawer / menu linha | Liquidar | `patchFinanceTx action settle` | Status → liquidado; toast |
+| 8 | Drawer / menu linha | Confirmar recebimento/pagamento | `patchFinanceTx action settle` | Status → confirmado; toast |
 | 9 | Drawer | Estornar | `reverseFinanceTx` | Confirmação; movimento revertido |
 | 10 | Toolbar | Importar planilha | `ImportFinanceTxModal` | Lançamentos em lote |
 | 11 | Toolbar | Exportar CSV | Download | `exportFinanceTransactionsCsv` |
@@ -87,15 +87,16 @@ flowchart TD
 1. [ ] `/financeiro?tab=movimentacoes` carrega sem erro persistente
 1b. [ ] Academia sem conta bancária — `FinanceBankAccountsSetupBanner` com link para Recebimento (owner/admin)
 2. [ ] Sidebar **Novo lançamento** abre modal (`?tab=movimentacoes&new=1`)
-3. [ ] Criar entrada pendente — aparece na lista com status pendente
-4. [ ] Liquidar lançamento — status muda para liquidado
-5. [ ] Coluna **Aluno** preenchida quando `lead_id` + `lead_name` existem (sem depender só do store)
-6. [ ] Busca por nome de aluno na toolbar encontra lançamento
-7. [ ] Clicar linha → drawer; ESC fecha
-8. [ ] `?tx=<id>` abre drawer após carregar lista
-9. [ ] Filtros na URL persistem ao recarregar
-10. [ ] Export CSV reflete filtros ativos
-11. [ ] Member em `?tab=previsao` ou `conciliacao` — redirect para aba permitida
+3. [ ] Criar entrada confirmada no caixa (default) — aparece como Recebido
+4. [ ] Criar com «Receber depois» — pendente + data de previsão
+5. [ ] Confirmar recebimento — status muda para Recebido/Pago
+6. [ ] Coluna **Aluno** preenchida quando `lead_id` + `lead_name` existem (sem depender só do store)
+7. [ ] Busca por nome de aluno na toolbar encontra lançamento
+8. [ ] Clicar linha → drawer; ESC fecha
+9. [ ] `?tx=<id>` abre drawer após carregar lista
+10. [ ] Filtros na URL persistem ao recarregar
+11. [ ] Export CSV reflete filtros ativos
+12. [ ] Member em `?tab=previsao` ou `conciliacao` — redirect para aba permitida
 
 ### Estados de erro conhecidos
 
@@ -130,7 +131,7 @@ flowchart TD
 |---|---|---|---|
 | 1 | Lançamentos | "Todo movimento do caixa: entradas, saídas, pendentes e liquidados." | Rastreabilidade |
 | 2 | Novo lançamento | "Registro uma despesa em poucos campos — categoria e conta." | Registro rápido |
-| 3 | Liquidar | "Pendente vira liquidado quando o dinheiro entrou." | Fluxo de caixa real |
+| 3 | Confirmar | "Pendente vira confirmado no caixa quando o dinheiro entrou." | Fluxo de caixa real |
 | 4 | Drawer + aluno | "Cada lançamento pode ter o aluno — relatórios e conciliação agradecem." | CRM + financeiro |
 | 5 | Export | "Exporto o período filtrado para o contador." | Integração externa |
 

@@ -26,6 +26,7 @@ import { FINANCE_ORIGIN_STOCK_ENTRY } from '../../lib/financeOriginTypes.js';
 import FinanceTxRowActions from './FinanceTxRowActions.jsx';
 import FinanceTxJournalMirrorSection from './FinanceTxJournalMirrorSection.jsx';
 import { canRegisterAnticipation } from '../../lib/financeAnticipation.js';
+import { getSettledStatusLabel } from '../../lib/financeTxTabState.js';
 import '../../styles/tasks.css';
 import './styles/tx-drawer.css';
 
@@ -44,10 +45,12 @@ function formatMoneyBRL(value) {
   }
 }
 
-function statusBadge(status) {
+function statusBadge(status, direction) {
   const st = String(status || '').toLowerCase();
   if (st === 'pending') return <span className="finance-badge-pendente">Pendente</span>;
-  if (st === 'settled') return <span className="finance-badge-pago">Liquidado</span>;
+  if (st === 'settled') {
+    return <span className="finance-badge-pago">{getSettledStatusLabel(direction)}</span>;
+  }
   if (st === 'cancelled') return <span className="finance-badge-cancelado">Cancelado</span>;
   return <span className="finance-badge-neutro">{status || '—'}</span>;
 }
@@ -211,14 +214,14 @@ export default function FinanceTxDetailDrawer({
           <DetailField label="Conta bancária">
             {tx.bankAccount || resolveTxBankAccount(tx) || '—'}
           </DetailField>
-          <DetailField label="Status">{statusBadge(tx.status)}</DetailField>
+          <DetailField label="Status">{statusBadge(tx.status, dir)}</DetailField>
           {settlementHint ? (
-            <DetailField label={st === 'pending' ? 'Liquida em' : 'Crédito previsto em'}>
+            <DetailField label={st === 'pending' ? (dir === 'out' ? 'Vence em' : 'Previsão de recebimento') : 'Crédito previsto em'}>
               {formatYmdBr(settlementYmd)}
             </DetailField>
           ) : null}
           {st === 'settled' && settledAtYmd && /^\d{4}-\d{2}-\d{2}$/.test(settledAtYmd) ? (
-            <DetailField label="Liquidado em">{formatYmdBr(settledAtYmd)}</DetailField>
+            <DetailField label={dir === 'out' ? 'Pago em' : 'Recebido em'}>{formatYmdBr(settledAtYmd)}</DetailField>
           ) : null}
           <DetailField label="Competência">{tx.competence_month || '—'}</DetailField>
           {tx.saleId ? (

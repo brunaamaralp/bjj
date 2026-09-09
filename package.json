@@ -89,6 +89,7 @@
     "provision:webhook-logs": "node --env-file=.env scripts/provision-webhook-logs-schema.mjs",
     "provision:billing": "node --env-file=.env scripts/provision-billing-schema.mjs",
     "provision:booking-schema": "node --env-file=.env scripts/provision-booking-schema.mjs",
+    "provision:lesson-register": "node --env-file=.env scripts/provision-lesson-register-schema.mjs",
     "cron:generate-slots": "node --env-file=.env scripts/_run-generate-slots.mjs",
     "backfill:class-slots": "node --env-file=.env --env-file=.env.local scripts/backfill-class-slots.mjs",
     "migrate:academy-turmas-to-classes": "node --env-file=.env scripts/migrate-academy-turmas-to-classes.mjs",

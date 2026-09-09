@@ -26,7 +26,11 @@ export const FINANCE_TERM_HINTS = {
   mensalidadePendenteCaixa:
     'Mensalidades pendentes ficam na grade de Mensalidades. Ao registrar o pagamento, a entrada é criada automaticamente no Caixa — não há lançamento pendente duplicado.',
   lancamentoPendente:
-    'Lançamento manual criado sem marcar “Receber agora”. Liquide em Lançamentos para entrar no saldo do Caixa.',
+    'Lançamento criado em «Receber/Pagar depois». Confirme o recebimento ou pagamento em Lançamentos para entrar no saldo do caixa.',
+  confirmarNoCaixa:
+    'O dinheiro já entrou ou saiu da conta. O lançamento entra imediatamente no saldo do caixa.',
+  receberDepois:
+    'Registra a pendência (conta a receber/pagar). Não é o mesmo que «Receber depois» na venda — use aqui para lançamentos avulsos no caixa.',
   cobrancaFila:
     'Mensalidades vencidas acumuladas nos últimos 12 meses. Independente do mês de referência em Mensalidades.',
   aPagar:

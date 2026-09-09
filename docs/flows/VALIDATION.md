@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-09-08: confirmação de professor/instrutor nas aulas do dia (Recepção) + relatório Relatórios → Aulas (staff) CSV/PDF ([2026-09-08-confirmacao-staff-aula-design.md](../superpowers/specs/2026-09-08-confirmacao-staff-aula-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-08: categorias fixas granulares (`4.1.2–4.1.4`, `6.2.3–6.2.9`) + espelho por `dreAccount` + merge de seeds ([2026-09-08-expandir-categorias-fixas-design.md](../superpowers/specs/2026-09-08-expandir-categorias-fixas-design.md)); fluxo [plano-contas-categorias.md](financeiro/plano-contas-categorias.md).
 - 2026-08-12: Checkout misto — produto + mensalidade/pacote/taxa no mesmo fluxo PDV/Loja; perfil aponta para Loja (`pdv-nova-venda.md`, spec [2026-08-12-checkout-misto-design.md](../superpowers/specs/2026-08-12-checkout-misto-design.md)).
 - 2026-07-23: plan price snapshot — código alinhado aos fluxos (config financeiro, mensalidades, funil, perfil); spec [2026-07-23-plan-price-snapshot-design.md](../superpowers/specs/2026-07-23-plan-price-snapshot-design.md).

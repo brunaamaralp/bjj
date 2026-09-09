@@ -298,12 +298,15 @@ describe('getReportsTabFlags', () => {
       needsFunnelReport: false,
       needsStudentMetrics: true,
       needsFrequencyReport: false,
+      needsAulasStaffReport: false,
       isPeriodTab: true,
     });
     expect(getReportsTabFlags('funil').isLeadReportTab).toBe(true);
     expect(getReportsTabFlags('funil').needsFunnelReport).toBe(true);
     expect(getReportsTabFlags('funil').needsStudentMetrics).toBe(false);
     expect(getReportsTabFlags('loja').isLeadReportTab).toBe(false);
+    expect(getReportsTabFlags('aulas-staff').needsAulasStaffReport).toBe(true);
+    expect(getReportsTabFlags('aulas-staff').isPeriodTab).toBe(true);
   });
 });
 

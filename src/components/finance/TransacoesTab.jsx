@@ -91,6 +91,7 @@ import FinanceTxDetailDrawer from './FinanceTxDetailDrawer.jsx';
 import FinanceTxAnticipationDialog from './FinanceTxAnticipationDialog.jsx';
 import FinanceTxStudentField from './FinanceTxStudentField.jsx';
 import FinanceTxDirectionToggle from './FinanceTxDirectionToggle.jsx';
+import FinanceTxSettlementToggle from './FinanceTxSettlementToggle.jsx';
 import FinanceTxFormSection from './FinanceTxFormSection.jsx';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableGroupedSelect from '../shared/SearchableGroupedSelect.jsx';
@@ -137,12 +138,19 @@ import {
   getTxModalTitle,
   getTxModalSaveLabel,
   getTxModalIntro,
+  getTxCreateSuccessMessage,
+  getSettledStatusLabel,
+  getSettledFilterLabel,
+  loadTxReceiveDefault,
+  saveTxReceiveDefault,
 } from '../../lib/financeTxTabState.js';
 import {
   buildInitialTxForm,
   applyDirectionChangeToTxForm,
   shouldSyncCompetenceFromDueDate,
   shouldShowFinanceTxStudentField,
+  shouldShowDueDateField,
+  getDueDateFieldLabel,
   competenceMonthFromDueDate,
 } from '../../lib/financeTxModalForm.js';
 
@@ -311,7 +319,7 @@ export default function TransacoesTab({
     ...defaultRecurrenceForm(),
   }));
   const [savingTx, setSavingTx] = useState(false);
-  const [receiveNow, setReceiveNow] = useState(false);
+  const [receiveNow, setReceiveNow] = useState(true);
   const [cancelLoadingId, setCancelLoadingId] = useState('');
   const [recurrenceCancelLoadingId, setRecurrenceCancelLoadingId] = useState('');
   const [menuOpenId, setMenuOpenId] = useState('');
@@ -425,7 +433,7 @@ export default function TransacoesTab({
       const form = initialTxForm(direction);
       setEditingTxId('');
       setEditPreservedSaleId('');
-      setReceiveNow(false);
+      setReceiveNow(loadTxReceiveDefault(academyId));
       setTxForm(form);
       setStudentDisplayName('');
       setTxFormErrors({});
@@ -435,7 +443,7 @@ export default function TransacoesTab({
       setShowTxModal(true);
       txFormSnapshotRef.current = JSON.stringify({ form, student: '' });
     },
-    [initialTxForm]
+    [initialTxForm, academyId]
   );
 
   useEffect(() => {
@@ -680,7 +688,7 @@ export default function TransacoesTab({
     setEditingRecurrenceOnly(false);
     setRecurrenceOpen(false);
     setEditPreservedSaleId('');
-    setReceiveNow(false);
+    setReceiveNow(loadTxReceiveDefault(academyId));
     setTxForm(initialTxForm('in'));
     setTxPaymentSectionOpen(true);
     setTxOptionalSectionOpen(false);
@@ -1219,10 +1227,12 @@ export default function TransacoesTab({
       return;
     }
     const dir = txForm.direction === 'out' ? 'out' : 'in';
-    if (dir === 'out' && (!receiveNow || editingTxId) && !editingRecurrenceOnly) {
+    const showDueDate = shouldShowDueDateField({ receiveNow, editingTxId, direction: dir });
+    if (showDueDate && !editingRecurrenceOnly) {
       const due = String(txForm.due_date || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
-        setTxFormErrors({ due_date: 'Informe a data de vencimento.' });
+        const label = getDueDateFieldLabel(dir).toLowerCase();
+        setTxFormErrors({ due_date: `Informe a ${label}.` });
         focusFirstTxFormError({ due_date: 'x' });
         return;
       }
@@ -1331,18 +1341,23 @@ export default function TransacoesTab({
           const cm = payload.competence_month || currentCompetenceMonth();
           if (txForm.repeat_enabled && !editingTxId) {
             payload.due_date = dueDateForRecurrenceMonth(payload.recurrence_day, cm);
-          } else if (!receiveNow || editingTxId) {
+          } else if (showDueDate) {
             const due = String(txForm.due_date || '').slice(0, 10) || todayYmdLocal();
             payload.due_date = due;
             if (!editingTxId) payload.competence_month = due.slice(0, 7) || cm;
           }
+        } else if (showDueDate && !editingTxId) {
+          const due = String(txForm.due_date || '').slice(0, 10) || todayYmdLocal();
+          payload.due_date = due;
+          payload.competence_month = due.slice(0, 7) || payload.competence_month;
         }
         const row = await createFinanceTx({ academyId, payload });
         if (receiveNow && row) applyAccountingSideEffectsAuto(row, academyId);
         setTransactions((prev) => [row, ...prev]);
+        if (!editingTxId) saveTxReceiveDefault(academyId, receiveNow);
         toast.show({
           type: 'success',
-          message: receiveNow ? 'Lançamento registrado e liquidado.' : 'Lançamento registrado.',
+          message: getTxCreateSuccessMessage({ receiveNow, direction: dir }),
         });
       }
       resetTxModal();
@@ -1452,7 +1467,7 @@ export default function TransacoesTab({
             >
               <option value="all">Todos</option>
               <option value="pending">Pendente</option>
-              <option value="settled">Liquidado</option>
+              <option value="settled">{getSettledFilterLabel()}</option>
               <option value="cancelled">Cancelado</option>
             </FinanceToolbarSelect>
             <FinanceToolbarSelect
@@ -1856,7 +1871,7 @@ export default function TransacoesTab({
                     st === 'pending' ? (
                       <span className="finance-badge-pendente">Pendente</span>
                     ) : st === 'settled' ? (
-                      <span className="finance-badge-pago">Liquidado</span>
+                      <span className="finance-badge-pago">{getSettledStatusLabel(dir)}</span>
                     ) : st === 'cancelled' ? (
                       <span className="finance-badge-cancelado">Cancelado</span>
                     ) : (
@@ -2049,7 +2064,13 @@ export default function TransacoesTab({
               className="btn-primary"
               disabled={savingTx}
             >
-              {getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow })}
+              {getTxModalSaveLabel({
+                savingTx,
+                editingRecurrenceOnly,
+                editingTxId,
+                receiveNow,
+                direction: txForm.direction,
+              })}
             </button>
           </div>
         }
@@ -2061,7 +2082,7 @@ export default function TransacoesTab({
         ) : null}
         {editingTxId && !editingRecurrenceOnly ? (
           <p id="finance-tx-modal-desc" className="finance-tx-modal__hint">
-            Só é possível editar enquanto o lançamento estiver pendente. Valores liquidados no razão não são
+            Só é possível editar enquanto o lançamento estiver pendente. Valores confirmados no caixa não são
             alterados automaticamente.
           </p>
         ) : null}
@@ -2081,6 +2102,14 @@ export default function TransacoesTab({
                 disabled={Boolean(editingTxId)}
                 showOut={canManageAdvanced}
               />
+              {!editingTxId ? (
+                <FinanceTxSettlementToggle
+                  value={receiveNow ? 'now' : 'later'}
+                  direction={txForm.direction}
+                  disableNow={Boolean(txForm.repeat_enabled)}
+                  onChange={(mode) => setReceiveNow(mode === 'now')}
+                />
+              ) : null}
               <div className="form-group">
                 <label htmlFor="finance-tx-category">Categoria</label>
                 <SearchableGroupedSelect
@@ -2188,32 +2217,13 @@ export default function TransacoesTab({
                 />
                 <FieldError id="finance-tx-gross-error">{txFormErrors.gross}</FieldError>
               </div>
-              {!editingTxId ? (
-                <label className="flex items-center gap-2 text-small finance-tx-modal__checkbox">
-                  <input
-                    type="checkbox"
-                    checked={receiveNow}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setReceiveNow(checked);
-                      if (
-                        !checked &&
-                        txForm.direction === 'out' &&
-                        !editingTxId
-                      ) {
-                        setTxForm((prev) => {
-                          const cm = competenceMonthFromDueDate(prev.due_date);
-                          return cm ? { ...prev, competence_month: cm } : prev;
-                        });
-                      }
-                    }}
-                  />
-                  {txForm.direction === 'out' ? 'Pago agora (já liquidado)' : 'Recebido agora (já liquidado no caixa)'}
-                </label>
-              ) : null}
-              {txForm.direction === 'out' && (!receiveNow || editingTxId) ? (
+              {shouldShowDueDateField({
+                receiveNow,
+                editingTxId,
+                direction: txForm.direction,
+              }) ? (
                 <div className="form-group">
-                  <label htmlFor="finance-tx-due">Vencimento</label>
+                  <label htmlFor="finance-tx-due">{getDueDateFieldLabel(txForm.direction)}</label>
                   <input
                     id="finance-tx-due"
                     type="date"
@@ -2391,13 +2401,15 @@ export default function TransacoesTab({
                             type="checkbox"
                             checked={Boolean(txForm.repeat_enabled)}
                             onChange={(e) => {
+                              const enabled = e.target.checked;
                               setTxForm((f) => ({
                                 ...f,
-                                repeat_enabled: e.target.checked,
+                                repeat_enabled: enabled,
                                 recurrence_type: f.recurrence_type || RECURRENCE_TYPES.MONTHLY,
                                 recurrence_day: f.recurrence_day || 1,
                               }));
-                              if (e.target.checked) clearTxFieldError('recurrence');
+                              if (enabled) setReceiveNow(false);
+                              if (enabled) clearTxFieldError('recurrence');
                             }}
                           />
                           Repetir automaticamente
@@ -2609,7 +2621,7 @@ export default function TransacoesTab({
         }
       >
         <p className="text-small text-muted mb-3">
-          Ajusta apenas a conta do lançamento liquidado. Valores e datas não são alterados.
+          Ajusta apenas a conta do lançamento confirmado no caixa. Valores e datas não são alterados.
         </p>
         {assignBankTx ? (
           <p className="text-small mb-3">
@@ -2689,7 +2701,7 @@ export default function TransacoesTab({
         description={
           pendingPayableMatch ? formatPayableMatchDescription(pendingPayableMatch.item) : ''
         }
-        confirmLabel="Liquidar conta existente"
+        confirmLabel="Confirmar pagamento da conta existente"
         cancelLabel="Criar lançamento mesmo assim"
         confirmVariant="primary"
         loading={settlePayableSaving}
@@ -2746,7 +2758,7 @@ export default function TransacoesTab({
 
       <ConfirmDialog
         open={showReverseTxDialog}
-        title="Estornar lançamento liquidado"
+        title="Estornar lançamento confirmado no caixa"
         description="O lançamento original será cancelado e um novo lançamento de estorno será registrado no caixa, com efeito contábil oposto. Esta ação é para gestores. Confirmar?"
         confirmLabel="Estornar"
         confirmVariant="danger"

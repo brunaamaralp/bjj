@@ -1756,6 +1756,60 @@
           margin-top: 0;
           margin-bottom: 0;
         }
+        .recepcao-today-lessons__list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .recepcao-today-lessons__card {
+          width: 100%;
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+          background: var(--color-surface, #fff);
+          cursor: pointer;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .recepcao-today-lessons__card:hover {
+          border-color: color-mix(in srgb, var(--color-primary, #2563eb) 45%, var(--color-border));
+          box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 70%, transparent);
+        }
+        .recepcao-today-lessons__head {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 12px;
+          align-items: baseline;
+        }
+        .recepcao-today-lessons__time {
+          font-weight: 650;
+          font-variant-numeric: tabular-nums;
+        }
+        .recepcao-today-lessons__name {
+          font-weight: 600;
+        }
+        .recepcao-today-lessons__badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.85rem;
+          color: var(--color-text-muted, #64748b);
+        }
+        .recepcao-today-lessons__badge--ok {
+          color: color-mix(in srgb, var(--color-success, #15803d) 85%, #000);
+        }
+        .recepcao-today-lessons__badge--warn {
+          color: color-mix(in srgb, var(--color-warning, #b45309) 90%, #000);
+        }
+        .recepcao-today-lessons__card--pending {
+          border-style: dashed;
+        }
         .dashboard-tasks-today {
           width: 100%;
         }

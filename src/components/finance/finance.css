@@ -906,6 +906,37 @@
   color: var(--finance-color-negative);
   font-weight: 600;
 }
+.finance-tx-settlement-toggle__label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: var(--font-sm);
+}
+.finance-tx-settlement-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  border: 1px solid var(--border-light, var(--color-border));
+}
+.finance-tx-settlement-toggle__btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: var(--surface, var(--color-surface));
+  cursor: pointer;
+  font-size: var(--font-sm);
+  transition: background 0.15s, color 0.15s;
+}
+.finance-tx-settlement-toggle__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.finance-tx-settlement-toggle__btn--active {
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 12%, var(--surface));
+  color: var(--color-primary, #2563eb);
+  font-weight: 600;
+}
 .finance-tx-form-section {
   margin-top: 4px;
   border-top: 1px solid var(--border-light, var(--color-border));

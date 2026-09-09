@@ -2,6 +2,7 @@ export const REPORT_TABS = new Set([
   'funil',
   'alunos',
   'frequencia',
+  'aulas-staff',
   'financeiro',
   'loja',
   'estoque',
@@ -12,6 +13,7 @@ export const REPORT_TAB_ITEMS_BASE = [
   { id: 'funil', label: 'Funil' },
   { id: 'alunos', label: 'Alunos' },
   { id: 'frequencia', label: 'Frequência' },
+  { id: 'aulas-staff', label: 'Aulas (staff)' },
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'loja', label: 'Vendas' },
   { id: 'estoque', label: 'Estoque' },
@@ -38,6 +40,7 @@ export function normalizeReportTabParam(raw) {
   if (!t || t === 'visao-geral' || t === 'operador') return null;
   if (t === 'movimentacoes') return 'estoque';
   if (t === 'vendas') return 'loja';
+  if (t === 'aulas' || t === 'staff') return 'aulas-staff';
   return REPORT_TABS.has(t) ? t : null;
 }
 
@@ -46,13 +49,22 @@ export function getReportsTabFlags(activeTab) {
   const needsFunnelReport = isLeadReportTab;
   const needsStudentMetrics = activeTab === 'alunos';
   const needsFrequencyReport = activeTab === 'frequencia';
+  const needsAulasStaffReport = activeTab === 'aulas-staff';
   const isPeriodTab =
     needsFunnelReport ||
     needsStudentMetrics ||
     needsFrequencyReport ||
+    needsAulasStaffReport ||
     activeTab === 'financeiro' ||
     activeTab === 'loja' ||
     activeTab === 'estoque' ||
     activeTab === 'atividade';
-  return { isLeadReportTab, needsFunnelReport, needsStudentMetrics, needsFrequencyReport, isPeriodTab };
+  return {
+    isLeadReportTab,
+    needsFunnelReport,
+    needsStudentMetrics,
+    needsFrequencyReport,
+    needsAulasStaffReport,
+    isPeriodTab,
+  };
 }

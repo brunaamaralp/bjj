@@ -13,11 +13,22 @@ export function competenceMonthFromDueDate(dueDate) {
   return `${m[1]}-${m[2]}`;
 }
 
-/** Saída pendente: competência segue o mês do vencimento (espelha o servidor). */
-export function shouldSyncCompetenceFromDueDate({ direction, receiveNow, editingTxId }) {
+/** Pendente: competência segue o mês da data prevista/vencimento (espelha o servidor). */
+export function shouldSyncCompetenceFromDueDate({ receiveNow, editingTxId }) {
   if (editingTxId) return false;
-  if (String(direction || '').toLowerCase() !== 'out') return false;
   return !receiveNow;
+}
+
+/** Exibe campo de data para pendências (ou edição de saída). */
+export function shouldShowDueDateField({ receiveNow, editingTxId, direction }) {
+  if (editingTxId) return String(direction || '').toLowerCase() === 'out';
+  return !receiveNow;
+}
+
+export function getDueDateFieldLabel(direction) {
+  return String(direction || '').toLowerCase() === 'out'
+    ? 'Vencimento'
+    : 'Previsão de recebimento';
 }
 
 /** Ocultar aluno em saídas, exceto categoria tipo plano (improvável em despesa). */

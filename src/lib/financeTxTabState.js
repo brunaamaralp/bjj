@@ -1,4 +1,5 @@
 export const TX_COLUMNS_STORAGE_PREFIX = 'navi-finance-tx-cols';
+export const TX_RECEIVE_DEFAULT_PREFIX = 'navi-finance-tx-receive-default';
 
 export const OPTIONAL_TX_COLUMNS = [
   { key: 'sale', label: 'Venda', defaultVisible: false },
@@ -42,6 +43,31 @@ export function saveTxColumnVisibility(academyId, visibility) {
   }
 }
 
+/** Default ao abrir modal novo: true = já no caixa. */
+export function loadTxReceiveDefault(academyId) {
+  if (!academyId) return true;
+  try {
+    const v = localStorage.getItem(`${TX_RECEIVE_DEFAULT_PREFIX}:${academyId}`);
+    if (v === 'pending') return false;
+    if (v === 'now') return true;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+export function saveTxReceiveDefault(academyId, receiveNow) {
+  if (!academyId) return;
+  try {
+    localStorage.setItem(
+      `${TX_RECEIVE_DEFAULT_PREFIX}:${academyId}`,
+      receiveNow ? 'now' : 'pending'
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export function parseStatusFilterParam(raw) {
   const s = String(raw || '').toLowerCase();
   if (s === 'pending' || s === 'settled' || s === 'cancelled') return s;
@@ -70,17 +96,47 @@ export function getTxModalTitle({ editingRecurrenceOnly, editingTxId, direction 
   return 'Novo lançamento';
 }
 
-export function getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow }) {
+export function getSettleActionLabel(direction) {
+  return String(direction || '').toLowerCase() === 'out'
+    ? 'Confirmar pagamento'
+    : 'Confirmar recebimento';
+}
+
+export function getSettledStatusLabel(direction) {
+  return String(direction || '').toLowerCase() === 'out' ? 'Pago' : 'Recebido';
+}
+
+export function getSettledFilterLabel() {
+  return 'Confirmado no caixa';
+}
+
+export function getTxModalSaveLabel({ savingTx, editingRecurrenceOnly, editingTxId, receiveNow, direction }) {
   if (savingTx) return 'Salvando…';
   if (editingRecurrenceOnly) return 'Salvar recorrência';
   if (editingTxId) return 'Salvar alterações';
-  if (receiveNow) return 'Registrar e liquidar';
-  return 'Registrar lançamento';
+  const isOut = String(direction || '').toLowerCase() === 'out';
+  if (receiveNow) {
+    return isOut ? 'Registrar pagamento' : 'Registrar recebimento';
+  }
+  return 'Registrar pendência';
 }
 
 /** Texto introdutório do modal (novo lançamento). */
 export function getTxModalIntro(direction) {
   const isOut = String(direction || '').toLowerCase() === 'out';
-  const liquidarLabel = isOut ? 'Pago agora' : 'Recebido agora';
-  return `Registre ${isOut ? 'uma saída' : 'uma entrada'} no caixa do período. Se não marcar «${liquidarLabel}», o lançamento fica pendente até você liquidar.`;
+  return isOut
+    ? 'Registre uma saída. Por padrão o pagamento já entra no caixa; escolha «Pagar depois» se ainda não saiu da conta.'
+    : 'Registre uma entrada. Por padrão o recebimento já entra no caixa; escolha «Receber depois» para cobranças futuras (boleto, cartão D+N, etc.).';
+}
+
+export function getTxCreateSuccessMessage({ receiveNow, direction }) {
+  const isOut = String(direction || '').toLowerCase() === 'out';
+  if (receiveNow) {
+    return isOut
+      ? 'Pagamento registrado — já saiu do caixa.'
+      : 'Recebimento registrado — já entrou no caixa.';
+  }
+  return isOut
+    ? 'Pendência registrada. Confirme o pagamento quando sair da conta.'
+    : 'Pendência registrada. Confirme o recebimento quando o dinheiro entrar.';
 }

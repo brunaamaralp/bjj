@@ -88,7 +88,7 @@ const ASK_HELP_SECTIONS = [
   {
     title: 'Pré-requisitos de comandos',
     examples: [
-      'Liquidar transação: cite a nota ou valor do lançamento pendente',
+      'Confirmar recebimento: cite a nota ou valor do lançamento pendente',
       'Editar mensalidade: informe aluno e mês',
       'Check-in: presença precisa estar configurada na academia',
     ],

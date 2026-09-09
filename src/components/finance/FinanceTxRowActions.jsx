@@ -8,6 +8,10 @@ import {
 } from '../shared/menu';
 import { FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE } from '../../../lib/constants.js';
 
+import {
+  getSettleActionLabel,
+} from '../../lib/financeTxTabState.js';
+
 const EXPENSE_EDIT_TITLE = 'Despesas só podem ser editadas por titular ou administrador.';
 
 function TxIconButton({ label, onClick, disabled, danger, title, children }) {
@@ -26,7 +30,7 @@ function TxIconButton({ label, onClick, disabled, danger, title, children }) {
 }
 
 /**
- * Ações de linha (desktop e mobile) para lançamento pendente, liquidado ou recorrência.
+ * Ações de linha (desktop e mobile) para lançamento pendente ou confirmado no caixa.
  */
 export default function FinanceTxRowActions({
   txId,
@@ -57,6 +61,8 @@ export default function FinanceTxRowActions({
   const showAssignBank = isSettled && canAssignBank;
   const hasPrimary = isPending || showRecMenu || (isSettled && canManageAdvanced) || showAssignBank;
 
+  const settleLabel = getSettleActionLabel(direction);
+
   if (!hasPrimary) {
     return <span className="text-small finance-tx-no-actions">—</span>;
   }
@@ -78,12 +84,12 @@ export default function FinanceTxRowActions({
             </TxIconButton>
           ) : null}
           {canSettle ? (
-            <TxIconButton label="Liquidar" onClick={onSettle} disabled={rowBusy} title="Liquidar">
+            <TxIconButton label={settleLabel} onClick={onSettle} disabled={rowBusy} title={settleLabel}>
               <CheckCircle2 size={16} aria-hidden />
             </TxIconButton>
           ) : (
             <TxIconButton
-              label="Liquidar"
+              label={settleLabel}
               disabled
               title={FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE}
             >

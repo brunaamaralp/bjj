@@ -10,7 +10,14 @@ import {
   getTxModalTitle,
   getTxModalSaveLabel,
   getTxModalIntro,
+  getSettleActionLabel,
+  getSettledStatusLabel,
+  getSettledFilterLabel,
+  getTxCreateSuccessMessage,
+  loadTxReceiveDefault,
+  saveTxReceiveDefault,
   TX_COLUMNS_STORAGE_PREFIX,
+  TX_RECEIVE_DEFAULT_PREFIX,
 } from '../lib/financeTxTabState.js';
 
 describe('financeTxTabState', () => {
@@ -83,6 +90,20 @@ describe('financeTxTabState', () => {
     });
   });
 
+  describe('receive default persistence', () => {
+    it('defaults to now when unset', () => {
+      expect(loadTxReceiveDefault('acad-1')).toBe(true);
+    });
+
+    it('round-trips pending vs now', () => {
+      saveTxReceiveDefault('acad-1', false);
+      expect(loadTxReceiveDefault('acad-1')).toBe(false);
+      saveTxReceiveDefault('acad-1', true);
+      expect(loadTxReceiveDefault('acad-1')).toBe(true);
+      expect(localStorage.getItem(`${TX_RECEIVE_DEFAULT_PREFIX}:acad-1`)).toBe('now');
+    });
+  });
+
   describe('modal copy helpers', () => {
     it('getTxModalTitle', () => {
       expect(getTxModalTitle({ editingRecurrenceOnly: true, editingTxId: '' })).toBe(
@@ -118,8 +139,18 @@ describe('financeTxTabState', () => {
           editingRecurrenceOnly: false,
           editingTxId: '',
           receiveNow: true,
+          direction: 'in',
         })
-      ).toBe('Registrar e liquidar');
+      ).toBe('Registrar recebimento');
+      expect(
+        getTxModalSaveLabel({
+          savingTx: false,
+          editingRecurrenceOnly: false,
+          editingTxId: '',
+          receiveNow: true,
+          direction: 'out',
+        })
+      ).toBe('Registrar pagamento');
       expect(
         getTxModalSaveLabel({
           savingTx: false,
@@ -127,14 +158,31 @@ describe('financeTxTabState', () => {
           editingTxId: '',
           receiveNow: false,
         })
-      ).toBe('Registrar lançamento');
+      ).toBe('Registrar pendência');
     });
 
     it('getTxModalIntro', () => {
       expect(getTxModalIntro('in')).toContain('entrada');
-      expect(getTxModalIntro('in')).toContain('Recebido agora');
+      expect(getTxModalIntro('in')).toContain('Receber depois');
       expect(getTxModalIntro('out')).toContain('saída');
-      expect(getTxModalIntro('out')).toContain('Pago agora');
+      expect(getTxModalIntro('out')).toContain('Pagar depois');
+    });
+
+    it('settle labels', () => {
+      expect(getSettleActionLabel('in')).toBe('Confirmar recebimento');
+      expect(getSettleActionLabel('out')).toBe('Confirmar pagamento');
+      expect(getSettledStatusLabel('in')).toBe('Recebido');
+      expect(getSettledStatusLabel('out')).toBe('Pago');
+      expect(getSettledFilterLabel()).toBe('Confirmado no caixa');
+    });
+
+    it('getTxCreateSuccessMessage', () => {
+      expect(getTxCreateSuccessMessage({ receiveNow: true, direction: 'in' })).toContain(
+        'Recebimento registrado'
+      );
+      expect(getTxCreateSuccessMessage({ receiveNow: false, direction: 'out' })).toContain(
+        'Pendência registrada'
+      );
     });
   });
 });

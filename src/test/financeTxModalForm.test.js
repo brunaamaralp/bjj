@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   competenceMonthFromDueDate,
   shouldSyncCompetenceFromDueDate,
+  shouldShowDueDateField,
+  getDueDateFieldLabel,
   shouldShowFinanceTxStudentField,
   buildInitialTxForm,
   applyDirectionChangeToTxForm,
@@ -16,19 +18,42 @@ describe('financeTxModalForm', () => {
   });
 
   describe('shouldSyncCompetenceFromDueDate', () => {
-    it('syncs for pending outflow only', () => {
+    it('syncs for pending flows only', () => {
+      expect(shouldSyncCompetenceFromDueDate({ receiveNow: false, editingTxId: '' })).toBe(true);
+      expect(shouldSyncCompetenceFromDueDate({ receiveNow: true, editingTxId: '' })).toBe(false);
+      expect(shouldSyncCompetenceFromDueDate({ receiveNow: false, editingTxId: 'tx1' })).toBe(
+        false
+      );
+    });
+  });
+
+  describe('shouldShowDueDateField', () => {
+    it('shows for pending new tx in both directions', () => {
       expect(
-        shouldSyncCompetenceFromDueDate({ direction: 'out', receiveNow: false, editingTxId: '' })
+        shouldShowDueDateField({ receiveNow: false, editingTxId: '', direction: 'in' })
       ).toBe(true);
       expect(
-        shouldSyncCompetenceFromDueDate({ direction: 'out', receiveNow: true, editingTxId: '' })
-      ).toBe(false);
+        shouldShowDueDateField({ receiveNow: false, editingTxId: '', direction: 'out' })
+      ).toBe(true);
       expect(
-        shouldSyncCompetenceFromDueDate({ direction: 'in', receiveNow: false, editingTxId: '' })
+        shouldShowDueDateField({ receiveNow: true, editingTxId: '', direction: 'in' })
       ).toBe(false);
+    });
+
+    it('shows only for out when editing', () => {
       expect(
-        shouldSyncCompetenceFromDueDate({ direction: 'out', receiveNow: false, editingTxId: 'tx1' })
+        shouldShowDueDateField({ receiveNow: false, editingTxId: 'tx1', direction: 'out' })
+      ).toBe(true);
+      expect(
+        shouldShowDueDateField({ receiveNow: false, editingTxId: 'tx1', direction: 'in' })
       ).toBe(false);
+    });
+  });
+
+  describe('getDueDateFieldLabel', () => {
+    it('labels by direction', () => {
+      expect(getDueDateFieldLabel('out')).toBe('Vencimento');
+      expect(getDueDateFieldLabel('in')).toBe('Previsão de recebimento');
     });
   });
 
