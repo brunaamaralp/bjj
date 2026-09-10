@@ -9,6 +9,8 @@ import { downloadCsv } from '../../lib/reportsExport.js';
 import { buildLessonStaffCsvRows } from '../../../lib/lessonStaffRegister.js';
 import { fetchTeamMemberships } from '../../lib/teamApi.js';
 import { normalizeReportsOperatorTeam } from '../../lib/reportsOperatorTeam.js';
+import { useStaffRosterStore, isStaffRosterConfigured } from '../../store/staffRosterStore.js';
+import { buildLessonStaffPickerOptions } from '../../../lib/staffRoster.js';
 import { useToast } from '../../hooks/useToast.js';
 import ErrorBanner from '../shared/ErrorBanner.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -63,6 +65,8 @@ export default function ReportsAulasStaffPanel({
   const [userId, setUserId] = useState('');
   const [team, setTeam] = useState([]);
   const [exporting, setExporting] = useState(false);
+  const roster = useStaffRosterStore((s) => s.roster);
+  const fetchRoster = useStaffRosterStore((s) => s.fetchRoster);
 
   useEffect(() => {
     if (!academyId) return;
@@ -70,6 +74,16 @@ export default function ReportsAulasStaffPanel({
       .then((data) => setTeam(normalizeReportsOperatorTeam(data)))
       .catch(() => setTeam([]));
   }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId || !isStaffRosterConfigured()) return;
+    void fetchRoster(academyId, { activeOnly: true });
+  }, [academyId, fetchRoster]);
+
+  const filterOptions = useMemo(
+    () => buildLessonStaffPickerOptions({ teamMembers: team, roster }),
+    [team, roster]
+  );
 
   const load = useCallback(async () => {
     if (!academyId || !rangeFrom || !rangeTo) return;
@@ -142,12 +156,12 @@ export default function ReportsAulasStaffPanel({
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           >
-            <option value="">Todos</option>
-            {team.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nome}
-              </option>
-            ))}
+          <option value="">Todos</option>
+          {filterOptions.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nome}
+            </option>
+          ))}
           </select>
         </label>
         <button

@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDashed, UserX } from 'lucide-react';
-import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
+import { CheckCircle2, ChevronRight, CircleDashed, Clock3, UserX } from 'lucide-react';
 import EmptyState from '../shared/EmptyState.jsx';
 import ConfirmLessonStaffModal from './ConfirmLessonStaffModal.jsx';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
 import { useClassSlotsStore, isClassSlotsConfigured } from '../../store/classSlotsStore.js';
 import { fetchTeamMemberships } from '../../lib/teamApi.js';
 import { normalizeReportsOperatorTeam } from '../../lib/reportsOperatorTeam.js';
+import { useStaffRosterStore, isStaffRosterConfigured } from '../../store/staffRosterStore.js';
+import { buildLessonStaffPickerOptions } from '../../../lib/staffRoster.js';
 import {
   buildWeeklyScheduleGrid,
   filterSchedulesByModality,
 } from '../../lib/schedules.js';
 import {
+  classifyScheduleTimeStatus,
   flattenTodaySchedules,
   getTodayWeekdayId,
   resolveScheduleGridColumns,
+  scheduleTimeStatusLabel,
   todayYmd,
 } from '../../lib/recepcaoScheduleGrid.js';
 import {
@@ -23,6 +26,18 @@ import {
   normalizeLessonStatus,
 } from '../../../lib/lessonStaffRegister.js';
 
+function formatDateLabel(ymd) {
+  const raw = String(ymd || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const [y, m, d] = raw.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+  }).format(dt);
+}
+
 function lessonBadge(slot) {
   const status = normalizeLessonStatus(slot?.lesson_status);
   if (status === LESSON_STATUS_CONFIRMED) {
@@ -30,7 +45,8 @@ function lessonBadge(slot) {
     return {
       tone: 'ok',
       icon: CheckCircle2,
-      label: names ? `Confirmada · ${names}` : 'Confirmada',
+      label: names || 'Confirmada',
+      shortLabel: 'Confirmada',
     };
   }
   if (status === LESSON_STATUS_CANCELLED) {
@@ -38,10 +54,16 @@ function lessonBadge(slot) {
     return {
       tone: 'warn',
       icon: UserX,
-      label: reason ? `Não houve · ${reason}` : 'Não houve',
+      label: reason || 'Não houve aula',
+      shortLabel: 'Não houve',
     };
   }
-  return { tone: 'pending', icon: CircleDashed, label: 'Confirmar staff' };
+  return {
+    tone: 'pending',
+    icon: CircleDashed,
+    label: 'Confirmar staff',
+    shortLabel: 'Pendente',
+  };
 }
 
 /**
@@ -57,6 +79,10 @@ export default function RecepcaoTodayLessonsSection({ academyId }) {
 
   const date = useMemo(() => todayYmd(), []);
   const todayId = useMemo(() => getTodayWeekdayId(), []);
+  const now = useMemo(() => new Date(), []);
+
+  const roster = useStaffRosterStore((s) => s.roster);
+  const fetchRoster = useStaffRosterStore((s) => s.fetchRoster);
 
   const [teamMembers, setTeamMembers] = useState([]);
   const [active, setActive] = useState(null);
@@ -86,12 +112,31 @@ export default function RecepcaoTodayLessonsSection({ academyId }) {
     };
   }, [academyId]);
 
+  useEffect(() => {
+    if (!academyId || !isStaffRosterConfigured()) return;
+    void fetchRoster(academyId, { activeOnly: true });
+  }, [academyId, fetchRoster]);
+
+  const staffOptions = useMemo(
+    () => buildLessonStaffPickerOptions({ teamMembers, roster }),
+    [teamMembers, roster]
+  );
+
   const todaySchedules = useMemo(() => {
     const activeSchedules = filterSchedulesByModality(schedules, '');
     const columns = resolveScheduleGridColumns(activeSchedules);
     const grid = buildWeeklyScheduleGrid(activeSchedules, columns);
     return flattenTodaySchedules(grid, todayId);
   }, [schedules, todayId]);
+
+  const pendingCount = useMemo(
+    () =>
+      todaySchedules.filter((item) => {
+        const slot = slots.find((s) => String(s.schedule_id || '') === String(item.id || ''));
+        return normalizeLessonStatus(slot?.lesson_status) === '';
+      }).length,
+    [todaySchedules, slots]
+  );
 
   const slotByScheduleId = useMemo(() => {
     const map = new Map();
@@ -115,14 +160,31 @@ export default function RecepcaoTodayLessonsSection({ academyId }) {
   if (!isSchedulesConfigured()) return null;
 
   return (
-    <section className="reception-section recepcao-today-lessons" aria-label="Aulas de hoje">
-      <ReportSectionHeading
-        title="Aulas de hoje"
-        subtitle="Confirme professor e instrutor (ou marque que não houve aula)."
-      />
+    <section
+      className="reception-section recepcao-today-lessons animate-in"
+      aria-labelledby="recepcao-today-lessons-heading"
+    >
+      <div className="reception-section-head recepcao-today-lessons__head-block">
+        <div className="recepcao-today-lessons__title-wrap">
+          <h2 id="recepcao-today-lessons-heading" className="reception-section-heading">
+            <Clock3 size={18} aria-hidden />
+            Aulas de hoje
+          </h2>
+          <p className="reception-section-lead text-small text-muted">
+            {formatDateLabel(date)} · confirme professor e instrutor
+          </p>
+        </div>
+        {pendingCount > 0 ? (
+          <span className="recepcao-today-lessons__pending-chip" role="status">
+            {pendingCount} pendente{pendingCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
+      </div>
 
       {loadingSchedules && !todaySchedules.length ? (
-        <p className="text-muted text-small">Carregando aulas…</p>
+        <p className="text-muted text-small" role="status">
+          Carregando aulas…
+        </p>
       ) : !todaySchedules.length ? (
         <EmptyState
           variant="compact"
@@ -136,23 +198,54 @@ export default function RecepcaoTodayLessonsSection({ academyId }) {
             const slot = slotByScheduleId.get(item.id) || null;
             const badge = lessonBadge(slot);
             const Icon = badge.icon;
+            const timeStatus = classifyScheduleTimeStatus(item.time_start, item.time_end, now);
+            const timeLabel = scheduleTimeStatusLabel(timeStatus);
+            const modality = String(item.modality || '').trim();
             return (
               <li key={item.id}>
                 <button
                   type="button"
-                  className={`recepcao-today-lessons__card recepcao-today-lessons__card--${badge.tone}`}
+                  className={[
+                    'recepcao-today-lessons__card',
+                    `recepcao-today-lessons__card--${badge.tone}`,
+                    timeStatus === 'ongoing' ? 'recepcao-today-lessons__card--ongoing' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   onClick={() => setActive({ schedule: item, slot })}
+                  aria-label={`${item.name}, ${item.time_start} às ${item.time_end}. ${badge.shortLabel}. Abrir confirmação`}
                 >
-                  <div className="recepcao-today-lessons__head">
-                    <span className="recepcao-today-lessons__time">
-                      {item.time_start}–{item.time_end}
-                    </span>
+                  <div className="recepcao-today-lessons__card-main">
+                    <div className="recepcao-today-lessons__card-top">
+                      <span className="recepcao-today-lessons__time">
+                        {item.time_start}–{item.time_end}
+                      </span>
+                      {timeLabel ? (
+                        <span
+                          className={`recepcao-today-lessons__time-status recepcao-today-lessons__time-status--${timeStatus}`}
+                        >
+                          {timeLabel}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="recepcao-today-lessons__name">{item.name}</span>
+                    {modality ? (
+                      <span className="recepcao-today-lessons__modality text-small text-muted">
+                        {modality}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`recepcao-today-lessons__badge recepcao-today-lessons__badge--${badge.tone}`}
+                    >
+                      <Icon size={14} aria-hidden />
+                      <span className="recepcao-today-lessons__badge-text">{badge.label}</span>
+                    </span>
                   </div>
-                  <span className={`recepcao-today-lessons__badge recepcao-today-lessons__badge--${badge.tone}`}>
-                    <Icon size={14} aria-hidden />
-                    {badge.label}
-                  </span>
+                  <ChevronRight
+                    className="recepcao-today-lessons__chevron"
+                    size={18}
+                    aria-hidden
+                  />
                 </button>
               </li>
             );
@@ -166,7 +259,7 @@ export default function RecepcaoTodayLessonsSection({ academyId }) {
         schedule={active?.schedule || null}
         slot={active?.slot || null}
         dateYmd={date}
-        teamMembers={teamMembers}
+        teamMembers={staffOptions}
         onSaved={handleSaved}
       />
     </section>

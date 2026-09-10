@@ -1764,51 +1764,291 @@
           flex-direction: column;
           gap: 10px;
         }
+        .recepcao-today-lessons__head-block {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-bottom: 14px;
+        }
+        .recepcao-today-lessons__title-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+          flex: 1 1 220px;
+        }
+        .recepcao-today-lessons__title-wrap .reception-section-heading {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0;
+        }
+        .recepcao-today-lessons__title-wrap .reception-section-heading svg {
+          flex-shrink: 0;
+        }
+        .recepcao-today-lessons__title-wrap .reception-section-lead {
+          margin: 0;
+        }
+        .recepcao-today-lessons__pending-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: color-mix(in srgb, var(--color-warning, #b45309) 92%, #000);
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 16%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-warning, #f59e0b) 28%, transparent);
+          flex-shrink: 0;
+          align-self: center;
+        }
         .recepcao-today-lessons__card {
           width: 100%;
           text-align: left;
           display: flex;
-          flex-direction: column;
-          gap: 8px;
-          padding: 12px 14px;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 12px 12px 14px;
           border-radius: 12px;
           border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+          border-left-width: 3px;
+          border-left-color: color-mix(in srgb, var(--color-border) 90%, transparent);
           background: var(--color-surface, #fff);
           cursor: pointer;
-          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
         }
         .recepcao-today-lessons__card:hover {
-          border-color: color-mix(in srgb, var(--color-primary, #2563eb) 45%, var(--color-border));
-          box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 70%, transparent);
+          border-color: color-mix(in srgb, var(--color-primary, #2563eb) 35%, var(--color-border));
+          box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 65%, transparent);
         }
-        .recepcao-today-lessons__head {
+        .recepcao-today-lessons__card:focus {
+          outline: none;
+        }
+        .recepcao-today-lessons__card:focus-visible {
+          outline: 2px solid color-mix(in srgb, var(--color-primary, #2563eb) 70%, transparent);
+          outline-offset: 2px;
+        }
+        .recepcao-today-lessons__card--pending {
+          border-style: solid;
+          border-left-color: color-mix(in srgb, var(--color-warning, #f59e0b) 75%, transparent);
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 5%, var(--color-surface, #fff));
+        }
+        .recepcao-today-lessons__card--ok {
+          border-left-color: color-mix(in srgb, var(--color-success, #22c55e) 70%, transparent);
+        }
+        .recepcao-today-lessons__card--warn {
+          border-left-color: color-mix(in srgb, var(--color-warning, #f59e0b) 70%, transparent);
+        }
+        .recepcao-today-lessons__card--ongoing {
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary, #2563eb) 22%, transparent);
+        }
+        .recepcao-today-lessons__card-main {
+          flex: 1 1 auto;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .recepcao-today-lessons__card-top {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px 12px;
-          align-items: baseline;
+          align-items: center;
+          gap: 8px;
         }
         .recepcao-today-lessons__time {
           font-weight: 650;
           font-variant-numeric: tabular-nums;
+          letter-spacing: -0.01em;
+        }
+        .recepcao-today-lessons__time-status {
+          font-size: 0.72rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--color-text-muted, #64748b);
+        }
+        .recepcao-today-lessons__time-status--ongoing {
+          color: color-mix(in srgb, var(--color-primary, #2563eb) 85%, #000);
+        }
+        .recepcao-today-lessons__time-status--soon {
+          color: color-mix(in srgb, var(--color-warning, #b45309) 90%, #000);
         }
         .recepcao-today-lessons__name {
           font-weight: 600;
+          line-height: 1.25;
+          overflow-wrap: anywhere;
+        }
+        .recepcao-today-lessons__modality {
+          line-height: 1.3;
         }
         .recepcao-today-lessons__badge {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 0.85rem;
+          max-width: 100%;
+          margin-top: 4px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 550;
+          line-height: 1.3;
           color: var(--color-text-muted, #64748b);
+          background: color-mix(in srgb, var(--color-border) 35%, transparent);
+        }
+        .recepcao-today-lessons__badge-text {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .recepcao-today-lessons__badge--ok {
-          color: color-mix(in srgb, var(--color-success, #15803d) 85%, #000);
+          color: color-mix(in srgb, var(--color-success, #15803d) 90%, #000);
+          background: color-mix(in srgb, var(--color-success, #22c55e) 14%, transparent);
         }
         .recepcao-today-lessons__badge--warn {
-          color: color-mix(in srgb, var(--color-warning, #b45309) 90%, #000);
+          color: color-mix(in srgb, var(--color-warning, #b45309) 92%, #000);
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 16%, transparent);
         }
-        .recepcao-today-lessons__card--pending {
-          border-style: dashed;
+        .recepcao-today-lessons__badge--pending {
+          color: color-mix(in srgb, var(--color-warning, #b45309) 88%, #000);
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 12%, transparent);
+        }
+        .recepcao-today-lessons__chevron {
+          flex-shrink: 0;
+          color: var(--color-text-muted, #94a3b8);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .recepcao-today-lessons__card {
+            transition: none;
+          }
+        }
+
+        .recepcao-lesson-staff-modal__form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .recepcao-lesson-staff-modal__meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 12px;
+          align-items: baseline;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: color-mix(in srgb, var(--color-border) 28%, transparent);
+        }
+        .recepcao-lesson-staff-modal__meta-date {
+          font-size: 0.9rem;
+          font-weight: 600;
+          text-wrap: pretty;
+        }
+        .recepcao-lesson-staff-modal__meta-time {
+          font-variant-numeric: tabular-nums;
+          font-weight: 650;
+          color: var(--color-text-muted, #64748b);
+        }
+        .recepcao-lesson-staff-modal__fields {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .recepcao-lesson-staff-modal__switch {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+          background: var(--color-surface, #fff);
+          cursor: pointer;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+          transition: border-color 0.15s ease, background-color 0.15s ease;
+        }
+        .recepcao-lesson-staff-modal__switch:has(.recepcao-lesson-staff-modal__switch-input:checked) {
+          border-color: color-mix(in srgb, var(--color-warning, #f59e0b) 45%, var(--color-border));
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 8%, var(--color-surface, #fff));
+        }
+        .recepcao-lesson-staff-modal__switch:focus-within {
+          outline: 2px solid color-mix(in srgb, var(--color-primary, #2563eb) 55%, transparent);
+          outline-offset: 2px;
+        }
+        .recepcao-lesson-staff-modal__switch-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+        .recepcao-lesson-staff-modal__switch-ui {
+          width: 40px;
+          height: 24px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-border) 80%, #94a3b8);
+          position: relative;
+          flex-shrink: 0;
+          margin-top: 2px;
+          transition: background-color 0.15s ease;
+        }
+        .recepcao-lesson-staff-modal__switch-ui::after {
+          content: '';
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+          transition: transform 0.15s ease;
+        }
+        .recepcao-lesson-staff-modal__switch-input:checked + .recepcao-lesson-staff-modal__switch-ui {
+          background: color-mix(in srgb, var(--color-warning, #f59e0b) 75%, #b45309);
+        }
+        .recepcao-lesson-staff-modal__switch-input:checked + .recepcao-lesson-staff-modal__switch-ui::after {
+          transform: translateX(16px);
+        }
+        .recepcao-lesson-staff-modal__switch-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .recepcao-lesson-staff-modal__footer {
+          display: flex;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 8px;
+          width: 100%;
+        }
+        .recepcao-lesson-staff-modal__footer .btn-outline,
+        .recepcao-lesson-staff-modal__footer .btn-action-primary {
+          min-height: 40px;
+        }
+        @media (max-width: 480px) {
+          .recepcao-lesson-staff-modal__footer {
+            flex-direction: column-reverse;
+          }
+          .recepcao-lesson-staff-modal__footer .btn-outline,
+          .recepcao-lesson-staff-modal__footer .btn-action-primary {
+            width: 100%;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .recepcao-lesson-staff-modal__switch,
+          .recepcao-lesson-staff-modal__switch-ui,
+          .recepcao-lesson-staff-modal__switch-ui::after {
+            transition: none;
+          }
         }
         .dashboard-tasks-today {
           width: 100%;

@@ -62,11 +62,15 @@ flowchart TD
 
 ### Papéis disponíveis no convite
 
-| Papel UI | Quem pode atribuir | Appwrite roles |
+| Papel UI | Quem pode atribuir | Persistência |
 |---|---|---|
-| **Recepcionista** | Owner e admin | `member` |
-| **Administrador** | Somente owner | `admin` |
+| **Recepcionista** | Owner e admin | Appwrite team `member` (e-mail + login) |
+| **Administrador** | Somente owner | Appwrite team `admin` (e-mail + login) |
+| **Professor** | Owner e admin | Catálogo `instructors` (só nome, sem login) |
+| **Instrutor** | Owner e admin | Catálogo `instructors` (só nome, sem login) |
 | **Titular** | — (owner da academia) | `owner` / `ownerId` |
+
+Papéis com login e papéis de catálogo são **exclusivos**. Spec: [2026-09-10-equipe-professor-instrutor-design.md](../../superpowers/specs/2026-09-10-equipe-professor-instrutor-design.md).
 
 ---
 

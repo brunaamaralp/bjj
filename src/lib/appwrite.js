@@ -77,6 +77,10 @@ export const CLASS_SLOTS_COL =
 export const BOOKINGS_COL =
   import.meta.env.VITE_APPWRITE_BOOKINGS_COLLECTION_ID || 'bookings';
 
+/** Catálogo interno Professor/Instrutor (sem login). */
+export const INSTRUCTORS_COL =
+  import.meta.env.VITE_APPWRITE_INSTRUCTORS_COLLECTION_ID || 'instructors';
+
 // Tamanhos padrão de kimono
 export const KIMONO_SIZES = {
     adulto_unissex: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6'],

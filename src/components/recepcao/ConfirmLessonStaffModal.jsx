@@ -9,6 +9,27 @@ import {
   LESSON_STATUS_CONFIRMED,
   validateLessonStaffConfirmInput,
 } from '../../../lib/lessonStaffRegister.js';
+import { decodeStaffRef, encodeStaffRef } from '../../../lib/staffRoster.js';
+
+function normalizeStoredStaffId(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const decoded = decodeStaffRef(s);
+  if (!decoded.id) return '';
+  return encodeStaffRef(decoded);
+}
+
+function formatDateLabel(ymd) {
+  const raw = String(ymd || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const [y, m, d] = raw.split('-').map(Number);
+  return new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(y, m - 1, d));
+}
 
 /**
  * @param {{
@@ -40,8 +61,8 @@ export default function ConfirmLessonStaffModal({
 
   useEffect(() => {
     if (!open) return;
-    setProfessorId(String(slot?.professor_user_id || '').trim());
-    setInstructorId(String(slot?.instructor_user_id || '').trim());
+    setProfessorId(normalizeStoredStaffId(slot?.professor_user_id));
+    setInstructorId(normalizeStoredStaffId(slot?.instructor_user_id));
     const cancelled = String(slot?.lesson_status || '') === LESSON_STATUS_CANCELLED;
     setDidNotHappen(cancelled);
     setReason(String(slot?.lesson_cancel_reason || '').trim());
@@ -50,8 +71,14 @@ export default function ConfirmLessonStaffModal({
 
   const title = useMemo(() => {
     const name = String(schedule?.name || slot?.name || 'Aula').trim();
-    const time = `${schedule?.time_start || slot?.time_start || ''}–${schedule?.time_end || slot?.time_end || ''}`.trim();
-    return time ? `${name} · ${time}` : name;
+    return name || 'Confirmar staff';
+  }, [schedule, slot]);
+
+  const timeRange = useMemo(() => {
+    const start = String(schedule?.time_start || slot?.time_start || '').trim();
+    const end = String(schedule?.time_end || slot?.time_end || '').trim();
+    if (start && end) return `${start}–${end}`;
+    return start || end || '';
   }, [schedule, slot]);
 
   const options = useMemo(
@@ -110,77 +137,113 @@ export default function ConfirmLessonStaffModal({
       open={open}
       title={title}
       onClose={onClose}
-      maxWidth={480}
+      maxWidth={460}
+      closeOnEsc={!saving}
+      closeOnOverlay={!saving}
+      dialogClassName="recepcao-lesson-staff-modal"
       footer={
-        <div className="navi-modal-shell__footer-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
+        <div className="recepcao-lesson-staff-modal__footer">
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancelar
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Salvando…' : 'Confirmar'}
+          <button
+            type="button"
+            className="btn-action-primary"
+            onClick={handleSubmit}
+            disabled={saving}
+          >
+            {saving ? 'Salvando…' : didNotHappen ? 'Registrar ausência' : 'Confirmar staff'}
           </button>
         </div>
       }
     >
-      <form className="stack-form" onSubmit={handleSubmit}>
-        <p className="text-small text-muted" style={{ marginTop: 0 }}>
-          Data: <strong>{dateYmd}</strong>. Escolha quem deu a aula ou marque que não houve.
-        </p>
+      <form className="recepcao-lesson-staff-modal__form" onSubmit={handleSubmit}>
+        <div className="recepcao-lesson-staff-modal__meta" aria-live="polite">
+          <span className="recepcao-lesson-staff-modal__meta-date">{formatDateLabel(dateYmd)}</span>
+          {timeRange ? (
+            <span className="recepcao-lesson-staff-modal__meta-time">{timeRange}</span>
+          ) : null}
+        </div>
 
-        <label className="field-check">
+        <label className="recepcao-lesson-staff-modal__switch">
           <input
             type="checkbox"
+            className="recepcao-lesson-staff-modal__switch-input"
             checked={didNotHappen}
             onChange={(ev) => setDidNotHappen(ev.target.checked)}
+            name="did_not_happen"
+            disabled={saving}
           />
-          <span>Não houve aula</span>
+          <span className="recepcao-lesson-staff-modal__switch-ui" aria-hidden />
+          <span className="recepcao-lesson-staff-modal__switch-copy">
+            <strong>Não houve aula</strong>
+            <span className="text-small text-muted">Feriado, cancelamento ou sem staff</span>
+          </span>
         </label>
 
         {didNotHappen ? (
-          <label className="field">
-            <span className="field-label">Motivo</span>
+          <div className="form-group">
+            <label htmlFor="lesson-staff-reason">Motivo</label>
             <textarea
-              className="input"
+              id="lesson-staff-reason"
+              className="form-input"
               rows={3}
               value={reason}
               onChange={(ev) => setReason(ev.target.value)}
               placeholder="Ex.: feriado, falta de professor…"
+              name="lesson_cancel_reason"
+              autoComplete="off"
               required
+              disabled={saving}
             />
-          </label>
+          </div>
         ) : (
-          <>
-            <label className="field">
-              <span className="field-label">Professor</span>
+          <div className="recepcao-lesson-staff-modal__fields">
+            <div className="form-group">
+              <label htmlFor="lesson-staff-professor">Professor</label>
               <select
-                className="input"
+                id="lesson-staff-professor"
+                className="form-input"
                 value={professorId}
                 onChange={(ev) => setProfessorId(ev.target.value)}
+                name="professor_user_id"
+                autoComplete="off"
+                disabled={saving}
               >
-                <option value="">— Selecionar —</option>
+                <option value="">Selecionar…</option>
                 {options.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nome}
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="field">
-              <span className="field-label">Instrutor</span>
+            </div>
+            <div className="form-group">
+              <label htmlFor="lesson-staff-instructor">Instrutor</label>
               <select
-                className="input"
+                id="lesson-staff-instructor"
+                className="form-input"
                 value={instructorId}
                 onChange={(ev) => setInstructorId(ev.target.value)}
+                name="instructor_user_id"
+                autoComplete="off"
+                disabled={saving}
               >
-                <option value="">— Selecionar —</option>
+                <option value="">Selecionar…</option>
                 {options.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nome}
                   </option>
                 ))}
               </select>
-            </label>
-          </>
+              <p className="form-hint">Pelo menos um dos dois é obrigatório.</p>
+            </div>
+          </div>
         )}
 
         {error ? <FieldError>{error}</FieldError> : null}

@@ -14,6 +14,8 @@ export function roleLabelPt(role) {
   if (role === 'admin') return 'Administrador';
   if (role === 'receptionist') return 'Recepcionista';
   if (role === 'owner') return 'Titular';
+  if (role === 'professor') return 'Professor';
+  if (role === 'instructor') return 'Instrutor';
   return role;
 }
 
@@ -34,7 +36,13 @@ export function canViewTeamManagement(actorRole) {
 
 export function canAddTeamMember(actorRole, newTeamRole) {
   if (actorRole === 'owner') return newTeamRole !== 'owner';
-  if (actorRole === 'admin') return newTeamRole === 'receptionist';
+  if (actorRole === 'admin') {
+    return (
+      newTeamRole === 'receptionist' ||
+      newTeamRole === 'professor' ||
+      newTeamRole === 'instructor'
+    );
+  }
   return false;
 }
 

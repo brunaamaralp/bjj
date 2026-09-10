@@ -30,6 +30,9 @@ describe('teamPermissions', () => {
     expect(canAddTeamMember('admin', 'receptionist')).toBe(true);
     expect(canAddTeamMember('admin', 'admin')).toBe(false);
     expect(canAddTeamMember('owner', 'admin')).toBe(true);
+    expect(canAddTeamMember('admin', 'professor')).toBe(true);
+    expect(canAddTeamMember('admin', 'instructor')).toBe(true);
+    expect(canAddTeamMember('owner', 'professor')).toBe(true);
   });
 
   it('cannot reset own password via team actions', () => {

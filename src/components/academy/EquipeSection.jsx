@@ -39,10 +39,20 @@ import PageSkeleton from '../shared/PageSkeleton.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import FormSelect from '../shared/FormSelect.jsx';
 import SectionHeader from '../layout/SectionHeader.jsx';
+import {
+  isStaffRosterConfigured,
+  useStaffRosterStore,
+} from '../../store/staffRosterStore.js';
+import {
+  STAFF_ROSTER_ROLE_LABELS,
+  isRosterTeamRole,
+} from '../../../lib/staffRoster.js';
 
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
   { value: 'admin', label: 'Administrador' },
+  { value: 'professor', label: 'Professor' },
+  { value: 'instructor', label: 'Instrutor' },
 ];
 
 function memberInitial(m) {
@@ -54,6 +64,7 @@ function memberInitial(m) {
 function equipeRolePillClass(roleLabel) {
   if (roleLabel === 'Titular') return 'equipe-pill equipe-pill--owner';
   if (roleLabel === 'Administrador') return 'equipe-pill equipe-pill--admin';
+  if (roleLabel === 'Professor' || roleLabel === 'Instrutor') return 'equipe-pill equipe-pill--staff';
   return 'equipe-pill equipe-pill--member';
 }
 
@@ -87,7 +98,19 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersLoadError, setMembersLoadError] = useState(false);
 
+  const roster = useStaffRosterStore((s) => s.roster);
+  const fetchRoster = useStaffRosterStore((s) => s.fetchRoster);
+  const createRosterMember = useStaffRosterStore((s) => s.createRosterMember);
+  const updateRosterMember = useStaffRosterStore((s) => s.updateRosterMember);
+  const deleteRosterMember = useStaffRosterStore((s) => s.deleteRosterMember);
+
   const [newMember, setNewMember] = useState({ name: '', email: '', role: 'receptionist' });
+  const [editRoster, setEditRoster] = useState(null);
+  const [editRosterForm, setEditRosterForm] = useState({ name: '', role: 'professor' });
+  const [editRosterSaving, setEditRosterSaving] = useState(false);
+  const [editRosterError, setEditRosterError] = useState('');
+  const [removeRosterTarget, setRemoveRosterTarget] = useState(null);
+  const [removeRosterBusy, setRemoveRosterBusy] = useState(false);
   const [savingMember, setSavingMember] = useState(false);
   const [memberError, setMemberError] = useState('');
   const [tempPasswordModal, setTempPasswordModal] = useState(null);
@@ -147,6 +170,13 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
     void loadMembers();
   }, [academy?.teamId, loadMembers]);
 
+  useEffect(() => {
+    if (!academyId || !isStaffRosterConfigured()) return;
+    void fetchRoster(academyId);
+  }, [academyId, fetchRoster]);
+
+  const isRosterRole = isRosterTeamRole(newMember.role);
+
   const loadAudit = useCallback(
     async (offset = 0, append = false) => {
       if (!isOwner || !academyId) return;
@@ -174,6 +204,46 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
   const handleCreateMember = async (e) => {
     e.preventDefault();
     setMemberError('');
+
+    if (isRosterTeamRole(newMember.role)) {
+      if (!academyId) {
+        setMemberError('Academia não selecionada.');
+        return;
+      }
+      if (!newMember.name.trim()) {
+        setMemberError('Informe o nome.');
+        return;
+      }
+      if (!canAddTeamMember(actorRole, newMember.role)) {
+        setMemberError('Sem permissão para adicionar este papel.');
+        return;
+      }
+      if (!isStaffRosterConfigured()) {
+        setMemberError('Catálogo de professores ainda não configurado.');
+        return;
+      }
+      setSavingMember(true);
+      try {
+        const roleLabel = STAFF_ROSTER_ROLE_LABELS[newMember.role] || 'Membro';
+        await createRosterMember({
+          academy_id: String(academyId || '').trim(),
+          name: newMember.name.trim(),
+          role: newMember.role,
+          is_active: true,
+        });
+        setNewMember({ name: '', email: '', role: 'receptionist' });
+        addToast({
+          type: 'success',
+          message: `${roleLabel} cadastrado.`,
+        });
+      } catch (error) {
+        setMemberError(friendlyError(error, 'save'));
+      } finally {
+        setSavingMember(false);
+      }
+      return;
+    }
+
     if (!hasTeam) {
       setMemberError('Equipe ainda não configurada. Salve os dados da academia primeiro.');
       return;
@@ -375,8 +445,17 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
 
   const showActionsColumn = useMemo(() => {
     if (!canManage) return false;
+    if (roster.length > 0) return true;
     return staffMembers.some((m) => memberRowHasActions(m));
-  }, [canManage, staffMembers, memberRowHasActions]);
+  }, [canManage, staffMembers, memberRowHasActions, roster.length]);
+
+  const combinedCount = staffMembers.length + roster.length;
+  const memberCountLabel =
+    combinedCount === 0
+      ? 'Nenhum colaborador além do titular'
+      : combinedCount === 1
+        ? '1 colaborador na equipe'
+        : `${combinedCount} colaboradores na equipe`;
 
   const renderRowActions = (m) => {
     if (!memberRowHasActions(m)) return null;
@@ -421,21 +500,44 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
     );
   };
 
-  const memberCountLabel =
-    staffMembers.length === 0
-      ? 'Nenhum colaborador além do titular'
-      : staffMembers.length === 1
-        ? '1 colaborador na equipe'
-        : `${staffMembers.length} colaboradores na equipe`;
+  const renderRosterRowActions = (r) => {
+    if (!canManage) return null;
+    return (
+      <div className="equipe-table__actions-inner">
+        <button
+          type="button"
+          className="btn-action-ghost"
+          title="Editar"
+          aria-label="Editar"
+          onClick={() => {
+            setEditRosterError('');
+            setEditRosterForm({ name: r.name, role: r.role });
+            setEditRoster(r);
+          }}
+        >
+          <Pencil size={16} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="btn-action-ghost btn-action-ghost--danger"
+          title="Remover"
+          aria-label="Remover"
+          onClick={() => setRemoveRosterTarget(r)}
+        >
+          <Trash2 size={16} aria-hidden />
+        </button>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!onMetaChange) return;
-    if (!hasTeam) {
+    if (!hasTeam && roster.length === 0) {
       onMetaChange(null);
       return;
     }
     onMetaChange(memberCountLabel);
-  }, [hasTeam, memberCountLabel, onMetaChange]);
+  }, [hasTeam, memberCountLabel, onMetaChange, roster.length]);
 
   const renderOwnerCard = () => {
     if (!ownerMember) return null;
@@ -515,7 +617,10 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
 
   const roleOptionsForAdd = isOwner
     ? ROLE_OPTIONS
-    : ROLE_OPTIONS.filter((r) => r.value === 'receptionist');
+    : ROLE_OPTIONS.filter((r) => r.value !== 'admin');
+
+  const inviteSubmitDisabled = savingMember || !newMember.name.trim() || (!isRosterRole && !newMember.email.trim());
+  const invitePanelVisible = canManage && (hasTeam || isStaffRosterConfigured());
 
   return (
     <section className="equipe-section animate-in">
@@ -527,12 +632,14 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
         />
       ) : null}
 
-      {canManage && hasTeam ? (
+      {invitePanelVisible ? (
         <div className="page-header-card equipe-invite-panel">
           <div className="equipe-invite-panel__head">
-            <p className="navi-eyebrow">Convidar colaborador</p>
+            <p className="navi-eyebrow">{isRosterRole ? 'Cadastrar professor/instrutor' : 'Convidar colaborador'}</p>
             <p className="text-small text-muted equipe-invite-panel__lead">
-              Envie um convite por e-mail ou readicione quem já teve acesso à academia.
+              {isRosterRole
+                ? 'Cadastro interno para controle de aulas — sem e-mail e sem acesso ao sistema.'
+                : 'Envie um convite por e-mail ou readicione quem já teve acesso à academia.'}
             </p>
           </div>
           <form onSubmit={handleCreateMember} className="equipe-invite-form">
@@ -550,27 +657,29 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                   autoComplete="name"
                 />
               </div>
-              <div className="equipe-field">
-                <label htmlFor="equipe-add-email">E-mail</label>
-                <input
-                  id="equipe-add-email"
-                  className="form-input"
-                  type="email"
-                  placeholder="recepcao@academia.com"
-                  value={newMember.email}
-                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                  disabled={savingMember}
-                  autoComplete="email"
-                />
-              </div>
+              {!isRosterRole ? (
+                <div className="equipe-field">
+                  <label htmlFor="equipe-add-email">E-mail</label>
+                  <input
+                    id="equipe-add-email"
+                    className="form-input"
+                    type="email"
+                    placeholder="recepcao@academia.com"
+                    value={newMember.email}
+                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    disabled={savingMember}
+                    autoComplete="email"
+                  />
+                </div>
+              ) : null}
               <div className="equipe-field">
                 <label htmlFor="equipe-add-role">Papel</label>
                 <select
                   id="equipe-add-role"
                   className="form-input"
                   value={newMember.role}
-                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                  disabled={savingMember || actorRole === 'admin'}
+                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value, email: isRosterTeamRole(e.target.value) ? '' : newMember.email })}
+                  disabled={savingMember}
                 >
                   {roleOptionsForAdd.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -580,7 +689,7 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                 </select>
                 {actorRole === 'admin' ? (
                   <p className="text-xs text-muted" style={{ marginTop: 6 }}>
-                    Administradores só podem adicionar recepcionistas.
+                    Administradores não podem adicionar outros administradores.
                   </p>
                 ) : null}
               </div>
@@ -590,9 +699,16 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
               <button
                 type="submit"
                 className="btn-action-primary"
-                disabled={savingMember || !newMember.name.trim() || !newMember.email.trim()}
+                disabled={inviteSubmitDisabled || (isRosterRole ? false : !hasTeam)}
               >
-                <Plus size={16} aria-hidden /> {savingMember ? 'Enviando…' : 'Enviar convite'}
+                <Plus size={16} aria-hidden />{' '}
+                {savingMember
+                  ? isRosterRole
+                    ? 'Salvando…'
+                    : 'Enviando…'
+                  : isRosterRole
+                    ? 'Cadastrar'
+                    : 'Enviar convite'}
               </button>
             </div>
           </form>
@@ -724,12 +840,56 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                     </article>
                   );
                 })}
-                {staffMembers.length === 0 && !membersLoadError ? (
+                {roster.map((r) => {
+                  const roleLabel = STAFF_ROSTER_ROLE_LABELS[r.role] || r.role;
+                  return (
+                    <article key={`roster-${r.id}`} className="equipe-mobile-card">
+                      <div className="equipe-mobile-card__head">
+                        <span className="equipe-avatar" aria-hidden>
+                          {String(r.name || '?').charAt(0).toUpperCase()}
+                        </span>
+                        <div className="equipe-mobile-card__body">
+                          <div className="equipe-mobile-card__name">{r.name}</div>
+                          <div className="equipe-mobile-card__email text-small text-muted">Sem login</div>
+                        </div>
+                        <div className="equipe-mobile-card__badges">
+                          <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
+                          <span className={equipeStatusPillClass(r.is_active ? 'Ativo' : 'Inativo')}>
+                            {r.is_active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
+                      </div>
+                      {canManage ? (
+                        <div className="equipe-mobile-card__actions">
+                          <button
+                            type="button"
+                            className="btn-outline"
+                            onClick={() => {
+                              setEditRosterError('');
+                              setEditRosterForm({ name: r.name, role: r.role });
+                              setEditRoster(r);
+                            }}
+                          >
+                            <Pencil size={16} aria-hidden /> Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-outline equipe-action--danger"
+                            onClick={() => setRemoveRosterTarget(r)}
+                          >
+                            <Trash2 size={16} aria-hidden /> Remover
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+                {staffMembers.length === 0 && roster.length === 0 && !membersLoadError ? (
                   <EmptyState
                     variant="compact"
                     tone="dashed"
-                    title="Nenhum colaborador convidado."
-                    description="Use o formulário acima para convidar recepcionistas ou administradores."
+                    title="Nenhum colaborador cadastrado."
+                    description="Convide recepcionistas/admins ou cadastre professores e instrutores."
                     role="status"
                   />
                 ) : null}
@@ -772,14 +932,42 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                         </tr>
                       );
                     })}
+                    {roster.map((r) => {
+                      const roleLabel = STAFF_ROSTER_ROLE_LABELS[r.role] || r.role;
+                      return (
+                        <tr key={`roster-${r.id}`}>
+                          <td>
+                            <div className="equipe-table__name-cell">
+                              <span className="equipe-avatar" aria-hidden>
+                                {String(r.name || '?').charAt(0).toUpperCase()}
+                              </span>
+                              <span className="equipe-table__name">{r.name}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={equipeRolePillClass(roleLabel)}>{roleLabel}</span>
+                          </td>
+                          <td className="text-small text-muted">—</td>
+                          <td className="text-small text-muted">—</td>
+                          <td>
+                            <span className={equipeStatusPillClass(r.is_active ? 'Ativo' : 'Inativo')}>
+                              {r.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
+                          {showActionsColumn ? (
+                            <td className="equipe-table__actions">{renderRosterRowActions(r)}</td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
-                {staffMembers.length === 0 && !membersLoadError ? (
+                {staffMembers.length === 0 && roster.length === 0 && !membersLoadError ? (
                   <EmptyState
                     variant="compact"
                     tone="dashed"
-                    title="Nenhum colaborador convidado."
-                    description="Use o formulário acima para convidar recepcionistas ou administradores."
+                    title="Nenhum colaborador cadastrado."
+                    description="Convide recepcionistas/admins ou cadastre professores e instrutores."
                     role="status"
                   />
                 ) : null}
@@ -1000,6 +1188,99 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
         loading={resetBusy}
         onClose={() => !resetBusy && setResetTarget(null)}
         onConfirm={() => void confirmResetPassword()}
+      />
+
+      <ModalShell
+        open={Boolean(editRoster)}
+        title="Editar professor/instrutor"
+        onClose={() => !editRosterSaving && setEditRoster(null)}
+        maxWidth={440}
+      >
+        {editRoster ? (
+          <form
+            className="flex-col gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setEditRosterError('');
+              setEditRosterSaving(true);
+              try {
+                await updateRosterMember(editRoster.id, {
+                  academy_id: academyId,
+                  name: editRosterForm.name,
+                  role: editRosterForm.role,
+                  is_active: editRoster.is_active,
+                });
+                setEditRoster(null);
+                addToast({ type: 'success', message: 'Cadastro atualizado.' });
+              } catch (err) {
+                setEditRosterError(friendlyError(err, 'save'));
+              } finally {
+                setEditRosterSaving(false);
+              }
+            }}
+          >
+            <div className="form-group">
+              <label htmlFor="equipe-edit-roster-name">Nome</label>
+              <input
+                id="equipe-edit-roster-name"
+                className="form-input"
+                value={editRosterForm.name}
+                onChange={(e) => setEditRosterForm((f) => ({ ...f, name: e.target.value }))}
+                disabled={editRosterSaving}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="equipe-edit-roster-role">Papel</label>
+              <select
+                id="equipe-edit-roster-role"
+                className="form-input"
+                value={editRosterForm.role}
+                onChange={(e) => setEditRosterForm((f) => ({ ...f, role: e.target.value }))}
+                disabled={editRosterSaving}
+              >
+                <option value="professor">Professor</option>
+                <option value="instructor">Instrutor</option>
+              </select>
+            </div>
+            {editRosterError ? <FieldError>{editRosterError}</FieldError> : null}
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={editRosterSaving}
+                onClick={() => setEditRoster(null)}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="btn-action-primary" disabled={editRosterSaving}>
+                {editRosterSaving ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </ModalShell>
+
+      <ConfirmDialog
+        open={Boolean(removeRosterTarget)}
+        title={removeRosterTarget ? `Remover ${removeRosterTarget.name}?` : ''}
+        description="O cadastro interno será excluído. Confirmações de aula já feitas mantêm o nome registrado."
+        confirmLabel="Remover"
+        confirmVariant="danger"
+        loading={removeRosterBusy}
+        onClose={() => !removeRosterBusy && setRemoveRosterTarget(null)}
+        onConfirm={async () => {
+          if (!removeRosterTarget) return;
+          setRemoveRosterBusy(true);
+          try {
+            await deleteRosterMember(removeRosterTarget.id);
+            addToast({ type: 'success', message: 'Cadastro removido.' });
+          } catch (err) {
+            addToast({ type: 'error', message: friendlyError(err, 'delete') });
+          } finally {
+            setRemoveRosterBusy(false);
+            setRemoveRosterTarget(null);
+          }
+        }}
       />
     </section>
   );
