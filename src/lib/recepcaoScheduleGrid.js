@@ -21,6 +21,56 @@ export function getTodayWeekdayId(refDate = new Date()) {
   return JS_DAY_TO_ID[refDate.getDay()];
 }
 
+const WEEKDAY_ORDER = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * @param {string} ymd
+ * @param {number} deltaDays
+ */
+export function addDaysYmd(ymd, deltaDays) {
+  const raw = String(ymd || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+  const [y, m, d] = raw.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + Number(deltaDays || 0));
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Data (YMD) do weekday na mesma semana civil que `refDate`.
+ * @param {string} weekdayId
+ * @param {Date} [refDate]
+ * @param {string} [timeZone]
+ */
+export function ymdForWeekdayId(weekdayId, refDate = new Date(), timeZone = 'America/Sao_Paulo') {
+  const baseYmd =
+    refDate instanceof Date
+      ? refDate.toLocaleDateString('en-CA', { timeZone })
+      : todayYmd(timeZone);
+  const baseId = getTodayWeekdayId(refDate instanceof Date ? refDate : new Date());
+  const from = WEEKDAY_ORDER.indexOf(baseId);
+  const to = WEEKDAY_ORDER.indexOf(String(weekdayId || '').trim());
+  if (from < 0 || to < 0) return baseYmd;
+  return addDaysYmd(baseYmd, to - from);
+}
+
+/**
+ * @param {string[]} columnIds
+ * @param {Date} [refDate]
+ * @returns {{ from: string, to: string }}
+ */
+export function weekYmdRangeForColumns(columnIds, refDate = new Date()) {
+  const dates = (columnIds || [])
+    .map((id) => ymdForWeekdayId(id, refDate))
+    .filter(Boolean)
+    .sort();
+  if (!dates.length) {
+    const t = todayYmd();
+    return { from: t, to: t };
+  }
+  return { from: dates[0], to: dates[dates.length - 1] };
+}
+
 /** @param {object[]} schedules */
 export function resolveScheduleGridColumns(schedules) {
   const active = (schedules || []).filter((s) => s?.is_active !== false);
@@ -189,7 +239,12 @@ export function scrollChildHorizontallyIntoContainer(container, child, opts = {}
 
 /**
  * @param {object} item
- * @param {{ isToday?: boolean, slotByScheduleId?: Map<string, object>, nowDate?: Date }} ctx
+ * @param {{
+ *   isToday?: boolean,
+ *   slot?: object | null,
+ *   slotByScheduleId?: Map<string, object>,
+ *   nowDate?: Date,
+ * }} ctx
  */
 export function resolveScheduleCardContext(item, ctx = {}) {
   const isToday = Boolean(ctx.isToday);
@@ -197,14 +252,19 @@ export function resolveScheduleCardContext(item, ctx = {}) {
   const timeStatus = isToday
     ? classifyScheduleTimeStatus(item?.time_start, item?.time_end, nowDate)
     : null;
-  const slot = isToday && ctx.slotByScheduleId ? ctx.slotByScheduleId.get(String(item?.id || '')) : null;
+  const slot =
+    ctx.slot !== undefined
+      ? ctx.slot
+      : ctx.slotByScheduleId
+        ? ctx.slotByScheduleId.get(String(item?.id || '')) || null
+        : null;
   const occupancy = slot
     ? {
         booked: Number(slot.booked_count) || 0,
         max: slot.max_capacity == null ? null : Number(slot.max_capacity) || null,
       }
     : null;
-  return { timeStatus, occupancy };
+  return { timeStatus, occupancy, slot };
 }
 
 /** @param {{ booked: number, max: number | null }} occupancy */

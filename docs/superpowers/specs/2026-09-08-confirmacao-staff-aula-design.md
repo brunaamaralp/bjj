@@ -18,6 +18,8 @@
 
 ---
 
+**Nota (2026-09-10):** a entrada na Recepção passou a ser o clique no card da **grade semanal** (qualquer dia). A seção «Aulas de hoje» foi removida — ver [2026-09-10-confirmacao-staff-na-grade-design.md](./2026-09-10-confirmacao-staff-na-grade-design.md).
+
 ## 1. Problem Statement
 
 A academia precisa saber, por dia, **quem foi o professor** e **quem foi o instrutor** de cada aula, para contabilizar **aulas dadas** por colaborador. Hoje isso não existe: a recepção só vê o nome previsto na grade.

@@ -4,8 +4,14 @@ import { Clock } from 'lucide-react';
 import ReportSectionHeading from '../reports/shared/ReportSectionHeading.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
 import ScheduleGridCard from './ScheduleGridCard.jsx';
+import ConfirmLessonStaffModal from './ConfirmLessonStaffModal.jsx';
 import { isClassesConfigured, useClassesStore } from '../../store/classesStore.js';
 import { isSchedulesConfigured, useSchedulesStore } from '../../store/schedulesStore.js';
+import { isClassSlotsConfigured, useClassSlotsStore } from '../../store/classSlotsStore.js';
+import { useStaffRosterStore, isStaffRosterConfigured } from '../../store/staffRosterStore.js';
+import { fetchTeamMemberships } from '../../lib/teamApi.js';
+import { normalizeReportsOperatorTeam } from '../../lib/reportsOperatorTeam.js';
+import { buildLessonStaffPickerOptions } from '../../../lib/staffRoster.js';
 import {
   buildWeeklyScheduleGrid,
   collectScheduleModalities,
@@ -17,7 +23,10 @@ import {
   readModalityFilter,
   resolveScheduleGridColumns,
   scrollChildHorizontallyIntoContainer,
+  slotByScheduleIdForDate,
+  weekYmdRangeForColumns,
   writeModalityFilter,
+  ymdForWeekdayId,
 } from '../../lib/recepcaoScheduleGrid.js';
 
 function SchedulesGridSkeleton() {
@@ -30,18 +39,40 @@ function SchedulesGridSkeleton() {
   );
 }
 
-function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef }) {
+function SchedulesWeekTable({
+  grid,
+  todayId,
+  classById,
+  gridWrapRef,
+  todayColRef,
+  slots,
+  onSelectLesson,
+}) {
   const now = useMemo(() => new Date(), []);
+
+  const slotsByDate = useMemo(() => {
+    /** @type {Map<string, Map<string, object>>} */
+    const byDate = new Map();
+    const dates = new Set((slots || []).map((s) => String(s.slot_date || '').trim()).filter(Boolean));
+    for (const col of grid.columns || []) {
+      const ymd = ymdForWeekdayId(col.id);
+      dates.add(ymd);
+    }
+    for (const ymd of dates) {
+      byDate.set(ymd, slotByScheduleIdForDate(slots, ymd));
+    }
+    return byDate;
+  }, [slots, grid.columns]);
 
   return (
     <div
       className="schedules-week-grid-wrap"
       ref={gridWrapRef}
       tabIndex={0}
-      aria-label="Grade semanal — deslize horizontalmente para ver todos os dias"
+      aria-label="Grade semanal — clique numa aula para confirmar professor e instrutor"
     >
       <p className="schedules-week-grid__scroll-hint text-small text-muted" aria-hidden>
-        Deslize para ver todos os dias
+        Deslize para ver todos os dias · clique na aula para confirmar staff
       </p>
       <table className="schedules-week-grid">
         <thead>
@@ -79,6 +110,8 @@ function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef
                 const isToday = col.id === todayId;
                 const cls = isToday ? 'schedules-week-grid__col--today' : '';
                 const items = row.cells[col.id] || [];
+                const dateYmd = ymdForWeekdayId(col.id);
+                const slotMap = slotsByDate.get(dateYmd) || new Map();
                 return (
                   <td
                     key={col.id}
@@ -92,6 +125,7 @@ function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef
                           const timeStatus = isToday
                             ? classifyScheduleTimeStatus(item.time_start, item.time_end, now)
                             : null;
+                          const slot = slotMap.get(String(item.id || '')) || null;
                           return (
                             <ScheduleGridCard
                               key={item.id}
@@ -99,6 +133,9 @@ function SchedulesWeekTable({ grid, todayId, classById, gridWrapRef, todayColRef
                               classDoc={classById.get(item.class_id) || null}
                               variant="table"
                               timeStatus={timeStatus}
+                              slot={slot}
+                              dateLabel={dateYmd}
+                              onSelect={() => onSelectLesson?.({ schedule: item, slot, dateYmd })}
                             />
                           );
                         })}
@@ -126,7 +163,16 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   const classes = useClassesStore((s) => s.classes);
   const fetchClasses = useClassesStore((s) => s.fetchClasses);
 
+  const slots = useClassSlotsStore((s) => s.slots);
+  const fetchSlotsForRange = useClassSlotsStore((s) => s.fetchSlotsForRange);
+  const upsertSlot = useClassSlotsStore((s) => s.upsertSlot);
+
+  const roster = useStaffRosterStore((s) => s.roster);
+  const fetchRoster = useStaffRosterStore((s) => s.fetchRoster);
+
   const [modalityFilter, setModalityFilter] = useState(() => readModalityFilter());
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [active, setActive] = useState(null);
 
   const gridWrapRef = useRef(null);
   const todayColRef = useRef(null);
@@ -144,9 +190,33 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
   }, [academyId, configured, fetchSchedules, fetchClasses]);
 
   useEffect(() => {
+    if (!academyId) return;
+    let cancelled = false;
+    fetchTeamMemberships(academyId)
+      .then((data) => {
+        if (!cancelled) setTeamMembers(normalizeReportsOperatorTeam(data));
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId]);
+
+  useEffect(() => {
+    if (!academyId || !isStaffRosterConfigured()) return;
+    void fetchRoster(academyId, { activeOnly: true });
+  }, [academyId, fetchRoster]);
+
+  const staffOptions = useMemo(
+    () => buildLessonStaffPickerOptions({ teamMembers, roster }),
+    [teamMembers, roster]
+  );
+
+  useEffect(() => {
     if (!gridWrapRef.current || !todayColRef.current || didScrollToTodayRef.current) return;
     didScrollToTodayRef.current = true;
-    // Horizontal only — scrollIntoView also scrolled the page.
     scrollChildHorizontallyIntoContainer(gridWrapRef.current, todayColRef.current, {
       behavior: 'smooth',
     });
@@ -173,6 +243,29 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
     [filtered, columns]
   );
 
+  const weekRange = useMemo(
+    () => weekYmdRangeForColumns(columns.map((c) => c.id)),
+    [columns]
+  );
+
+  useEffect(() => {
+    if (!academyId || !isClassSlotsConfigured() || !weekRange.from || !weekRange.to) return;
+    void fetchSlotsForRange(academyId, weekRange.from, weekRange.to, { silent: true });
+  }, [academyId, weekRange.from, weekRange.to, fetchSlotsForRange]);
+
+  const handleSaved = useCallback(
+    (slot) => {
+      if (slot) upsertSlot(slot);
+      if (academyId && weekRange.from && weekRange.to) {
+        void fetchSlotsForRange(academyId, weekRange.from, weekRange.to, {
+          force: true,
+          silent: true,
+        });
+      }
+    },
+    [academyId, fetchSlotsForRange, upsertSlot, weekRange.from, weekRange.to]
+  );
+
   if (!configured) return null;
 
   const emptyDescription = isOwner
@@ -192,6 +285,9 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
             </>
           }
         />
+        <p className="reception-section-lead text-small text-muted schedules-grid-section__lead">
+          Clique numa aula para confirmar professor e instrutor
+        </p>
       </div>
 
       {modalities.length > 1 ? (
@@ -242,8 +338,20 @@ export default function RecepcaoSchedulesGrid({ academyId, isOwner = false }) {
           classById={classById}
           gridWrapRef={gridWrapRef}
           todayColRef={todayColRef}
+          slots={slots}
+          onSelectLesson={setActive}
         />
       ) : null}
+
+      <ConfirmLessonStaffModal
+        open={Boolean(active)}
+        onClose={() => setActive(null)}
+        schedule={active?.schedule || null}
+        slot={active?.slot || null}
+        dateYmd={active?.dateYmd || ''}
+        teamMembers={staffOptions}
+        onSaved={handleSaved}
+      />
     </section>
   );
 }

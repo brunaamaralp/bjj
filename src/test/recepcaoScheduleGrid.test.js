@@ -16,7 +16,10 @@ import {
   scheduleTimeStatusLabel,
   scrollChildHorizontallyIntoContainer,
   slotByScheduleIdForDate,
+  addDaysYmd,
+  weekYmdRangeForColumns,
   writeModalityFilter,
+  ymdForWeekdayId,
 } from '../lib/recepcaoScheduleGrid.js';
 
 describe('recepcaoScheduleGrid', () => {
@@ -96,6 +99,27 @@ describe('recepcaoScheduleGrid', () => {
     );
     expect(map.get('sch1')?.id).toBe('s1');
     expect(map.has('sch2')).toBe(false);
+  });
+
+  it('addDaysYmd shifts calendar days', () => {
+    expect(addDaysYmd('2026-09-10', 1)).toBe('2026-09-11');
+    expect(addDaysYmd('2026-09-10', -3)).toBe('2026-09-07');
+  });
+
+  it('ymdForWeekdayId resolves same week relative to refDate', () => {
+    // Wednesday 2026-09-09
+    const wed = new Date(2026, 8, 9, 12, 0, 0);
+    expect(ymdForWeekdayId('wed', wed)).toBe('2026-09-09');
+    expect(ymdForWeekdayId('mon', wed)).toBe('2026-09-07');
+    expect(ymdForWeekdayId('fri', wed)).toBe('2026-09-11');
+  });
+
+  it('weekYmdRangeForColumns returns sorted bounds', () => {
+    const wed = new Date(2026, 8, 9, 12, 0, 0);
+    expect(weekYmdRangeForColumns(['mon', 'fri'], wed)).toEqual({
+      from: '2026-09-07',
+      to: '2026-09-11',
+    });
   });
 
   it('capacityTone returns full, warn and ok', () => {

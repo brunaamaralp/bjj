@@ -115,7 +115,6 @@ import { useDashboardMonthEnrollmentMetrics } from '../hooks/useDashboardMonthEn
 import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
-import RecepcaoTodayLessonsSection from '../components/recepcao/RecepcaoTodayLessonsSection.jsx';
 import DashboardTasksTodaySection from '../components/dashboard/DashboardTasksTodaySection.jsx';
 import KimonoLoanPanel from '../components/recepcao/KimonoLoanPanel.jsx';
 import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
@@ -1704,7 +1703,6 @@ const Dashboard = () => {
             </div>
 
             <div className="agenda-ops-stack" aria-label="Consulta e referência">
-                <RecepcaoTodayLessonsSection academyId={academyId} />
                 <RecepcaoSchedulesGrid academyId={academyId} isOwner={isOwner} />
             </div>
             </div>

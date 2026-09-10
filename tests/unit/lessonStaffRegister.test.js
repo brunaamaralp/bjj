@@ -4,6 +4,7 @@ import {
   LESSON_STATUS_CONFIRMED,
   LESSON_STATUS_PENDING,
   aggregateLessonStaffTotals,
+  buildLessonStaffCardBadge,
   buildLessonStaffCsvRows,
   buildLessonStaffPatch,
   validateLessonStaffConfirmInput,
@@ -46,6 +47,42 @@ describe('validateLessonStaffConfirmInput', () => {
       professor_user_id: 'u1',
     });
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('buildLessonStaffCardBadge', () => {
+  it('returns pending when no slot', () => {
+    expect(buildLessonStaffCardBadge(null)).toMatchObject({
+      tone: 'pending',
+      shortLabel: 'Pendente',
+    });
+  });
+
+  it('returns ok with names when confirmed', () => {
+    expect(
+      buildLessonStaffCardBadge({
+        lesson_status: LESSON_STATUS_CONFIRMED,
+        professor_name: 'Ana',
+        instructor_name: 'Beto',
+      })
+    ).toMatchObject({
+      tone: 'ok',
+      label: 'Ana · Beto',
+      shortLabel: 'Confirmada',
+    });
+  });
+
+  it('returns warn when cancelled', () => {
+    expect(
+      buildLessonStaffCardBadge({
+        lesson_status: LESSON_STATUS_CANCELLED,
+        lesson_cancel_reason: 'Feriado',
+      })
+    ).toMatchObject({
+      tone: 'warn',
+      label: 'Feriado',
+      shortLabel: 'Não houve',
+    });
   });
 });
 

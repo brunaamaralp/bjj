@@ -18,12 +18,13 @@
 - [2026-06-10-dashboard-retornos-row-design.md](../../superpowers/specs/2026-06-10-dashboard-retornos-row-design.md) — lista e saúde de follow-ups (spec histórica; UI usa «follow-up»)
 - [2026-06-10-followup-experimental-design.md](../../superpowers/specs/2026-06-10-followup-experimental-design.md) — follow-up e outcomes
 - [2026-09-08-confirmacao-staff-aula-design.md](../../superpowers/specs/2026-09-08-confirmacao-staff-aula-design.md) — confirmação professor/instrutor + relatório
+- [2026-09-10-confirmacao-staff-na-grade-design.md](../../superpowers/specs/2026-09-10-confirmacao-staff-na-grade-design.md) — confirmação no clique da grade (sem lista «Aulas de hoje»)
 
 **Fluxo relacionado:** [recepcao-controlid.md](recepcao-controlid.md) — detalhe da aba **Catraca** (Control iD, histórico, retenção)
 
 **Harness relacionado:** `src/test/recepcaoHubTabs.test.js`, `src/test/dashboardDayBriefing.test.js`; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`, `src/lib/dashboardReceptionCopy.js`
 
-**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/RecepcaoTodayLessonsSection.jsx`, `src/components/recepcao/KimonoLoanPanel.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
+**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/ConfirmLessonStaffModal.jsx`, `src/components/recepcao/KimonoLoanPanel.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
 
 ---
 
@@ -130,7 +131,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 10. [ ] Nome do lead → `/lead/:id` → voltar à Recepção
 11c. [ ] **Grade de horários** — coluna «Hoje» destacada; cards compactos (nome, professor, modalidade); scroll horizontal no mobile
 11c. [ ] **Grade de horários** — lotação na coluna hoje (quando slots existem); filtro modalidade persiste na sessão; link «Editar horários» (owner); coluna horário sticky no desktop
-11e. [ ] **Aulas de hoje** — cards clicáveis; confirmar professor/instrutor da Equipe ou «Não houve» com motivo; badge atualiza; editar confirmação
+11e. [ ] **Confirmação de staff na grade** — clique em qualquer aula da semana abre modal; badge pendente/confirmada/não houve; Equipe + roster; editar reabrindo o card
 11f. [ ] **Relatórios → Aulas (staff)** — totais por colaborador no período; export CSV e PDF
 11d. [ ] **Kimonos** — painel mostra totais, busca filtrável de peças disponíveis (selecionar abre modal com tamanho pré-selecionado) e lista de emprestados; **Emprestar** registra saída; **Devolver** encerra empréstimo; configuração de alerta fica recolhida
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
