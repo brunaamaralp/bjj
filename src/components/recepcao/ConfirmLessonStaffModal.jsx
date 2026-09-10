@@ -71,7 +71,7 @@ export default function ConfirmLessonStaffModal({
 
   const title = useMemo(() => {
     const name = String(schedule?.name || slot?.name || 'Aula').trim();
-    return name || 'Confirmar staff';
+    return name || 'Confirmar equipe';
   }, [schedule, slot]);
 
   const timeRange = useMemo(() => {
@@ -122,7 +122,7 @@ export default function ConfirmLessonStaffModal({
         schedule_id: schedule?.id || slot?.schedule_id || '',
         date: dateYmd,
       });
-      toast.success(didNotHappen ? 'Aula marcada como não realizada.' : 'Staff da aula confirmado.');
+      toast.success(didNotHappen ? 'Aula marcada como não realizada.' : 'Equipe da aula confirmada.');
       onSaved?.(data.slot);
       onClose?.();
     } catch (err) {
@@ -157,7 +157,7 @@ export default function ConfirmLessonStaffModal({
             onClick={handleSubmit}
             disabled={saving}
           >
-            {saving ? 'Salvando…' : didNotHappen ? 'Registrar ausência' : 'Confirmar staff'}
+            {saving ? 'Salvando…' : didNotHappen ? 'Registrar ausência' : 'Confirmar equipe'}
           </button>
         </div>
       }
@@ -182,7 +182,7 @@ export default function ConfirmLessonStaffModal({
           <span className="recepcao-lesson-staff-modal__switch-ui" aria-hidden />
           <span className="recepcao-lesson-staff-modal__switch-copy">
             <strong>Não houve aula</strong>
-            <span className="text-small text-muted">Feriado, cancelamento ou sem staff</span>
+            <span className="text-small text-muted">Feriado, cancelamento ou sem professor/instrutor</span>
           </span>
         </label>
 

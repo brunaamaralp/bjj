@@ -131,8 +131,8 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 10. [ ] Nome do lead → `/lead/:id` → voltar à Recepção
 11c. [ ] **Grade de horários** — coluna «Hoje» destacada; cards compactos (nome, professor, modalidade); scroll horizontal no mobile
 11c. [ ] **Grade de horários** — lotação na coluna hoje (quando slots existem); filtro modalidade persiste na sessão; link «Editar horários» (owner); coluna horário sticky no desktop
-11e. [ ] **Confirmação de staff na grade** — clique em qualquer aula da semana abre modal; badge pendente/confirmada/não houve; Equipe + roster; editar reabrindo o card
-11f. [ ] **Relatórios → Aulas (staff)** — totais por colaborador no período; export CSV e PDF
+11e. [ ] **Confirmação de equipe na grade** — clique em qualquer aula da semana abre modal; badge pendente/confirmada/não houve; Equipe + roster; editar reabrindo o card
+11f. [ ] **Relatórios → Aulas (equipe)** — totais por colaborador no período; export CSV e PDF
 11d. [ ] **Kimonos** — painel mostra totais, busca filtrável de peças disponíveis (selecionar abre modal com tamanho pré-selecionado) e lista de emprestados; **Emprestar** registra saída; **Devolver** encerra empréstimo; configuração de alerta fica recolhida
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
 13. [ ] Aniversariantes: banner + modal + template

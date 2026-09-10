@@ -200,6 +200,11 @@
   color: var(--text-secondary);
 }
 
+.equipe-pill--roster {
+  background: color-mix(in srgb, var(--accent, #6c47d8) 12%, var(--surface));
+  color: var(--accent, #6c47d8);
+}
+
 .equipe-pill--pending {
   background: color-mix(in srgb, var(--warning) 14%, var(--surface));
   color: var(--warning, #9a7b12);

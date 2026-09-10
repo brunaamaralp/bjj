@@ -61,7 +61,7 @@ export default function ScheduleGridCard({
     item.time_start && item.time_end ? `${item.time_start} às ${item.time_end}` : '',
     dateLabel,
     lessonBadge.shortLabel,
-    onSelect ? 'Abrir confirmação de staff' : '',
+    onSelect ? 'Abrir confirmação da equipe' : '',
   ]
     .filter(Boolean)
     .join('. ');

@@ -72,7 +72,7 @@ function SchedulesWeekTable({
       aria-label="Grade semanal — clique numa aula para confirmar professor e instrutor"
     >
       <p className="schedules-week-grid__scroll-hint text-small text-muted" aria-hidden>
-        Deslize para ver todos os dias · clique na aula para confirmar staff
+        Deslize para ver todos os dias · clique na aula para confirmar a equipe
       </p>
       <table className="schedules-week-grid">
         <thead>

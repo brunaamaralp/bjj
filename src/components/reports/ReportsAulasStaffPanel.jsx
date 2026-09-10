@@ -140,7 +140,7 @@ export default function ReportsAulasStaffPanel({
   return (
     <ReportsPanelShell>
       <ReportSectionHeading
-        title="Aulas (staff)"
+        title="Aulas (equipe)"
         subtitle={
           periodLabel
             ? `Aulas confirmadas por professor e instrutor · ${periodLabel}`
@@ -205,7 +205,7 @@ export default function ReportsAulasStaffPanel({
                 variant="compact"
                 tone="dashed"
                 title="Sem aulas confirmadas no período"
-                description="Na Recepção, confirme o staff das aulas do dia para alimentar este relatório."
+                description="Na Recepção, confirme a equipe nas aulas da grade para alimentar este relatório."
               />
             ) : (
               <ReportDataTable

@@ -51,8 +51,8 @@ import {
 const ROLE_OPTIONS = [
   { value: 'receptionist', label: 'Recepcionista' },
   { value: 'admin', label: 'Administrador' },
-  { value: 'professor', label: 'Professor' },
-  { value: 'instructor', label: 'Instrutor' },
+  { value: 'professor', label: 'Professor (sem login)' },
+  { value: 'instructor', label: 'Instrutor (sem login)' },
 ];
 
 function memberInitial(m) {
@@ -64,7 +64,7 @@ function memberInitial(m) {
 function equipeRolePillClass(roleLabel) {
   if (roleLabel === 'Titular') return 'equipe-pill equipe-pill--owner';
   if (roleLabel === 'Administrador') return 'equipe-pill equipe-pill--admin';
-  if (roleLabel === 'Professor' || roleLabel === 'Instrutor') return 'equipe-pill equipe-pill--staff';
+  if (roleLabel === 'Professor' || roleLabel === 'Instrutor') return 'equipe-pill equipe-pill--roster';
   return 'equipe-pill equipe-pill--member';
 }
 
@@ -99,6 +99,7 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
   const [membersLoadError, setMembersLoadError] = useState(false);
 
   const roster = useStaffRosterStore((s) => s.roster);
+  const rosterError = useStaffRosterStore((s) => s.error);
   const fetchRoster = useStaffRosterStore((s) => s.fetchRoster);
   const createRosterMember = useStaffRosterStore((s) => s.createRosterMember);
   const updateRosterMember = useStaffRosterStore((s) => s.updateRosterMember);
@@ -237,7 +238,14 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
           message: `${roleLabel} cadastrado.`,
         });
       } catch (error) {
-        setMemberError(friendlyError(error, 'save'));
+        const raw = String(error?.message || error?.type || '');
+        if (/collection|not found|404/i.test(raw)) {
+          setMemberError(
+            'Não foi possível salvar: a coleção de professores/instrutores ainda não está pronta no Appwrite.'
+          );
+        } else {
+          setMemberError(friendlyError(error, 'save'));
+        }
       } finally {
         setSavingMember(false);
       }
@@ -632,14 +640,22 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
         />
       ) : null}
 
+      {rosterError ? (
+        <StatusBanner
+          variant="warning"
+          message={`Não foi possível carregar professores/instrutores: ${rosterError}`}
+          className="equipe-section__banner"
+        />
+      ) : null}
+
       {invitePanelVisible ? (
         <div className="page-header-card equipe-invite-panel">
           <div className="equipe-invite-panel__head">
             <p className="navi-eyebrow">{isRosterRole ? 'Cadastrar professor/instrutor' : 'Convidar colaborador'}</p>
             <p className="text-small text-muted equipe-invite-panel__lead">
               {isRosterRole
-                ? 'Cadastro interno para controle de aulas — sem e-mail e sem acesso ao sistema.'
-                : 'Envie um convite por e-mail ou readicione quem já teve acesso à academia.'}
+                ? 'Cadastro na Equipe para aulas — só nome, sem e-mail e sem acesso ao sistema.'
+                : 'Envie um convite por e-mail ou readicione quem já teve acesso à academia. Para professor/instrutor, escolha o papel no seletor (sem e-mail).'}
             </p>
           </div>
           <form onSubmit={handleCreateMember} className="equipe-invite-form">
@@ -692,6 +708,9 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
                     Administradores não podem adicionar outros administradores.
                   </p>
                 ) : null}
+                {isRosterRole ? (
+                  <p className="form-hint">Sem login — aparece só na confirmação de aulas da Recepção.</p>
+                ) : null}
               </div>
             </div>
             <div className="equipe-invite-form__footer">
@@ -720,7 +739,11 @@ function EquipeSection({ academy, academyId, onMetaChange }) {
           <SectionHeader
             as="h2"
             title="Colaboradores"
-            subtitle={hasTeam ? memberCountLabel : 'Configure a academia para listar a equipe.'}
+            subtitle={
+              hasTeam
+                ? `${memberCountLabel} · inclua professores e instrutores pelo formulário acima`
+                : 'Configure a academia para listar quem tem login; professores/instrutores podem ser cadastrados se o catálogo estiver ativo.'
+            }
           />
         </div>
         <div className="equipe-panel__body">

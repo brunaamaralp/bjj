@@ -13,7 +13,7 @@ export const REPORT_TAB_ITEMS_BASE = [
   { id: 'funil', label: 'Funil' },
   { id: 'alunos', label: 'Alunos' },
   { id: 'frequencia', label: 'Frequência' },
-  { id: 'aulas-staff', label: 'Aulas (staff)' },
+  { id: 'aulas-staff', label: 'Aulas (equipe)' },
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'loja', label: 'Vendas' },
   { id: 'estoque', label: 'Estoque' },

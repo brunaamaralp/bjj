@@ -52,9 +52,10 @@ describe('validateLessonStaffConfirmInput', () => {
 
 describe('buildLessonStaffCardBadge', () => {
   it('returns pending when no slot', () => {
-    expect(buildLessonStaffCardBadge(null)).toMatchObject({
+        expect(buildLessonStaffCardBadge(null)).toMatchObject({
       tone: 'pending',
       shortLabel: 'Pendente',
+      label: 'Confirmar equipe',
     });
   });
 
