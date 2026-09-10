@@ -18,7 +18,7 @@ describe('validateLessonStaffConfirmInput', () => {
       instructor_user_id: '',
     });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/professor|instrutor|staff/i);
+    expect(r.error).toMatch(/professor|instrutor/i);
   });
 
   it('accepts confirmed with only professor', () => {
@@ -27,6 +27,17 @@ describe('validateLessonStaffConfirmInput', () => {
       professor_user_id: 'u1',
       professor_name: 'Ana',
       instructor_user_id: '',
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts confirmed with multiple instructors only', () => {
+    const r = validateLessonStaffConfirmInput({
+      lesson_status: LESSON_STATUS_CONFIRMED,
+      instructors: [
+        { id: 'i1', name: 'Bruno' },
+        { id: 'i2', name: 'Carla' },
+      ],
     });
     expect(r.ok).toBe(true);
   });
@@ -110,6 +121,23 @@ describe('buildLessonStaffPatch', () => {
       lesson_recorded_by_name: 'Recepção',
       lesson_recorded_at: '2026-09-08T12:00:00.000Z',
     });
+  });
+
+  it('serializes multiple instructors with pipe-separated ids', () => {
+    const patch = buildLessonStaffPatch({
+      lesson_status: LESSON_STATUS_CONFIRMED,
+      professor_user_id: 'p1',
+      professor_name: 'Ana',
+      instructors: [
+        { id: 'i1', name: 'Bruno' },
+        { id: 'i2', name: 'Carla' },
+      ],
+      recorded_by: 'r1',
+      recorded_by_name: 'Recepção',
+      recorded_at: '2026-09-08T12:00:00.000Z',
+    });
+    expect(patch.instructor_user_id).toBe('i1|i2');
+    expect(patch.instructor_name).toBe('Bruno · Carla');
   });
 
   it('builds cancelled patch clearing staff ids', () => {
@@ -196,9 +224,24 @@ describe('aggregateLessonStaffTotals', () => {
     const { byUser, detail } = aggregateLessonStaffTotals(slots, { userId: 'i1' });
     expect(byUser.size).toBe(1);
     expect(byUser.get('i1').as_instructor).toBe(1);
-    expect(detail.every((d) => d.instructor_user_id === 'i1' || d.professor_user_id === 'i1')).toBe(
-      true
-    );
+    expect(detail).toHaveLength(1);
+  });
+
+  it('counts each of multiple instructors on one aula', () => {
+    const { byUser, confirmedCount } = aggregateLessonStaffTotals([
+      {
+        slot_date: '2026-09-10',
+        lesson_status: LESSON_STATUS_CONFIRMED,
+        professor_user_id: 'p1',
+        professor_name: 'Ana',
+        instructor_user_id: 'i1|i2',
+        instructor_name: 'Bruno · Carla',
+      },
+    ]);
+    expect(confirmedCount).toBe(1);
+    expect(byUser.get('i1')?.as_instructor).toBe(1);
+    expect(byUser.get('i2')?.as_instructor).toBe(1);
+    expect(byUser.get('p1')?.as_professor).toBe(1);
   });
 });
 
@@ -225,7 +268,7 @@ describe('buildLessonStaffCsvRows', () => {
       Modalidade: 'Jiujitsu',
       Status: 'Confirmada',
       Professor: 'Ana',
-      Instrutor: 'Bruno',
+      Instrutores: 'Bruno',
       Motivo: '',
     });
   });

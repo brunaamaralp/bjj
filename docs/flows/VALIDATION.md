@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-09-10: vários instrutores por aula na confirmação da Recepção (1 professor + N instrutores; cada um +1 no relatório) ([2026-09-10-multi-instrutores-aula-design.md](../superpowers/specs/2026-09-10-multi-instrutores-aula-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-10: confirmação de equipe **na grade** (qualquer dia da semana); removida seção «Aulas de hoje» ([2026-09-10-confirmacao-staff-na-grade-design.md](../superpowers/specs/2026-09-10-confirmacao-staff-na-grade-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-10: Equipe — papéis Professor/Instrutor sem e-mail (catálogo interno) + união na confirmação de aula ([2026-09-10-equipe-professor-instrutor-design.md](../superpowers/specs/2026-09-10-equipe-professor-instrutor-design.md)); fluxo [equipe-colaboradores.md](config/equipe-colaboradores.md).
 - 2026-09-08: confirmação de professor/instrutor nas aulas do dia (Recepção) + relatório Relatórios → Aulas (equipe) CSV/PDF ([2026-09-08-confirmacao-staff-aula-design.md](../superpowers/specs/2026-09-08-confirmacao-staff-aula-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).

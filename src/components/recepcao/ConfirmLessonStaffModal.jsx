@@ -7,6 +7,7 @@ import { confirmLessonStaff } from '../../lib/lessonStaffApi.js';
 import {
   LESSON_STATUS_CANCELLED,
   LESSON_STATUS_CONFIRMED,
+  parseLessonInstructors,
   validateLessonStaffConfirmInput,
 } from '../../../lib/lessonStaffRegister.js';
 import { decodeStaffRef, encodeStaffRef } from '../../../lib/staffRoster.js';
@@ -53,7 +54,7 @@ export default function ConfirmLessonStaffModal({
 }) {
   const toast = useToast();
   const [professorId, setProfessorId] = useState('');
-  const [instructorId, setInstructorId] = useState('');
+  const [instructorIds, setInstructorIds] = useState(() => []);
   const [didNotHappen, setDidNotHappen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -62,7 +63,8 @@ export default function ConfirmLessonStaffModal({
   useEffect(() => {
     if (!open) return;
     setProfessorId(normalizeStoredStaffId(slot?.professor_user_id));
-    setInstructorId(normalizeStoredStaffId(slot?.instructor_user_id));
+    const parsed = parseLessonInstructors(slot).map((e) => normalizeStoredStaffId(e.id)).filter(Boolean);
+    setInstructorIds(parsed);
     const cancelled = String(slot?.lesson_status || '') === LESSON_STATUS_CANCELLED;
     setDidNotHappen(cancelled);
     setReason(String(slot?.lesson_cancel_reason || '').trim());
@@ -89,12 +91,25 @@ export default function ConfirmLessonStaffModal({
     [teamMembers]
   );
 
+  const toggleInstructor = (id) => {
+    setInstructorIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  };
+
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
     setError('');
 
     const professor = options.find((m) => m.id === professorId);
-    const instructor = options.find((m) => m.id === instructorId);
+    const instructors = instructorIds
+      .map((id) => {
+        const m = options.find((o) => o.id === id);
+        return m ? { id: m.id, name: m.nome } : null;
+      })
+      .filter(Boolean);
+
     const payload = didNotHappen
       ? {
           lesson_status: LESSON_STATUS_CANCELLED,
@@ -104,8 +119,7 @@ export default function ConfirmLessonStaffModal({
           lesson_status: LESSON_STATUS_CONFIRMED,
           professor_user_id: professorId,
           professor_name: professor?.nome || '',
-          instructor_user_id: instructorId,
-          instructor_name: instructor?.nome || '',
+          instructors,
         };
 
     const validation = validateLessonStaffConfirmInput(payload);
@@ -223,26 +237,36 @@ export default function ConfirmLessonStaffModal({
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label htmlFor="lesson-staff-instructor">Instrutor</label>
-              <select
-                id="lesson-staff-instructor"
-                className="form-input"
-                value={instructorId}
-                onChange={(ev) => setInstructorId(ev.target.value)}
-                name="instructor_user_id"
-                autoComplete="off"
-                disabled={saving}
-              >
-                <option value="">Selecionar…</option>
-                {options.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome}
-                  </option>
-                ))}
-              </select>
-              <p className="form-hint">Pelo menos um dos dois é obrigatório.</p>
-            </div>
+            <fieldset className="form-group recepcao-lesson-staff-modal__instructors">
+              <legend>Instrutores</legend>
+              {options.length === 0 ? (
+                <p className="form-hint">Cadastre pessoas em Equipe para selecionar aqui.</p>
+              ) : (
+                <ul className="recepcao-lesson-staff-modal__check-list">
+                  {options.map((m) => {
+                    const checked = instructorIds.includes(m.id);
+                    const inputId = `lesson-instructor-${m.id}`;
+                    return (
+                      <li key={m.id}>
+                        <label htmlFor={inputId} className="recepcao-lesson-staff-modal__check">
+                          <input
+                            id={inputId}
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleInstructor(m.id)}
+                            disabled={saving}
+                          />
+                          <span>{m.nome}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <p className="form-hint">
+                Pode marcar vários. Professor ou ao menos um instrutor é obrigatório.
+              </p>
+            </fieldset>
           </div>
         )}
 
