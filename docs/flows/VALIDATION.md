@@ -68,7 +68,7 @@ Validação estática (código + testes Vitest). Checklists manuais em staging a
 | 14 | Aliases `?retornos=1`, `#follow-ups` | ✅ Código | `useEffect` em `Dashboard.jsx` |
 | 15 | Troca de academia | ✅ Código | Store `academyId`; ⚠️ validar em staging |
 | — | Contagem KPI vs badge follow-up | ⚠️ **Nota** | KPI usa `followUpsNeedingContact`; badge/lista usa `followUps.length` — podem divergir |
-| — | Kimonos disponíveis | ✅ Código (2026-07-16) | Chips trocados por busca + dropdown; selecionar abre modal com tamanho pré-selecionado |
+| — | Kimonos disponíveis | ⛔ Oculto na Recepção (2026-09-21) | `KimonoLoanPanel` removido de `Dashboard.jsx`; componente mantido no código |
 
 **Correções aplicadas (2026-06-17):** fluxo reescrito — hub duas abas, 4 KPIs, terminologia follow-up, diagrama (compareceu/faltou na agenda), contagens documentadas, link para `recepcao-controlid.md`.
 

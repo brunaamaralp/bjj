@@ -9,7 +9,7 @@
 | **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico`; `?retornos=1` ou `?tab=retornos` → Experimentais + scroll para follow-ups; `#follow-ups` → scroll na aba Experimentais |
 | **pré-requisitos** | Usuário autenticado; academia selecionada; módulo CRM ativo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-07-16 |
+| **última revisão** | 2026-09-21 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -24,7 +24,7 @@
 
 **Harness relacionado:** `src/test/recepcaoHubTabs.test.js`, `src/test/dashboardDayBriefing.test.js`; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`, `src/lib/dashboardReceptionCopy.js`
 
-**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/ConfirmLessonStaffModal.jsx`, `src/components/recepcao/KimonoLoanPanel.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
+**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/ConfirmLessonStaffModal.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
 
 ---
 
@@ -32,7 +32,7 @@
 
 A página **Recepção** (`/`) é a mesa do dia com duas abas via `HubTabBar`:
 
-1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **agenda da semana** em destaque, **kimonos** (busca de disponíveis + emprestados), follow-ups, tarefas de hoje, grade de horários.
+1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **agenda da semana** em destaque, follow-ups, tarefas de hoje, grade de horários. (Painel de kimonos emprestados oculto na Recepção; componente `KimonoLoanPanel` mantido no código.)
 2. **Presença** (`?tab=catraca`) — hero com KPIs de presença/retenção; no desktop, feed ao vivo e fila de retenção lado a lado; sub-abas **Ao vivo** e **Histórico** no mobile (retenção via KPI do hero ou `?section=retencao`). Ver [recepcao-controlid.md](recepcao-controlid.md).
 
 Rotas legadas redirecionam para os destinos canônicos acima.
@@ -87,7 +87,7 @@ flowchart TD
 | 9 | `/` | `DashboardAgendaWeekPanel` | **Compareceu** / **Faltou** na aula do dia | `markLeadAttended` / `markLeadMissed`; toast; **sem** `FollowupOutcomeDialog` |
 | 10 | `/` | Card de lead (follow-ups ou agenda) | Clicar nome | `/lead/:id` com `LEAD_PROFILE_FROM_DASHBOARD`; voltar retorna à Recepção |
 | 11c | `/` | `RecepcaoSchedulesGrid` | Ver **Grade de horários** | Grade semanal read-only; scroll horizontal no mobile; filtro por modalidade |
-| 11d | `/` | `KimonoLoanPanel` | Ver **Kimonos** | Resumo disponíveis/emprestados; busca com dropdown dos tamanhos disponíveis (abre **Emprestar** com tamanho pré-selecionado); lista de empréstimos ativos; botão **Emprestar**; alerta de atraso em seção recolhida |
+| 11d | `/` | — | (oculto) **Kimonos** | `KimonoLoanPanel` não renderizado na Recepção desde 2026-09-21 |
 | 12 | `/` | `DashboardBirthdayBanner` | **Parabenizar** | `DashboardBirthdayModal` + template WhatsApp |
 | 13 | `/` | Header | **Novo lead** | `NewLeadModal` global |
 | 14 | `/` (zero state) | Welcome card | **Adicionar primeiro lead** | Modal de novo lead ou link para funil |
@@ -133,7 +133,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 11c. [ ] **Grade de horários** — lotação na coluna hoje (quando slots existem); filtro modalidade persiste na sessão; link «Editar horários» (owner); coluna horário sticky no desktop
 11e. [ ] **Confirmação de equipe na grade** — clique em qualquer aula da semana; 1 professor + vários instrutores; badge pendente/confirmada/não houve; editar reabrindo o card
 11f. [ ] **Relatórios → Aulas (equipe)** — totais por colaborador no período; export CSV e PDF
-11d. [ ] **Kimonos** — painel mostra totais, busca filtrável de peças disponíveis (selecionar abre modal com tamanho pré-selecionado) e lista de emprestados; **Emprestar** registra saída; **Devolver** encerra empréstimo; configuração de alerta fica recolhida
+11d. [ ] **Kimonos** — painel **oculto** na Recepção (`KimonoLoanPanel` não montado em `Dashboard.jsx`)
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
 13. [ ] Aniversariantes: banner + modal + template
 14. [ ] Trocar academia — KPIs e listas refletem só a nova academia

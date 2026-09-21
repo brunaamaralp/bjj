@@ -116,7 +116,6 @@ import HubTabBar from '../components/shared/HubTabBar.jsx';
 import RecepcaoCatracaTab from '../components/recepcao/RecepcaoCatracaTab.jsx';
 import RecepcaoSchedulesGrid from '../components/recepcao/RecepcaoSchedulesGrid.jsx';
 import DashboardTasksTodaySection from '../components/dashboard/DashboardTasksTodaySection.jsx';
-import KimonoLoanPanel from '../components/recepcao/KimonoLoanPanel.jsx';
 import SalesDailyReportModal from '../components/sales/SalesDailyReportModal.jsx';
 import { useUserRole } from '../lib/useUserRole.js';
 import { fetchSalesDailyReport } from '../lib/salesDailyReportApi.js';
@@ -1547,8 +1546,6 @@ const Dashboard = () => {
                     expandWeekSignal={mobileWeekExpandSignal}
                 />
             ) : null}
-
-            <KimonoLoanPanel academyId={academyId} modules={modules} />
 
             <div className="agenda-commercial-block">
             {isDashboardMobile && !loading && followUps.length > 0 ? (
