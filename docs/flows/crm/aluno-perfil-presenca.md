@@ -8,14 +8,15 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-07-23 |
+| **última revisão** | 2026-09-21 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
 - [docs/contracts-autentique.md](../contracts-autentique.md) — assinatura digital de contratos
 - [config/empresa-horarios-turmas.md](../config/empresa-horarios-turmas.md) — catálogo de turmas (`classes`) usado no select Turma
-- [2026-07-16-student-profile-payments-status-first-design.md](../../superpowers/specs/2026-07-16-student-profile-payments-status-first-design.md) — aba Pagamentos status-first
+- [2026-07-16-student-profile-payments-status-first-design.md](../../superpowers/specs/2026-07-16-student-profile-payments-status-first-design.md) — aba financeira status-first (topo)
+- [2026-09-21-student-profile-historico-narrativo-design.md](../../superpowers/specs/2026-09-21-student-profile-historico-narrativo-design.md) — aba **Histórico**: default Todos + copy narrativa
 - [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — **Valor acordado** (`plan_price`); troca de plano atualiza snapshot
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
@@ -105,10 +106,10 @@ flowchart TD
 9b. [ ] Pagamento **pago/parcial** espelha em Financeiro → Lançamentos; badge **No Caixa** no perfil (link) ou **Caixa pendente** se falhar
 9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
-9e. [ ] Aba Pagamentos: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
+9e. [ ] Aba **Histórico**: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
 9e2. [ ] Owner/admin: **Cobertura histórica** no perfil — N meses (1–24) como `covered` / R$ 0 / sem Caixa; pula meses já pagos
-9f. [ ] Lista em linhas compactas (ações só ao expandir); default Mensalidades · 3 meses inclui **pacotes** (âncora bundle), não só mensalidade avulsa; sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
-9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba
+9f. [ ] Lista em linhas compactas (ações só ao expandir); default **Todos · 3 meses** (mensalidades, pacotes, compras, taxas); títulos narrativos (`Pagou…` / `Comprou…`); sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
+9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Histórico; clique abre a aba
 9h. [ ] Sem presença configurada: `StatusBanner` com ação **Abrir Recepção** (sem botão de check-in morto)
 10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"

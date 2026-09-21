@@ -96,7 +96,7 @@ describe('StudentFinancialTimeline recibo', () => {
       />
     );
 
-    const row = screen.getByRole('button', { name: /Mensalidade —/ });
+    const row = screen.getByRole('button', { name: /Pagou mensalidade —/ });
     await user.click(row);
 
     expect(screen.getAllByRole('button', { name: /Baixar recibo/i })).toHaveLength(1);

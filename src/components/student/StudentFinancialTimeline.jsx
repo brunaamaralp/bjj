@@ -643,16 +643,16 @@ export default function StudentFinancialTimeline({
           value={typeFilter}
           onChange={setTypeFilter}
           options={typeOptions}
-          placeholder="Mensalidades"
-          allLabel="Tudo"
+          placeholder="Todos"
+          allLabel="Todos"
           showCounts
         />
         <CompactStatusFilter
           value={periodFilter}
           onChange={setPeriodFilter}
           options={PERIOD_OPTIONS}
-          placeholder="Período"
-          allLabel="Últimos 3 meses"
+          placeholder="Todo o histórico"
+          allLabel="Todo o histórico"
           showCounts={false}
         />
       </div>

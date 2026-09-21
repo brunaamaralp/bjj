@@ -2784,7 +2784,7 @@ export default function StudentProfile() {
                         }`}
                         disabled={paymentSummaryLoading}
                         onClick={() => setProfileTab('payments')}
-                        aria-label={`${paymentStatusChrome.title}. Abrir aba Pagamentos.`}
+                        aria-label={`${paymentStatusChrome.title}. Abrir aba Histórico.`}
                     >
                         <div className="profile-payment-status__body">
                             <div className="profile-payment-status__title">{paymentStatusChrome.title}</div>
@@ -3091,7 +3091,7 @@ export default function StudentProfile() {
 
             <div className="profile-panel-tabs">
                 {tabBtn('frequency', 'Frequência')}
-                {canViewFinance ? tabBtn('payments', 'Pagamentos') : null}
+                {canViewFinance ? tabBtn('payments', 'Histórico') : null}
                 {modules?.finance === true ? tabBtn('contracts', 'Contratos') : null}
                 {tabBtn('timeline', 'Linha do tempo')}
                 {showConversationTab ? tabBtn('conversation', 'Conversa') : null}

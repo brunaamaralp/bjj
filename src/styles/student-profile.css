@@ -372,7 +372,7 @@ button.student-profile-hd__avatar--upload:disabled .student-profile-hd__avatar-o
   line-height: 1.45;
 }
 
-/* —— Aba Pagamentos (status-first + ledger) —— */
+/* —— Aba Histórico (status-first + ledger) —— */
 
 .student-pay-panel {
   display: flex;

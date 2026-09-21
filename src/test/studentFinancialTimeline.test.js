@@ -110,7 +110,63 @@ describe('studentFinancialTimeline', () => {
     expect(items).toHaveLength(1);
     expect(items[0].kind).toBe('bundle');
     expect(items[0].subtitle).toBe('Cobre março de 2026 a fevereiro de 2027');
-    expect(items[0].title).toBe('Mensalidade — março de 2026');
+    expect(items[0].title).toBe('Pagou mensalidade — março de 2026');
+  });
+
+  it('títulos narrativos: Pagou só quando pago; Comprou com truncamento', () => {
+    const payments = [
+      {
+        $id: 'paid1',
+        payment_category: 'plan',
+        reference_month: '2026-03',
+        status: 'paid',
+        amount: 200,
+        paid_at: '2026-03-05T12:00:00.000Z',
+      },
+      {
+        $id: 'late1',
+        payment_category: 'plan',
+        reference_month: '2026-04',
+        status: 'pending',
+        amount: 200,
+      },
+      {
+        $id: 'fee1',
+        payment_category: 'fee',
+        status: 'paid',
+        amount: 50,
+        note: 'Matrícula',
+        paid_at: '2026-03-01T12:00:00.000Z',
+      },
+    ];
+    const sales = [
+      {
+        id: 'sale1',
+        status: 'concluida',
+        total: 320,
+        created_at: '2026-03-10T10:00:00.000Z',
+        items: [
+          { display_label: 'Camiseta', quantidade: 1, subtotal: 80 },
+          { display_label: 'Kimono', quantidade: 1, subtotal: 200 },
+          { display_label: 'Faixa', quantidade: 1, subtotal: 40 },
+        ],
+      },
+      {
+        id: 'sale2',
+        status: 'cancelada',
+        total: 50,
+        created_at: '2026-03-11T10:00:00.000Z',
+        items: [{ display_label: 'Rashguard', quantidade: 1, subtotal: 50 }],
+      },
+    ];
+    const items = buildFinancialTimelineItems(payments, sales);
+    const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+
+    expect(byId['plan:paid1'].title).toBe('Pagou mensalidade — março de 2026');
+    expect(byId['plan:late1'].title).toBe('Mensalidade — abril de 2026');
+    expect(byId['fee:fee1'].title).toBe('Pagou taxa — Matrícula');
+    expect(byId['sale:sale1'].title).toBe('Comprou Camiseta, Kimono e mais 1');
+    expect(byId['sale:sale2'].title).toBe('Compra cancelada — Rashguard');
   });
 
   it('mantém covered legado sem bundle_origin_id na lista', () => {
@@ -306,8 +362,8 @@ describe('studentFinancialTimeline', () => {
     expect(chrome.subtitle).toMatch(/Mensal/);
   });
 
-  it('defaults de filtro do perfil priorizam mensalidades recentes', () => {
-    expect(DEFAULT_TIMELINE_TYPE_FILTER).toBe('plan');
+  it('defaults de filtro do perfil mostram todo o histórico recente', () => {
+    expect(DEFAULT_TIMELINE_TYPE_FILTER).toBe('all');
     expect(DEFAULT_TIMELINE_PERIOD_FILTER).toBe('3m');
   });
 });

@@ -32,8 +32,8 @@ export const TIMELINE_FILTER_TYPES = {
   FEE: 'fee',
 };
 
-/** Defaults da aba Pagamentos no perfil (recepção: mensalidades recentes). */
-export const DEFAULT_TIMELINE_TYPE_FILTER = TIMELINE_FILTER_TYPES.PLAN;
+/** Defaults da aba Histórico no perfil (tudo recente: mensalidades + compras + taxas). */
+export const DEFAULT_TIMELINE_TYPE_FILTER = TIMELINE_FILTER_TYPES.ALL;
 export const DEFAULT_TIMELINE_PERIOD_FILTER = '3m';
 
 export const PERIOD_FILTERS = {
@@ -42,6 +42,55 @@ export const PERIOD_FILTERS = {
   '12m': 12,
   all: null,
 };
+
+/** Status em que o verbo “Pagou” é factual. */
+function paymentUsesPaidVerb(status) {
+  const s = String(status || '').toLowerCase();
+  return s === 'paid' || s === 'partial' || s === 'covered';
+}
+
+/**
+ * @param {Array<{ display_label?: string, name?: string }>} items
+ * @param {{ cancelled?: boolean }} [opts]
+ */
+export function formatProductPurchaseTitle(items, opts = {}) {
+  const cancelled = Boolean(opts.cancelled);
+  const labels = (items || [])
+    .map((it) => String(it.display_label || it.name || '').trim())
+    .filter(Boolean);
+  let body;
+  if (labels.length === 0) {
+    body = 'produtos';
+  } else if (labels.length <= 2) {
+    body = labels.join(', ');
+  } else {
+    body = `${labels.slice(0, 2).join(', ')} e mais ${labels.length - 2}`;
+  }
+  return cancelled ? `Compra cancelada — ${body}` : `Comprou ${body}`;
+}
+
+function planOrBundleTitle({ historical, status, referenceMonth }) {
+  const month = formatReferenceMonthLong(referenceMonth);
+  if (historical) return `Cobertura histórica — ${month}`;
+  if (paymentUsesPaidVerb(status)) return `Pagou mensalidade — ${month}`;
+  return `Mensalidade — ${month}`;
+}
+
+function feeTitle(payment) {
+  const note = String(payment.note || '').trim();
+  if (paymentUsesPaidVerb(payment.status)) {
+    return note ? `Pagou taxa — ${note}` : 'Pagou taxa / avulso';
+  }
+  return note || 'Taxa / avulso';
+}
+
+function otherPaymentTitle(payment) {
+  const note = String(payment.note || '').trim();
+  if (paymentUsesPaidVerb(payment.status)) {
+    return note ? `Pagou — ${note}` : 'Outro pagamento';
+  }
+  return note || 'Outro pagamento';
+}
 
 /** @param {string|Date|null} iso */
 export function timelineSortKey(iso) {
@@ -100,9 +149,11 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
         id: `bundle:${anchor.$id}`,
         kind: 'bundle',
         sortDate: paymentSortDate(anchor),
-        title: historical
-          ? `Cobertura histórica — ${formatReferenceMonthLong(anchor.reference_month)}`
-          : `Mensalidade — ${formatReferenceMonthLong(anchor.reference_month)}`,
+        title: planOrBundleTitle({
+          historical,
+          status: anchor.status || (historical ? 'covered' : 'paid'),
+          referenceMonth: anchor.reference_month,
+        }),
         subtitle: historical
           ? `Migração · cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`
           : `Cobre ${formatReferenceMonthLong(startYm)} a ${formatReferenceMonthLong(coverageEnd)}`,
@@ -128,7 +179,7 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
         id: `fee:${p.$id}`,
         kind: 'fee',
         sortDate: paymentSortDate(p),
-        title: String(p.note || '').trim() || 'Taxa / avulso',
+        title: feeTitle(p),
         subtitle: p.paid_at ? formatReferenceMonthShort(String(p.paid_at).slice(0, 7)) : 'Avulso',
         amount: Number(p.amount || 0),
         badge: paymentStatusBadge(p.status),
@@ -139,7 +190,7 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
         id: `other:${p.$id}`,
         kind: 'other',
         sortDate: paymentSortDate(p),
-        title: String(p.note || '').trim() || 'Outro pagamento',
+        title: otherPaymentTitle(p),
         subtitle: '',
         amount: Number(p.amount || 0),
         badge: paymentStatusBadge(p.status),
@@ -150,7 +201,11 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
         id: `plan:${p.$id}`,
         kind: 'plan',
         sortDate: paymentSortDate(p),
-        title: `Mensalidade — ${formatReferenceMonthLong(p.reference_month)}`,
+        title: planOrBundleTitle({
+          historical: false,
+          status: p.status,
+          referenceMonth: p.reference_month,
+        }),
         subtitle: p.plan_name || '',
         amount: Number(p.amount || 0),
         badge: paymentStatusBadge(p.status),
@@ -161,16 +216,23 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
 
   for (const sale of sales || []) {
     const st = String(sale.status || '').toLowerCase();
+    const cancelled = st === 'cancelada';
+    const itemLabels =
+      Array.isArray(sale.items) && sale.items.length > 0
+        ? sale.items
+        : sale.items_summary
+          ? [{ display_label: String(sale.items_summary) }]
+          : [];
     items.push({
       id: `sale:${sale.id}`,
       kind: 'product',
       sortDate: sale.created_at || sale.cancelada_em,
-      title: sale.items_summary || 'Venda de produtos',
+      title: formatProductPurchaseTitle(itemLabels, { cancelled }),
       subtitle: sale.payment_label || sale.forma_pagamento || '',
       amount: Number(sale.total || 0),
       badge: {
-        label: st === 'cancelada' ? 'Cancelada' : st === 'pendente' ? 'Pendente' : 'Concluída',
-        tone: st === 'cancelada' ? 'muted' : st === 'pendente' ? 'warning' : 'success',
+        label: cancelled ? 'Cancelada' : st === 'pendente' ? 'Pendente' : 'Concluída',
+        tone: cancelled ? 'muted' : st === 'pendente' ? 'warning' : 'success',
       },
       sale,
     });
@@ -386,7 +448,7 @@ export function profilePaymentStatusChrome(summary, { loading = false } = {}) {
 
   return {
     title: summary.situationLabel,
-    subtitle: subtitle || 'Aba Pagamentos',
+    subtitle: subtitle || 'Aba Histórico',
     badge,
     toneClass,
   };
