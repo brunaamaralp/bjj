@@ -17,6 +17,12 @@ import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/finance
 import { fetchPayablesCached, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
 import { PAYABLE_SOURCE, selectPayablesItems, selectPayablesVisaoPreview, filterPayablesSearch } from '../../lib/payablesAggregate.js';
 import {
+  payableStatusLabel,
+  payableStatusBadgeClass,
+  payableDueRelativeHint,
+  payableMatchesStatusFilter,
+} from '../../lib/payablesStatusDisplay.js';
+import {
   PAYABLES_SECTIONS,
   PAYABLES_SECTION_LABELS,
 } from '../../lib/financeiroPayablesSections.js';
@@ -84,20 +90,12 @@ function fmtDateBr(ymd) {
   return `${p[2]}/${p[1]}/${p[0]}`;
 }
 
-function statusLabel(status) {
-  const s = String(status || '').toLowerCase();
-  if (s === 'overdue') return 'Vencida';
-  if (s === 'due_soon') return 'Vence em breve';
-  if (s === 'open') return 'Em aberto';
-  return 'Programada';
-}
-
-function statusBadgeClass(status) {
-  const s = String(status || '').toLowerCase();
-  if (s === 'overdue') return 'finance-badge-atraso';
-  if (s === 'due_soon') return 'finance-badge-aguardando';
-  return 'finance-badge-pendente';
-}
+const STATUS_FILTER_OPTIONS = [
+  { id: 'all', label: 'Todas' },
+  { id: 'week', label: 'Vence em 7 dias' },
+  { id: 'open', label: 'A vencer' },
+  { id: 'overdue', label: 'Vencidas' },
+];
 
 const VALID_SECTIONS = new Set(Object.values(PAYABLES_SECTIONS));
 
@@ -138,6 +136,7 @@ export default function PayablesTab({
   const [refreshToken, setRefreshToken] = useState(0);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const debouncedSearch = useDebounce(search, 200);
 
   const [showFormModal, setShowFormModal] = useState(openNewOnMount);
@@ -265,13 +264,16 @@ export default function PayablesTab({
     activeTemplates: 0,
   };
 
-  const items = useMemo(() => {
+  const sectionBaseItems = useMemo(() => {
     if (resolvedSection === PAYABLES_SECTIONS.VISAO) return [];
     const catalog = data?.catalog;
-    const base = catalog
+    return catalog
       ? selectPayablesItems(catalog, resolvedSection)
       : data?.items || [];
-    let rows = filterPayablesSearch(base, debouncedSearch);
+  }, [data?.catalog, data?.items, resolvedSection]);
+
+  const items = useMemo(() => {
+    let rows = filterPayablesSearch(sectionBaseItems, debouncedSearch);
     const cat = String(categoryFilter || '').trim();
     if (cat) {
       rows = rows.filter((it) => {
@@ -283,8 +285,25 @@ export default function PayablesTab({
         );
       });
     }
+    if (resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS) {
+      rows = rows.filter((it) => payableMatchesStatusFilter(it, statusFilter));
+    }
     return rows;
-  }, [data?.catalog, data?.items, resolvedSection, debouncedSearch, categoryFilter, chartAccounts]);
+  }, [
+    sectionBaseItems,
+    resolvedSection,
+    debouncedSearch,
+    categoryFilter,
+    statusFilter,
+    chartAccounts,
+  ]);
+
+  const filtersActive =
+    Boolean(String(debouncedSearch || '').trim()) ||
+    Boolean(String(categoryFilter || '').trim()) ||
+    (resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS && statusFilter !== 'all');
+
+  const filteredEmpty = sectionBaseItems.length > 0 && items.length === 0 && filtersActive;
 
   const visaoPreviewItems = useMemo(() => {
     if (resolvedSection !== PAYABLES_SECTIONS.VISAO) return [];
@@ -706,6 +725,23 @@ export default function PayablesTab({
                 </option>
               ))}
             </select>
+            <div
+              className="finance-hub-filters__chips"
+              role="group"
+              aria-label="Filtrar por vencimento"
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`finance-filter-pill${statusFilter === opt.id ? ' is-active' : ''}`}
+                  aria-pressed={statusFilter === opt.id}
+                  onClick={() => setStatusFilter(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -720,19 +756,34 @@ export default function PayablesTab({
             variant="compact"
             icon={TrendingDown}
             title={
-              resolvedSection === PAYABLES_SECTIONS.VENCIDAS
-                ? 'Nenhuma conta vencida'
-                : 'Nenhuma conta programada'
+              filteredEmpty
+                ? 'Nenhum resultado'
+                : resolvedSection === PAYABLES_SECTIONS.VENCIDAS
+                  ? 'Nenhuma conta vencida'
+                  : 'Nenhuma conta programada'
             }
             description={
-              resolvedSection === PAYABLES_SECTIONS.VENCIDAS
-                ? 'Ótimo — não há despesas pendentes em atraso.'
-                : 'Cadastre contas fixas como água, luz e telefone para acompanhar vencimentos.'
+              filteredEmpty
+                ? 'Ajuste a busca ou os filtros de vencimento.'
+                : resolvedSection === PAYABLES_SECTIONS.VENCIDAS
+                  ? 'Ótimo — não há despesas pendentes em atraso.'
+                  : 'Cadastre contas fixas como água, luz e telefone para acompanhar vencimentos.'
             }
-            primaryAction={{
-              label: 'Nova conta',
-              onClick: openNewForm,
-            }}
+            primaryAction={
+              filteredEmpty
+                ? {
+                    label: 'Limpar filtros',
+                    onClick: () => {
+                      setSearch('');
+                      setCategoryFilter('');
+                      setStatusFilter('all');
+                    },
+                  }
+                : {
+                    label: 'Nova conta',
+                    onClick: openNewForm,
+                  }
+            }
           />
         ) : (
           <div className="finance-table-wrap">
@@ -748,10 +799,15 @@ export default function PayablesTab({
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {items.map((item) => {
+                  const dueHint = payableDueRelativeHint(item.due_date);
+                  return (
                   <tr key={item.id}>
                     <td>
                       <span className="finance-table__date">{fmtDateBr(item.due_date)}</span>
+                      {dueHint ? (
+                        <span className="text-small text-muted d-block">{dueHint}</span>
+                      ) : null}
                     </td>
                     <td>
                       <span className="finance-table__primary">
@@ -771,11 +827,11 @@ export default function PayablesTab({
                     </td>
                     <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
                     <td>
-                      <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
-                        {item.status === 'overdue' ? (
+                      <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
+                        {item.status === 'overdue' || item.status === 'due_today' ? (
                           <AlertCircle size={12} aria-hidden className="icon-inline" />
                         ) : null}
-                        {statusLabel(item.status)}
+                        {payableStatusLabel(item.status)}
                       </span>
                     </td>
                     <td className="text-right">
@@ -840,7 +896,8 @@ export default function PayablesTab({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

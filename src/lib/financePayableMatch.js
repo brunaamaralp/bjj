@@ -37,6 +37,7 @@ function matchScore(item, planName) {
   if (normalizeLabel(planName) === normalizeLabel(item.vendor_label)) score += 20;
   else if (labelsRoughlyMatch(planName, item.vendor_label)) score += 10;
   if (item.status === 'overdue') score += 8;
+  else if (item.status === 'due_today') score += 6;
   else if (item.status === 'due_soon') score += 4;
   const due = String(item.due_date || '').slice(0, 10);
   if (due) score += 1;

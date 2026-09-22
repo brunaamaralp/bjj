@@ -5,6 +5,11 @@ import {
   PAYABLES_SECTIONS,
   buildPayablesPath,
 } from '../../lib/financeiroPayablesSections.js';
+import {
+  payableStatusLabel,
+  payableStatusBadgeClass,
+  payableDueRelativeHint,
+} from '../../lib/payablesStatusDisplay.js';
 import EmptyState from '../shared/EmptyState.jsx';
 import PageSkeleton from '../shared/PageSkeleton.jsx';
 
@@ -20,21 +25,6 @@ function fmtDateBr(ymd) {
   const p = String(ymd || '').slice(0, 10).split('-');
   if (p.length !== 3) return '—';
   return `${p[2]}/${p[1]}/${p[0]}`;
-}
-
-function statusLabel(status) {
-  const s = String(status || '').toLowerCase();
-  if (s === 'overdue') return 'Vencida';
-  if (s === 'due_soon') return 'Vence em breve';
-  if (s === 'open') return 'Em aberto';
-  return 'Programada';
-}
-
-function statusBadgeClass(status) {
-  const s = String(status || '').toLowerCase();
-  if (s === 'overdue') return 'finance-badge-atraso';
-  if (s === 'due_soon') return 'finance-badge-aguardando';
-  return 'finance-badge-pendente';
 }
 
 /**
@@ -66,18 +56,20 @@ export default function PayablesVisaoPanel({
               const category = formatCategory
                 ? formatCategory(item.category)
                 : String(item.category || '').trim() || '—';
+              const dueHint = payableDueRelativeHint(item.due_date);
               return (
                 <li key={item.id}>
                   <span className="financeiro-overview-list__label">{item.vendor_label}</span>
                   <span className="financeiro-overview-list__meta">
                     {fmtDateBr(item.due_date)}
+                    {dueHint ? ` · ${dueHint}` : ''}
                     {' · '}
                     <span className="finance-value-negative">{fmtMoney(item.amount)}</span>
                     {' · '}
                     {category}
                     {' · '}
-                    <span className={`finance-badge ${statusBadgeClass(item.status)}`}>
-                      {statusLabel(item.status)}
+                    <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
+                      {payableStatusLabel(item.status)}
                     </span>
                   </span>
                 </li>
@@ -99,9 +91,6 @@ export default function PayablesVisaoPanel({
           className="btn-outline btn-sm financeiro-overview-cta"
         >
           Ver vencidas
-        </Link>
-        <Link to="/financeiro?tab=previsao" className="btn-outline btn-sm financeiro-overview-cta">
-          Abrir previsão de caixa
         </Link>
       </div>
     </div>

@@ -68,10 +68,48 @@ describe('payablesAggregate', () => {
     expect(txPayableDueYmd({ competence_month: '2026-05' })).toBe('2026-05-28');
   });
 
-  it('classifies overdue and due_soon', () => {
+  it('classifies overdue, due_today, due_soon, open', () => {
     expect(classifyPayableStatus('2026-06-01', '2026-06-16')).toBe('overdue');
+    expect(classifyPayableStatus('2026-06-16', '2026-06-16')).toBe('due_today');
     expect(classifyPayableStatus('2026-06-20', '2026-06-16')).toBe('due_soon');
     expect(classifyPayableStatus('2026-07-01', '2026-06-16')).toBe('open');
+  });
+
+  it('summarizes dueSoonCount including due_today', () => {
+    const items = mergePayableItems(
+      buildPendingPayableItems(
+        [
+          {
+            id: '1',
+            status: 'pending',
+            direction: 'out',
+            gross: 100,
+            due_date: '2026-06-16',
+            planName: 'Hoje',
+          },
+          {
+            id: '2',
+            status: 'pending',
+            direction: 'out',
+            gross: 50,
+            due_date: '2026-06-20',
+            planName: 'Semana',
+          },
+          {
+            id: '3',
+            status: 'pending',
+            direction: 'out',
+            gross: 30,
+            due_date: '2026-07-01',
+            planName: 'Longe',
+          },
+        ],
+        { today: '2026-06-16' }
+      )
+    );
+    const summary = summarizePayables(items, { today: '2026-06-16' });
+    expect(summary.dueSoonCount).toBe(2);
+    expect(summary.dueSoonAmount).toBe(150);
   });
 
   it('dedupes projected recurrence when pending instance exists', () => {

@@ -38,6 +38,7 @@ export function classifyPayableStatus(dueYmd, todayYmd = todayYmdLocal()) {
   const today = String(todayYmd || '').slice(0, 10);
   if (!due) return 'open';
   if (due < today) return 'overdue';
+  if (due === today) return 'due_today';
   if (due <= addDaysYmd(today, 7)) return 'due_soon';
   return 'open';
 }
@@ -266,7 +267,7 @@ export function summarizePayables(items = [], { today = todayYmdLocal() } = {}) 
     if (it.status === 'overdue') {
       overdueCount += 1;
       overdueAmount += amt;
-    } else if (it.status === 'due_soon') {
+    } else if (it.status === 'due_soon' || it.status === 'due_today') {
       dueSoonCount += 1;
       dueSoonAmount += amt;
     }
@@ -279,7 +280,7 @@ export function summarizePayables(items = [], { today = todayYmdLocal() } = {}) 
     if (it.status === 'overdue') {
       overdueCount += 1;
       overdueAmount += amt;
-    } else if (it.status === 'due_soon') {
+    } else if (it.status === 'due_soon' || it.status === 'due_today') {
       dueSoonCount += 1;
       dueSoonAmount += amt;
     }
