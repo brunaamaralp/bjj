@@ -1,4 +1,4 @@
-import { createSessionJwt } from './appwrite';
+import { createSessionJwt } from './appwrite.js';
 import { authedFetch } from './authInterceptor.js';
 
 const LOCAL_BASE = String(import.meta.env.VITE_CONTROLID_API_BASE || '').trim().replace(/\/+$/, '');

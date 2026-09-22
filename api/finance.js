@@ -19,7 +19,6 @@ import financeReceivablesHandler from '../lib/server/financeReceivablesHandler.j
 import financeOverviewHandler from '../lib/server/financeOverviewHandler.js';
 import collectionQueueHandler from '../lib/server/collectionQueueHandler.js';
 import payablesHandler from '../lib/server/payablesHandler.js';
-import receptionRemindersHandler from '../lib/server/receptionRemindersHandler.js';
 import financeAnticipationHandler from '../lib/server/financeAnticipationHandler.js';
 import { financeDreHandler, financeDfcHandler, financeCascadeHandler } from '../lib/server/financeStatementsHandler.js';
 
@@ -68,6 +67,9 @@ export default async function handler(req, res) {
     return payablesHandler(req, res);
   }
   if (route === 'reception-reminders' || route === 'reception_reminders') {
+    const { default: receptionRemindersHandler } = await import(
+      '../lib/server/receptionRemindersHandler.js'
+    );
     return receptionRemindersHandler(req, res);
   }
   if (route === 'anticipate' || route === 'anticipation') {

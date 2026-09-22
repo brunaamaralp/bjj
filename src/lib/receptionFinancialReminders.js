@@ -7,7 +7,7 @@ import {
   openAmountForStudent,
 } from './collectionOverdue.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
-import { isFreezeActive } from './planFreeze.js';
+import { isFreezeActive } from '../../lib/planFreezeCore.js';
 import {
   coverageEndMonth,
   formatReferenceMonthShort,
