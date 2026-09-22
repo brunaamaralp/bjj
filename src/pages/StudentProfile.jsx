@@ -2447,7 +2447,7 @@ export default function StudentProfile() {
                         </button>
                     ) : String(student.plan || '').trim() ? (
                         <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            Trancamento disponível para planos anuais (até 90 dias por ano do plano).
+                            Trancamento disponível para planos anuais (até 90 dias/ciclo) e semestrais (até 45 dias/ciclo).
                         </p>
                     ) : null}
                 </>

@@ -4,7 +4,7 @@ import FieldError from '../shared/FieldError.jsx';
 import ModalShell from '../shared/ModalShell.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import {
-  FREEZE_MAX_DAYS_PER_YEAR,
+  freezeQuotaMaxDays,
   computeReturnYmd,
   computeDurationDays,
   effectiveFreezeDaysUsed,
@@ -38,6 +38,7 @@ function PlanFreezeModalForm({
   const [error, setError] = useState('');
 
   const daysUsed = effectiveFreezeDaysUsed(student);
+  const quotaMax = freezeQuotaMaxDays(student) || daysAvailable || 90;
   const minStartYmd = minRetroactiveStartYmd(student);
   const isOther = String(selectedReason || '').trim().toLowerCase() === 'outro';
   const resolvedReason = isOther ? otherReason.trim() : String(selectedReason || '').trim();
@@ -92,7 +93,7 @@ function PlanFreezeModalForm({
     if (n > daysAvailable) {
       setDurationDays(daysAvailable);
       if (!indefinite) setEndYmd(computeReturnYmd(startYmd, daysAvailable));
-      setError(`Limite de ${FREEZE_MAX_DAYS_PER_YEAR} dias atingido. Disponível: ${daysAvailable} dias.`);
+      setError(`Limite de ${quotaMax} dias atingido. Disponível: ${daysAvailable} dias.`);
       return;
     }
     const next = Math.trunc(n);
@@ -222,7 +223,7 @@ function PlanFreezeModalForm({
         </div>
 
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-          Dias utilizados este ano: <strong>{daysUsed}</strong> de {FREEZE_MAX_DAYS_PER_YEAR}
+          Dias utilizados neste ciclo: <strong>{daysUsed}</strong> de {quotaMax}
           <br />
           Dias disponíveis: <strong>{daysAvailable}</strong> dias
           {retroactiveDays > 0 ? (

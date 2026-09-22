@@ -76,7 +76,7 @@ export const DEFAULT_STUDENT_FREEZE_LIMIT_TEMPLATE = {
     {
       title: 'Ligar para aluno — retorno do trancamento',
       offset_days: 0,
-      notes: 'Aluno com 75+ dias de trancamento no ano do plano (restam ≤15 dias da cota de 90).',
+      notes: 'Aluno próximo do limite de trancamento no ciclo do plano (anual 75+/90 ou semestral 37+/45).',
       order: 0,
     },
   ],

@@ -6,7 +6,7 @@ import {
   effectiveFreezeDaysUsed,
   projectedFreezeDaysUsed,
   isFreezeIndefinite,
-  FREEZE_MAX_DAYS_PER_YEAR,
+  freezeQuotaMaxDays,
 } from '../../lib/planFreeze.js';
 
 export default function PlanFreezePanel({
@@ -21,6 +21,7 @@ export default function PlanFreezePanel({
   const daysLeft = freezeDaysLeftInPeriod(student);
   const used = effectiveFreezeDaysUsed(student);
   const projected = projectedFreezeDaysUsed(student);
+  const quotaMax = freezeQuotaMaxDays(student) || 90;
 
   return (
     <div
@@ -47,7 +48,7 @@ export default function PlanFreezePanel({
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
             Historico: {freezeHistoryCount} trancamento{freezeHistoryCount === 1 ? '' : 's'} · {used} dias confirmados de{' '}
-            {FREEZE_MAX_DAYS_PER_YEAR}
+            {quotaMax}
             {indefinite ? (
               <>
                 <br />

@@ -4,22 +4,121 @@ import {
   isStudentFreezeCacheCoveringMonth,
   referenceMonthsInRange,
   isAnnualPlanStudent,
+  isSemesterPlanStudent,
+  resolveFreezePlanKind,
+  canStartPlanFreeze,
+  freezeQuotaMaxDays,
+  freezeLimitAlertDays,
+  freezePeriodDays,
+  planCycleStartYmd,
   effectiveFreezeDaysUsed,
   validateFreezeRequest,
   computeReturnYmd,
   planYearStartYmd,
   FREEZE_MAX_DAYS_PER_YEAR,
+  FREEZE_MAX_DAYS_SEMESTER,
   FREEZE_LIMIT_ALERT_DAYS_USED,
   projectedFreezeDaysUsed,
   shouldAlertFreezeLimit,
   isFreezeIndefinite,
   minRetroactiveStartYmd,
+  freezeDaysRemaining,
 } from '../../lib/planFreezeCore.js';
 
 describe('planFreezeCore (validação e cota)', () => {
   it('detects annual plan by name', () => {
     expect(isAnnualPlanStudent({ plan: 'Plano Anual' })).toBe(true);
     expect(isAnnualPlanStudent({ plan: 'Mensal' })).toBe(false);
+  });
+
+  it('detects semester plan by name and billing', () => {
+    expect(isSemesterPlanStudent({ plan: 'Plano Semestral' })).toBe(true);
+    expect(isSemesterPlanStudent({ plan: 'Mensal' })).toBe(false);
+    expect(isSemesterPlanStudent({ plan: 'X', plan_billing: 'semestral' })).toBe(true);
+    expect(isSemesterPlanStudent({ plan: 'X', plan_billing: 'semiannual' })).toBe(true);
+    expect(
+      isSemesterPlanStudent(
+        { plan: 'Pacote 6m' },
+        { plans: [{ name: 'Pacote 6m', billing: 'semestral' }] }
+      )
+    ).toBe(true);
+  });
+
+  it('resolveFreezePlanKind prefers annual over semester naming collision', () => {
+    expect(resolveFreezePlanKind({ plan: 'Anual' })).toBe('annual');
+    expect(resolveFreezePlanKind({ plan: 'Semestral' })).toBe('semester');
+    expect(resolveFreezePlanKind({ plan: 'Mensal' })).toBe(null);
+  });
+
+  it('canStartPlanFreeze allows semester with remaining quota', () => {
+    const student = { plan: 'Semestral', enrollmentDate: '2026-01-10', freeze_days_used: 0 };
+    expect(canStartPlanFreeze(student, null, new Date('2026-05-18T12:00:00'))).toBe(true);
+    expect(freezeQuotaMaxDays(student)).toBe(FREEZE_MAX_DAYS_SEMESTER);
+    expect(freezePeriodDays(student)).toBe(182);
+    expect(freezeLimitAlertDays(student)).toBe(37);
+  });
+
+  it('semester cycle uses 182-day periods from enrollment', () => {
+    const enroll = '2026-01-10';
+    const mid = new Date('2026-05-18T12:00:00');
+    expect(planCycleStartYmd(enroll, 182, mid)).toBe('2026-01-10');
+    const afterFirst = new Date('2026-08-01T12:00:00');
+    // 2026-01-10 + 182 days = 2026-07-11
+    expect(planCycleStartYmd(enroll, 182, afterFirst)).toBe('2026-07-11');
+  });
+
+  it('validates semester freeze within 45-day quota', () => {
+    const today = new Date('2026-05-18T12:00:00');
+    const student = {
+      plan: 'Semestral',
+      enrollmentDate: '2026-01-10',
+      freeze_days_used: 0,
+      freeze_quota_year: planCycleStartYmd('2026-01-10', 182, today),
+    };
+    expect(freezeDaysRemaining(student, today)).toBe(45);
+    const r = validateFreezeRequest({
+      startYmd: '2026-05-18',
+      endYmd: computeReturnYmd('2026-05-18', 30),
+      durationDays: 30,
+      student,
+      today,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects semester freeze above 45-day quota', () => {
+    const today = new Date('2026-05-18T12:00:00');
+    const student = {
+      plan: 'Semestral',
+      enrollmentDate: '2026-01-10',
+      freeze_days_used: 40,
+      freeze_quota_year: planCycleStartYmd('2026-01-10', 182, today),
+    };
+    const r = validateFreezeRequest({
+      startYmd: '2026-05-18',
+      endYmd: computeReturnYmd('2026-05-18', 10),
+      durationDays: 10,
+      student,
+      today,
+    });
+    expect(r.ok).toBe(false);
+    expect(String(r.error || '')).toMatch(/Disponível: 5/);
+    expect(String(r.error || '')).toMatch(/45/);
+  });
+
+  it('resets semester used days on new 182-day cycle', () => {
+    const student = {
+      plan: 'Semestral',
+      enrollmentDate: '2026-01-10',
+      freeze_days_used: 40,
+      freeze_quota_year: '2026-01-10',
+    };
+    const used = effectiveFreezeDaysUsed(student, new Date('2026-08-01T12:00:00'));
+    expect(used).toBe(0);
+  });
+
+  it('does not allow freeze for monthly plan', () => {
+    expect(canStartPlanFreeze({ plan: 'Mensal', enrollmentDate: '2026-01-01' })).toBe(false);
   });
 
   it('validates duration within quota', () => {
@@ -65,7 +164,7 @@ describe('planFreezeCore (validação e cota)', () => {
       today,
     });
     expect(r.ok).toBe(false);
-    expect(String(r.error || '')).toMatch(/ano do plano/);
+    expect(String(r.error || '')).toMatch(/ciclo do plano/);
     expect(minStart).toBe(planYearStartYmd('2024-01-15', today));
   });
 

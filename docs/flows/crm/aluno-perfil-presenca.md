@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-09-21 |
+| **última revisão** | 2026-09-22 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -18,6 +18,7 @@
 - [2026-07-16-student-profile-payments-status-first-design.md](../../superpowers/specs/2026-07-16-student-profile-payments-status-first-design.md) — aba financeira status-first (topo)
 - [2026-09-21-student-profile-historico-narrativo-design.md](../../superpowers/specs/2026-09-21-student-profile-historico-narrativo-design.md) — aba **Pagamentos** = histórico misto (default Todos + copy narrativa)
 - [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — **Valor acordado** (`plan_price`); troca de plano atualiza snapshot
+- [2026-09-22-trancamento-plano-semestral-design.md](../../superpowers/specs/2026-09-22-trancamento-plano-semestral-design.md) — trancamento também para plano semestral (45 dias / ciclo ~182)
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
@@ -111,7 +112,7 @@ flowchart TD
 9f. [ ] Lista em linhas compactas (ações só ao expandir); default **Todos · 3 meses** (histórico de mensalidades, pacotes, compras, taxas); títulos narrativos (`Pagou…` / `Comprou…`); sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
 9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba
 9h. [ ] Sem presença configurada: `StatusBanner` com ação **Abrir Recepção** (sem botão de check-in morto)
-10. [ ] Trancar plano — datas e motivo salvos; badge de trancado no perfil
+10. [ ] Trancar plano — anual (90 dias/ciclo) ou semestral (45 dias/ciclo); datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
 11b. [ ] Excluir aluno — `ConfirmDialog` (mesmo padrão de excluir lançamento)
 12. [ ] Trocar academia — lista mostra só alunos da academia atual

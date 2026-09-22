@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-09-22: trancamento de matrícula também para plano **semestral** (45 dias / ciclo ~182 dias) ([2026-09-22-trancamento-plano-semestral-design.md](../superpowers/specs/2026-09-22-trancamento-plano-semestral-design.md)); fluxo [aluno-perfil-presenca.md](crm/aluno-perfil-presenca.md).
 - 2026-09-10: vários instrutores por aula na confirmação da Recepção (1 professor + N instrutores; cada um +1 no relatório) ([2026-09-10-multi-instrutores-aula-design.md](../superpowers/specs/2026-09-10-multi-instrutores-aula-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-10: confirmação de equipe **na grade** (qualquer dia da semana); removida seção «Aulas de hoje» ([2026-09-10-confirmacao-staff-na-grade-design.md](../superpowers/specs/2026-09-10-confirmacao-staff-na-grade-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-10: Equipe — papéis Professor/Instrutor sem e-mail (catálogo interno) + união na confirmação de aula ([2026-09-10-equipe-professor-instrutor-design.md](../superpowers/specs/2026-09-10-equipe-professor-instrutor-design.md)); fluxo [equipe-colaboradores.md](config/equipe-colaboradores.md).
