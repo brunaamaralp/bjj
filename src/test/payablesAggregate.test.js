@@ -9,6 +9,7 @@ import {
   selectPayablesVisaoPreview,
   classifyPayableStatus,
   mergePayableItems,
+  splitPayablesOperationalGroups,
   PAYABLE_SOURCE,
   summarizePayables,
   txPayableDueYmd,
@@ -350,5 +351,19 @@ describe('payablesAggregate', () => {
 
     const preview = selectPayablesVisaoPreview(catalog, 8);
     expect(preview.length).toBeLessThanOrEqual(8);
+  });
+
+  it('splits now vs scheduled by source', () => {
+    const { now, scheduled } = splitPayablesOperationalGroups([
+      { id: '1', source: PAYABLE_SOURCE.LANCAMENTO },
+      { id: '2', source: PAYABLE_SOURCE.TEMPLATE },
+      { id: '3', source: PAYABLE_SOURCE.RECORRENCIA },
+    ]);
+    expect(now.map((i) => i.id)).toEqual(['1', '3']);
+    expect(scheduled.map((i) => i.id)).toEqual(['2']);
+  });
+
+  it('returns empty arrays for empty input', () => {
+    expect(splitPayablesOperationalGroups([])).toEqual({ now: [], scheduled: [] });
   });
 });

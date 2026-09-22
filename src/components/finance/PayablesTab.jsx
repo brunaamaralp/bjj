@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { activeFinanceVendors, findFinanceVendorByName } from '../../lib/financeVendors.js';
 import { fetchPayablesCached, createFinanceTx, patchFinanceTx } from '../../lib/financeTxApi.js';
-import { PAYABLE_SOURCE, selectPayablesItems, selectPayablesVisaoPreview, filterPayablesSearch } from '../../lib/payablesAggregate.js';
+import { PAYABLE_SOURCE, selectPayablesItems, selectPayablesVisaoPreview, filterPayablesSearch, splitPayablesOperationalGroups } from '../../lib/payablesAggregate.js';
 import {
   payableStatusLabel,
   payableStatusBadgeClass,
@@ -98,6 +98,135 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 const VALID_SECTIONS = new Set(Object.values(PAYABLES_SECTIONS));
+
+function PayableItemsTable({
+  items,
+  chartAccounts,
+  canManageAdvanced,
+  canPayPayableItem,
+  onSettle,
+  onEdit,
+  onCancelPayable,
+  onCancelTemplate,
+}) {
+  return (
+    <div className="finance-table-wrap">
+      <table className="finance-table finance-table--compact">
+        <thead>
+          <tr>
+            <th>Vencimento</th>
+            <th>Fornecedor</th>
+            <th>Categoria</th>
+            <th className="text-right">Valor</th>
+            <th>Status</th>
+            <th aria-label="Ações" />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => {
+            const dueHint = payableDueRelativeHint(item.due_date);
+            return (
+              <tr key={item.id}>
+                <td>
+                  <span className="finance-table__date">{fmtDateBr(item.due_date)}</span>
+                  {dueHint ? (
+                    <span className="text-small text-muted d-block">{dueHint}</span>
+                  ) : null}
+                </td>
+                <td>
+                  <span className="finance-table__primary">
+                    {item.recurrence?.active ? (
+                      <Repeat size={14} title="Recorrente" aria-hidden className="icon-inline" />
+                    ) : null}
+                    {item.vendor_label}
+                  </span>
+                  {item.source === PAYABLE_SOURCE.TEMPLATE ? (
+                    <span className="text-small text-muted d-block">
+                      Mensal · dia {item.recurrence?.day || '—'}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="text-small">
+                  {formatPayableCategoryLabel(item.category, chartAccounts)}
+                </td>
+                <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
+                <td>
+                  <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
+                    {item.status === 'overdue' || item.status === 'due_today' ? (
+                      <AlertCircle size={12} aria-hidden className="icon-inline" />
+                    ) : null}
+                    {payableStatusLabel(item.status)}
+                  </span>
+                </td>
+                <td className="text-right">
+                  <div className="finance-table__actions">
+                    {item.source === PAYABLE_SOURCE.LANCAMENTO ||
+                    item.source === PAYABLE_SOURCE.TEMPLATE ||
+                    item.source === PAYABLE_SOURCE.RECORRENCIA ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm"
+                          onClick={() => onSettle(item)}
+                          disabled={!canPayPayableItem(item)}
+                          title={
+                            canPayPayableItem(item)
+                              ? 'Registrar pagamento'
+                              : FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE
+                          }
+                        >
+                          Pagar
+                        </button>
+                        {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-ghost btn-sm"
+                              onClick={() => onEdit(item)}
+                              aria-label={`Editar ${item.vendor_label}`}
+                            >
+                              <Pencil size={14} aria-hidden />
+                            </button>
+                            <Link
+                              to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
+                              className="btn-ghost btn-sm"
+                              aria-label={`Ver lançamento ${item.vendor_label}`}
+                            >
+                              <ExternalLink size={14} aria-hidden />
+                            </Link>
+                            {canManageAdvanced ? (
+                              <button
+                                type="button"
+                                className="btn-ghost btn-sm text-muted"
+                                onClick={() => onCancelPayable(item)}
+                                aria-label={`Excluir ${item.vendor_label}`}
+                                title="Excluir conta"
+                              >
+                                <Trash2 size={14} aria-hidden />
+                              </button>
+                            ) : null}
+                          </>
+                        ) : item.source === PAYABLE_SOURCE.TEMPLATE && canManageAdvanced ? (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm text-muted"
+                            onClick={() => onCancelTemplate(item.template_id)}
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const defaultForm = () => ({
   vendor: '',
@@ -304,6 +433,13 @@ export default function PayablesTab({
     (resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS && statusFilter !== 'all');
 
   const filteredEmpty = sectionBaseItems.length > 0 && items.length === 0 && filtersActive;
+
+  const operationalGroups = useMemo(() => {
+    if (resolvedSection !== PAYABLES_SECTIONS.CONTAS_FIXAS) {
+      return { now: [], scheduled: [] };
+    }
+    return splitPayablesOperationalGroups(items);
+  }, [resolvedSection, items]);
 
   const visaoPreviewItems = useMemo(() => {
     if (resolvedSection !== PAYABLES_SECTIONS.VISAO) return [];
@@ -786,121 +922,55 @@ export default function PayablesTab({
             }
           />
         ) : (
-          <div className="finance-table-wrap">
-            <table className="finance-table finance-table--compact">
-              <thead>
-                <tr>
-                  <th>Vencimento</th>
-                  <th>Fornecedor</th>
-                  <th>Categoria</th>
-                  <th className="text-right">Valor</th>
-                  <th>Status</th>
-                  <th aria-label="Ações" />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const dueHint = payableDueRelativeHint(item.due_date);
-                  return (
-                  <tr key={item.id}>
-                    <td>
-                      <span className="finance-table__date">{fmtDateBr(item.due_date)}</span>
-                      {dueHint ? (
-                        <span className="text-small text-muted d-block">{dueHint}</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      <span className="finance-table__primary">
-                        {item.recurrence?.active ? (
-                          <Repeat size={14} title="Recorrente" aria-hidden className="icon-inline" />
-                        ) : null}
-                        {item.vendor_label}
-                      </span>
-                      {item.source === PAYABLE_SOURCE.TEMPLATE ? (
-                        <span className="text-small text-muted d-block">
-                          Mensal · dia {item.recurrence?.day || '—'}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="text-small">
-                      {formatPayableCategoryLabel(item.category, chartAccounts)}
-                    </td>
-                    <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
-                    <td>
-                      <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
-                        {item.status === 'overdue' || item.status === 'due_today' ? (
-                          <AlertCircle size={12} aria-hidden className="icon-inline" />
-                        ) : null}
-                        {payableStatusLabel(item.status)}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <div className="finance-table__actions">
-                        {item.source === PAYABLE_SOURCE.LANCAMENTO ||
-                        item.source === PAYABLE_SOURCE.TEMPLATE ||
-                        item.source === PAYABLE_SOURCE.RECORRENCIA ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-outline btn-sm"
-                              onClick={() => openSettle(item)}
-                              disabled={!canPayPayableItem(item)}
-                              title={
-                                canPayPayableItem(item)
-                                  ? 'Registrar pagamento'
-                                  : FINANCE_CANNOT_SETTLE_RECURRENCE_TEMPLATE
-                              }
-                            >
-                              Pagar
-                            </button>
-                            {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="btn-ghost btn-sm"
-                                  onClick={() => openEdit(item)}
-                                  aria-label={`Editar ${item.vendor_label}`}
-                                >
-                                  <Pencil size={14} aria-hidden />
-                                </button>
-                                <Link
-                                  to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
-                                  className="btn-ghost btn-sm"
-                                  aria-label={`Ver lançamento ${item.vendor_label}`}
-                                >
-                                  <ExternalLink size={14} aria-hidden />
-                                </Link>
-                                {canManageAdvanced ? (
-                                  <button
-                                    type="button"
-                                    className="btn-ghost btn-sm text-muted"
-                                    onClick={() => openCancelPayable(item)}
-                                    aria-label={`Excluir ${item.vendor_label}`}
-                                    title="Excluir conta"
-                                  >
-                                    <Trash2 size={14} aria-hidden />
-                                  </button>
-                                ) : null}
-                              </>
-                            ) : item.source === PAYABLE_SOURCE.TEMPLATE && canManageAdvanced ? (
-                              <button
-                                type="button"
-                                className="btn-ghost btn-sm text-muted"
-                                onClick={() => setCancelTemplateId(item.template_id)}
-                              >
-                                Cancelar
-                              </button>
-                            ) : null}
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS ? (
+            <div className="payables-op-groups">
+              {operationalGroups.now.length > 0 ? (
+                <section className="payables-op-group mb-3" aria-label="A pagar agora">
+                  <h3 className="navi-section-heading text-base mb-2">
+                    A pagar agora ({operationalGroups.now.length})
+                  </h3>
+                  <PayableItemsTable
+                    items={operationalGroups.now}
+                    chartAccounts={chartAccounts}
+                    canManageAdvanced={canManageAdvanced}
+                    canPayPayableItem={canPayPayableItem}
+                    onSettle={openSettle}
+                    onEdit={openEdit}
+                    onCancelPayable={openCancelPayable}
+                    onCancelTemplate={setCancelTemplateId}
+                  />
+                </section>
+              ) : null}
+              {operationalGroups.scheduled.length > 0 ? (
+                <section className="payables-op-group mb-3" aria-label="Programadas">
+                  <h3 className="navi-section-heading text-base mb-2">
+                    Programadas ({operationalGroups.scheduled.length})
+                  </h3>
+                  <PayableItemsTable
+                    items={operationalGroups.scheduled}
+                    chartAccounts={chartAccounts}
+                    canManageAdvanced={canManageAdvanced}
+                    canPayPayableItem={canPayPayableItem}
+                    onSettle={openSettle}
+                    onEdit={openEdit}
+                    onCancelPayable={openCancelPayable}
+                    onCancelTemplate={setCancelTemplateId}
+                  />
+                </section>
+              ) : null}
+            </div>
+          ) : (
+            <PayableItemsTable
+              items={items}
+              chartAccounts={chartAccounts}
+              canManageAdvanced={canManageAdvanced}
+              canPayPayableItem={canPayPayableItem}
+              onSettle={openSettle}
+              onEdit={openEdit}
+              onCancelPayable={openCancelPayable}
+              onCancelTemplate={setCancelTemplateId}
+            />
+          )
         )}
       </FinanceTabShell>
 

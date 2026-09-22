@@ -372,6 +372,17 @@ export function selectPayablesItems(catalog, section = 'visao') {
   return mergePayableItems(pending, projected.slice(0, 24));
 }
 
+/** Contas fixas: pending/projection cobráveis vs templates programados. */
+export function splitPayablesOperationalGroups(items = []) {
+  const now = [];
+  const scheduled = [];
+  for (const it of items) {
+    if (it?.source === PAYABLE_SOURCE.TEMPLATE) scheduled.push(it);
+    else now.push(it);
+  }
+  return { now, scheduled };
+}
+
 export function buildPayablesSnapshot({
   pendingTransactions = [],
   recurrenceTemplates = [],
