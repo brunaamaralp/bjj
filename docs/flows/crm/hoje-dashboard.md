@@ -9,7 +9,7 @@
 | **aliases legados** | `/recepcao` → `/?tab=catraca`; `/presenca` → `/?tab=catraca&section=historico`; `?retornos=1` ou `?tab=retornos` → Experimentais + scroll para follow-ups; `#follow-ups` → scroll na aba Experimentais |
 | **pré-requisitos** | Usuário autenticado; academia selecionada; módulo CRM ativo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-09-21 |
+| **última revisão** | 2026-09-22 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -19,12 +19,13 @@
 - [2026-06-10-followup-experimental-design.md](../../superpowers/specs/2026-06-10-followup-experimental-design.md) — follow-up e outcomes
 - [2026-09-08-confirmacao-staff-aula-design.md](../../superpowers/specs/2026-09-08-confirmacao-staff-aula-design.md) — confirmação professor/instrutor + relatório
 - [2026-09-10-confirmacao-staff-na-grade-design.md](../../superpowers/specs/2026-09-10-confirmacao-staff-na-grade-design.md) — confirmação no clique da grade (sem lista «Aulas de hoje»)
+- [2026-09-22-recepcao-lembretes-financeiros-design.md](../../superpowers/specs/2026-09-22-recepcao-lembretes-financeiros-design.md) — lembretes financeiros no hero
 
 **Fluxo relacionado:** [recepcao-controlid.md](recepcao-controlid.md) — detalhe da aba **Catraca** (Control iD, histórico, retenção)
 
-**Harness relacionado:** `src/test/recepcaoHubTabs.test.js`, `src/test/dashboardDayBriefing.test.js`; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`, `src/lib/dashboardReceptionCopy.js`
+**Harness relacionado:** `src/test/recepcaoHubTabs.test.js`, `src/test/dashboardDayBriefing.test.js`, `src/test/receptionFinancialReminders.test.js`; lógica em `src/lib/dashboardDayBriefing.js`, `src/lib/followupState.js`, `src/lib/recepcaoHubTabs.js`, `src/lib/dashboardReceptionCopy.js`, `src/lib/receptionFinancialReminders.js`
 
-**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/ConfirmLessonStaffModal.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`
+**Arquivos-chave:** `src/pages/Dashboard.jsx`, `src/components/recepcao/RecepcaoCatracaTab.jsx`, `src/components/recepcao/RecepcaoSchedulesGrid.jsx`, `src/components/recepcao/ConfirmLessonStaffModal.jsx`, `src/components/dashboard/DashboardFinancialRemindersBanner.jsx`, `src/components/dashboard/*`, `src/lib/recepcaoHubTabs.js`, `lib/server/receptionRemindersHandler.js`
 
 ---
 
@@ -32,7 +33,7 @@
 
 A página **Recepção** (`/`) é a mesa do dia com duas abas via `HubTabBar`:
 
-1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **agenda da semana** em destaque, follow-ups, tarefas de hoje, grade de horários. (Painel de kimonos emprestados oculto na Recepção; componente `KimonoLoanPanel` mantido no código.)
+1. **Comercial** (default, sem `?tab`) — hero com KPIs (hoje, follow-ups, tarefas, vendas*, matrículas), **lembretes financeiros** (contas a pagar / cobrar alunos / renovar pacote), **agenda da semana** em destaque, follow-ups, tarefas de hoje, grade de horários. (Painel de kimonos emprestados oculto na Recepção; componente `KimonoLoanPanel` mantido no código.)
 2. **Presença** (`?tab=catraca`) — hero com KPIs de presença/retenção; no desktop, feed ao vivo e fila de retenção lado a lado; sub-abas **Ao vivo** e **Histórico** no mobile (retenção via KPI do hero ou `?section=retencao`). Ver [recepcao-controlid.md](recepcao-controlid.md).
 
 Rotas legadas redirecionam para os destinos canônicos acima.
@@ -89,6 +90,7 @@ flowchart TD
 | 11c | `/` | `RecepcaoSchedulesGrid` | Ver **Grade de horários** | Grade semanal read-only; scroll horizontal no mobile; filtro por modalidade |
 | 11d | `/` | — | (oculto) **Kimonos** | `KimonoLoanPanel` não renderizado na Recepção desde 2026-09-21 |
 | 12 | `/` | `DashboardBirthdayBanner` | **Parabenizar** | `DashboardBirthdayModal` + template WhatsApp |
+| 12b | `/` | `DashboardFinancialRemindersBanner` | Ver / clicar lembrete | Contas → A pagar (se finance); aluno → perfil Pagamentos |
 | 13 | `/` | Header | **Novo lead** | `NewLeadModal` global |
 | 14 | `/` (zero state) | Welcome card | **Adicionar primeiro lead** | Modal de novo lead ou link para funil |
 | 15 | `/?tab=catraca` | `RecepcaoCatracaTab` | Ao vivo / Histórico / Liberar catraca | Ver [recepcao-controlid.md](recepcao-controlid.md) |
@@ -136,6 +138,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 11d. [ ] **Kimonos** — painel **oculto** na Recepção (`KimonoLoanPanel` não montado em `Dashboard.jsx`)
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
 13. [ ] Aniversariantes: banner + modal + template
+13b. [ ] **Lembretes financeiros** no hero — contas (sem R$), alunos a cobrar e renovar pacote; some se vazio; refresh do hero atualiza
 14. [ ] Trocar academia — KPIs e listas refletem só a nova academia
 15. [ ] Com presença configurada e alunos em risco — banner **«X alunos em risco»** com link para `/?tab=catraca&section=retencao`
 

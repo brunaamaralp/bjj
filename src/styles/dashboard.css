@@ -193,6 +193,83 @@
           align-items: center;
           gap: 6px;
         }
+        .dashboard-financial-reminders {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--petroleo, var(--color-primary)) 6%, var(--color-card-bg));
+          border: 1px solid color-mix(in srgb, var(--petroleo, var(--color-primary)) 22%, var(--color-border));
+        }
+        .dashboard-financial-reminders__head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .dashboard-financial-reminders__icon {
+          color: var(--petroleo, var(--color-primary-dark));
+          flex-shrink: 0;
+        }
+        .dashboard-financial-reminders__title {
+          margin: 0;
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--color-text-heading);
+          line-height: 1.3;
+        }
+        .dashboard-financial-reminders__sections {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .dashboard-financial-reminders__section-title {
+          margin: 0 0 4px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--color-text-muted);
+        }
+        .dashboard-financial-reminders__list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .dashboard-financial-reminders__row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          padding: 6px 8px;
+          border: none;
+          border-radius: 8px;
+          background: transparent;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--color-text-heading);
+          text-align: left;
+          cursor: pointer;
+        }
+        .dashboard-financial-reminders__row:hover {
+          background: color-mix(in srgb, var(--color-primary-surface) 70%, #fff);
+        }
+        .dashboard-financial-reminders__row--static {
+          cursor: default;
+          font-weight: 600;
+        }
+        .dashboard-financial-reminders__row--static:hover {
+          background: transparent;
+        }
+        .dashboard-financial-reminders__row-text {
+          min-width: 0;
+          line-height: 1.35;
+        }
         .dashboard-birthday-modal__title {
           display: inline-flex;
           align-items: center;

@@ -39,6 +39,8 @@ import { dispatchOpenNewLeadModal } from '../lib/newLeadModal.js';
 import FollowUpMicroToast from '../components/dashboard/FollowUpMicroToast.jsx';
 import DashboardBirthdayBanner from '../components/dashboard/DashboardBirthdayBanner.jsx';
 import DashboardBirthdayModal from '../components/dashboard/DashboardBirthdayModal.jsx';
+import DashboardFinancialRemindersBanner from '../components/dashboard/DashboardFinancialRemindersBanner.jsx';
+import { fetchReceptionFinancialReminders } from '../lib/receptionRemindersApi.js';
 import {
     buildHeroDateLine,
     buildDaySummaryLine,
@@ -255,6 +257,7 @@ const Dashboard = () => {
         error: dashWaError,
     } = useWhatsappTemplates(academyId);
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
+    const [financialReminderSections, setFinancialReminderSections] = useState([]);
     const [savingPresence, setSavingPresence] = useState({});
     const [listModalType, setListModalType] = useState('');
     const followupLeadCandidates = useMemo(
@@ -457,6 +460,26 @@ const Dashboard = () => {
         void loadSalesDailySummary();
     }, [loadSalesDailySummary]);
 
+    const loadFinancialReminders = useCallback(
+        async ({ refresh = false } = {}) => {
+            if (!academyId || isCatracaTab) {
+                setFinancialReminderSections([]);
+                return;
+            }
+            try {
+                const body = await fetchReceptionFinancialReminders(academyId, { refresh });
+                setFinancialReminderSections(Array.isArray(body?.sections) ? body.sections : []);
+            } catch {
+                setFinancialReminderSections([]);
+            }
+        },
+        [academyId, isCatracaTab]
+    );
+
+    useEffect(() => {
+        void loadFinancialReminders();
+    }, [loadFinancialReminders]);
+
     const handleRefresh = async () => {
         if (isRefreshing) return;
         setIsRefreshing(true);
@@ -467,6 +490,7 @@ const Dashboard = () => {
                 fetchDashboardKpiTasks(academyId, { silent: true }),
                 refreshFollowupEvents({ force: true }),
                 salesEnabled ? loadSalesDailySummary() : Promise.resolve(),
+                loadFinancialReminders({ refresh: true }),
             ]);
         } finally {
             setTimeout(() => setIsRefreshing(false), 300);
@@ -1472,6 +1496,12 @@ const Dashboard = () => {
                             zapsterInstanceId={academyWa.zapster_instance_id}
                             onToast={(t) => addToast(t)}
                             onOpenList={openBirthdayList}
+                        />
+                    ) : null}
+                    {!loading && !isCatracaTab ? (
+                        <DashboardFinancialRemindersBanner
+                            sections={financialReminderSections}
+                            canOpenFinance={modules?.finance === true}
                         />
                     ) : null}
                 </div>

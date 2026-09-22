@@ -8,9 +8,9 @@
 | **rotas** | `/financeiro?tab=a-pagar`, `/financeiro?tab=a-pagar&section=contas-fixas`, `/financeiro?tab=a-pagar&section=vencidas`, `/financeiro?tab=a-pagar&new=1` |
 | **pré-requisitos** | Módulo `finance`; conta bancária para liquidar pagamentos |
 | **status** | revisado (código) |
-| **última revisão** | 2026-07-23 |
+| **última revisão** | 2026-09-22 |
 
-**Spec:** [2026-06-16-contas-a-pagar-PRODUCT.md](../../superpowers/specs/2026-06-16-contas-a-pagar-PRODUCT.md)
+**Spec:** [2026-06-16-contas-a-pagar-PRODUCT.md](../../superpowers/specs/2026-06-16-contas-a-pagar-PRODUCT.md) · lembretes na Recepção: [2026-09-22-recepcao-lembretes-financeiros-design.md](../../superpowers/specs/2026-09-22-recepcao-lembretes-financeiros-design.md)
 
 **Arquivos-chave:** `src/components/finance/PayablesTab.jsx`, `src/components/finance/PayablesVisaoPanel.jsx`, `src/lib/payablesAggregate.js`, `lib/server/payablesHandler.js`, `src/lib/financeiroPayablesSections.js`
 
@@ -46,6 +46,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 6. [ ] Conta vencida aparece em **Vencidas**
 7. [ ] Previsão mostra saída na semana correta
 8. [ ] Sidebar **A pagar** linka para contas fixas
+9. [ ] Recepção Comercial: **Lembretes financeiros** mostra contas do dia/semana/atrasadas **sem valor**; com módulo finance, clique abre A pagar
 
 ---
 
@@ -53,6 +54,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 
 | Data | Mudança |
 |---|---|
+| 2026-09-22 | Lembretes na Recepção (hero) ligados a A pagar |
 | 2026-07-23 | Shell alinhado a A receber (KPI compacto único); Visão sem bloco de métricas duplicadas |
 | 2026-07-22 | Visão geral distinta de Contas fixas (resumo vs fila operacional) |
 | 2026-06-16 | Implementação Fase 1 (P0) |
