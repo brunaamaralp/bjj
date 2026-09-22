@@ -7,7 +7,7 @@ import {
 } from '../lib/inboxContactDisplay.js';
 
 /**
- * Mantém telefone do Inbox e do chat widget flutuante sincronizados quando pinado.
+ * Mantém telefone do Inbox alinhado ao chat do perfil quando há conversa ativa no store.
  */
 export function useInboxChatWidgetSync({
   selectedPhone,

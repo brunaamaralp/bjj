@@ -209,6 +209,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 - **Mobile:** bottom nav — primeiro slot **Recepção** (`/`); layout em `dashboard.css`
 - **NL command bar:** `useNlPageContext` registra contexto da página
 - **Novo lead:** header, empty state e FAB mobile (`dispatchOpenNewLeadModal`)
+- **Nota rápida (desktop):** FAB `+` (`QuickNoteShortcut`) — busca lead/aluno e grava no histórico
 - **Catraca:** rota canônica `/?tab=catraca`; setup em `/integracoes?tab=catraca` — [recepcao-controlid.md](recepcao-controlid.md)
 - **Proativo (hub):** `proactiveHub.js` linka follow-ups com `/?retornos=1` (alias legado)
 

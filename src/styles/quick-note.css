@@ -1,0 +1,45 @@
+.navi-quick-note {
+  position: fixed;
+  z-index: var(--z-chat-widget);
+  right: 24px;
+  bottom: 24px;
+  pointer-events: none;
+}
+
+.navi-quick-note > * {
+  pointer-events: auto;
+}
+
+.navi-quick-note__fab {
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.navi-quick-note__fab:active {
+  transform: scale(0.94);
+}
+
+.navi-quick-note__fab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.navi-quick-note-modal .form-group {
+  margin-bottom: var(--space-4, 16px);
+}
+
+.navi-quick-note-modal textarea.form-input {
+  min-height: 120px;
+  resize: vertical;
+}

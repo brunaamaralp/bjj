@@ -8,7 +8,7 @@
 | **rotas** | `/inbox`, `/inbox?phone=`, `/inbox?filter=needs_me` |
 | **pré-requisitos** | WhatsApp conectado via Zapster; conversas sincronizadas |
 | **status** | revisado |
-| **última revisão** | 2026-06-15 |
+| **última revisão** | 2026-09-22 |
 
 **Specs relacionadas:**
 
@@ -17,7 +17,7 @@
 
 **Harness relacionado:** [HARNESS.md](../../HARNESS.md) — Inbox & Agente de IA (`npm test -- inbox agentRespond zapsterWebhook`)
 
-**Arquivos-chave:** `src/pages/Inbox.jsx`, `src/components/inbox/*`, `lib/server/zapsterWebhook.js`, `lib/server/agentRespond.js`
+**Arquivos-chave:** `src/pages/Inbox.jsx`, `src/components/inbox/*`, `lib/server/zapsterWebhook.js`, `lib/server/agentRespond.js`, `src/components/quick-note/QuickNoteShortcut.jsx` (atalho global de nota, não de chat)
 
 ---
 
@@ -156,10 +156,10 @@ flowchart TD
 ## Variações e atalhos
 
 - **Mobile:** bottom nav **Conversas**; `InboxConversationSheet` em viewport estreita
-- **FAB inbox:** `NaviInboxShortcut` em outras páginas
 - **Deep link:** `?phone=` normaliza e seleciona conversa
 - **Atalho teclado:** `useInboxKeyboard` para navegação power-user
-- **Widget chat:** painel flutuante reutiliza estado (`useInboxChatWidgetSync`)
+- **Chat no perfil:** painel embutido (`NaviChatWidgetPanel`) em lead/aluno — sem FAB global de Conversas
+- **Nota rápida (desktop):** FAB `+` global (`QuickNoteShortcut`) fora de `/inbox`, `/lead/:id` e `/student/:id`
 - **NL / agente:** ações IA documentadas na spec `ia-acoes-whatsapp`
 
 ---
@@ -168,4 +168,5 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-09-22 | — | FAB global de Conversas removido; atalho Nota rápida (`QuickNoteShortcut`) |
 | 2026-06-15 | — | Criação inicial |

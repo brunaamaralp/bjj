@@ -48,8 +48,6 @@ const initialState = {
   activePhone: primaryInboxPhone(persisted?.activePhone || ''),
   leadId: String(persisted?.leadId || '').trim(),
   leadName: String(persisted?.leadName || '').trim(),
-  launcherOpen: false,
-  shortcutLoading: false,
 };
 
 export const useChatWidgetStore = create((set, get) => ({
@@ -66,29 +64,14 @@ export const useChatWidgetStore = create((set, get) => ({
       activePhone: p,
       leadId: String(leadId || '').trim(),
       leadName: String(leadName || '').trim(),
-      launcherOpen: false,
-      shortcutLoading: false,
     };
     set(next);
     writePersisted({ ...get(), ...next });
   },
 
-  openLauncher: () => {
-    set({ launcherOpen: true, isOpen: false, shortcutLoading: false });
-    writePersisted(get());
-  },
-
-  closeLauncher: () => {
-    set({ launcherOpen: false });
-  },
-
-  setShortcutLoading: (v) => {
-    set({ shortcutLoading: Boolean(v) });
-  },
-
   openPanel: () => {
     if (!get().isPinned) return;
-    set({ isOpen: true, launcherOpen: false });
+    set({ isOpen: true });
     writePersisted(get());
   },
 
@@ -104,8 +87,6 @@ export const useChatWidgetStore = create((set, get) => ({
       activePhone: '',
       leadId: '',
       leadName: '',
-      launcherOpen: false,
-      shortcutLoading: false,
     };
     set(next);
     writePersisted({ ...get(), ...next });
@@ -144,8 +125,6 @@ export const useChatWidgetStore = create((set, get) => ({
         activePhone: '',
         leadId: '',
         leadName: '',
-        launcherOpen: false,
-        shortcutLoading: false,
       };
       set(next);
       writePersisted({ ...get(), ...next });
