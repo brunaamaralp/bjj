@@ -11,6 +11,10 @@ vi.mock('../lib/leadEvents.js', () => ({
   addLeadEvent: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock('../lib/profileNoteApi.js', () => ({
+  createProfileNoteApi: vi.fn().mockResolvedValue({ sucesso: true, event_id: 'ev-1' }),
+}));
+
 vi.mock('../hooks/useToast', () => ({
   useToast: () => ({
     success: vi.fn(),
@@ -21,7 +25,7 @@ vi.mock('../hooks/useToast', () => ({
   }),
 }));
 
-import { addLeadEvent } from '../lib/leadEvents.js';
+import { createProfileNoteApi } from '../lib/profileNoteApi.js';
 
 function mockDesktopViewport() {
   Object.defineProperty(window, 'matchMedia', {
@@ -58,7 +62,7 @@ function renderShortcut(initialPath = '/') {
 describe('QuickNoteShortcut', () => {
   beforeEach(() => {
     mockDesktopViewport();
-    vi.mocked(addLeadEvent).mockClear();
+    vi.mocked(createProfileNoteApi).mockClear();
     useLeadStore.setState({
       leads: [{ id: 'lead-1', name: 'Maria', phone: '11999999999' }],
       leadsReady: true,
@@ -107,12 +111,12 @@ describe('QuickNoteShortcut', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => {
-      expect(addLeadEvent).toHaveBeenCalledWith(
+      expect(createProfileNoteApi).toHaveBeenCalledWith(
         expect.objectContaining({
           academyId: 'acad-1',
-          leadId: 'lead-1',
-          type: 'note',
+          personId: 'lead-1',
           text: 'Ligou pedindo horário',
+          notifyTeam: false,
         })
       );
     });

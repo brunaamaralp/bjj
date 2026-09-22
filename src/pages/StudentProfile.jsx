@@ -48,7 +48,10 @@ import { useAcademyRoleDoc } from '../hooks/useAcademyRoleDoc.js';
 import { getSalesByStudent } from '../lib/salesByStudent.js';
 import { fetchReportsByStudent } from '../lib/reportsByStudentApi.js';
 import { getAttendance, getAttendanceStats, createCheckin, isAttendanceConfigured } from '../lib/attendance.js';
-import { addLeadEvent, getLeadEvents } from '../lib/leadEvents.js';
+import { getLeadEvents } from '../lib/leadEvents.js';
+import { createProfileNoteApi } from '../lib/profileNoteApi.js';
+import NotifyTeamCheckbox from '../components/shared/NotifyTeamCheckbox.jsx';
+import { emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { useLeadStore, LEAD_STATUS } from '../store/useLeadStore';
 import { useStudentStore, selectStudentById } from '../store/useStudentStore';
 import '../styles/student-profile.css';
@@ -431,6 +434,7 @@ export default function StudentProfile() {
     // Alinhado ao menu /inbox: aba sempre visível; estados vazios ficam no painel de chat.
     const showConversationTab = true;
     const [note, setNote] = useState('');
+    const [notifyTeam, setNotifyTeam] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
     const [timelineEvents, setTimelineEvents] = useState([]);
     const [timelineError, setTimelineError] = useState(false);
@@ -1308,17 +1312,19 @@ export default function StudentProfile() {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
         try {
-            await addLeadEvent({
+            const shouldNotify = notifyTeam;
+            await createProfileNoteApi({
                 academyId,
-                leadId: leadId,
-                type: 'note',
+                personId: leadId,
                 text: note.trim().slice(0, 1000),
-                createdBy: userId || 'user',
-                permissionContext: permCtx,
+                notifyTeam: shouldNotify,
             });
+            emitLeadTimelineChanged(leadId, { eventType: 'note' });
             await updateStudent(leadId, { lastNoteAt: new Date().toISOString() });
             setNote('');
-            toast.success('Nota adicionada.');
+            setNotifyTeam(false);
+            void refreshTimeline();
+            toast.success(shouldNotify ? 'Nota adicionada e equipe notificada.' : 'Nota adicionada.');
         } catch (e) {
             toast.error(e, 'save');
         } finally {
@@ -3360,39 +3366,47 @@ export default function StudentProfile() {
                                 Notas
                             </button>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                            <textarea
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder={`Adicione uma observação sobre este ${terms.student.toLowerCase()}...`}
-                                rows={3}
-                                style={{
-                                    ...inputStyle,
-                                    resize: 'vertical',
-                                    minHeight: 72,
-                                }}
+                        <div style={{ marginBottom: 14 }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <textarea
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder={`Adicione uma observação sobre este ${terms.student.toLowerCase()}...`}
+                                    rows={3}
+                                    style={{
+                                        ...inputStyle,
+                                        resize: 'vertical',
+                                        minHeight: 72,
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => void addNote()}
+                                    disabled={!note.trim() || addingNote}
+                                    style={{
+                                        width: 48,
+                                        flexShrink: 0,
+                                        borderRadius: 10,
+                                        border: 'none',
+                                        background: 'var(--petroleo)',
+                                        color: '#fff',
+                                        cursor: !note.trim() || addingNote ? 'not-allowed' : 'pointer',
+                                        opacity: !note.trim() || addingNote ? 0.5 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                    aria-label="Salvar nota"
+                                >
+                                    <Send size={16} />
+                                </button>
+                            </div>
+                            <NotifyTeamCheckbox
+                                id="student-profile-notify-team"
+                                checked={notifyTeam}
+                                onChange={setNotifyTeam}
+                                disabled={addingNote}
                             />
-                            <button
-                                type="button"
-                                onClick={() => void addNote()}
-                                disabled={!note.trim() || addingNote}
-                                style={{
-                                    width: 48,
-                                    flexShrink: 0,
-                                    borderRadius: 10,
-                                    border: 'none',
-                                    background: 'var(--petroleo)',
-                                    color: '#fff',
-                                    cursor: !note.trim() || addingNote ? 'not-allowed' : 'pointer',
-                                    opacity: !note.trim() || addingNote ? 0.5 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                                aria-label="Salvar nota"
-                            >
-                                <Send size={16} />
-                            </button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto' }}>
                             {timelineError ? (

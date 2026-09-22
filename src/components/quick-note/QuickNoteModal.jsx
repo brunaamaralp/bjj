@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ModalShell from '../shared/ModalShell.jsx';
 import FieldError from '../shared/FieldError.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
+import NotifyTeamCheckbox from '../shared/NotifyTeamCheckbox.jsx';
 import { useToast } from '../../hooks/useToast';
-import { addLeadEvent } from '../../lib/leadEvents.js';
+import { createProfileNoteApi } from '../../lib/profileNoteApi.js';
 import { buildQuickNotePersonOptions } from '../../lib/quickNotePersonOptions.js';
 import { useLeadStore } from '../../store/useLeadStore';
 import { useStudentStore } from '../../store/useStudentStore';
+import { emitLeadTimelineChanged } from '../../lib/leadTimelineEvents.js';
 
 const NOTE_MAX = 1000;
 
@@ -16,8 +18,6 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
   const leadsReady = useLeadStore((s) => s.leadsReady);
   const fetchLeads = useLeadStore((s) => s.fetchLeads);
   const updateLead = useLeadStore((s) => s.updateLead);
-  const userId = useLeadStore((s) => s.userId);
-  const academyList = useLeadStore((s) => s.academyList);
 
   const students = useStudentStore((s) => s.students);
   const studentsReady = useStudentStore((s) => s.studentsReady);
@@ -26,16 +26,12 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
 
   const [personId, setPersonId] = useState('');
   const [note, setNote] = useState('');
+  const [notifyTeam, setNotifyTeam] = useState(false);
   const [busy, setBusy] = useState(false);
   const [personError, setPersonError] = useState('');
   const [noteError, setNoteError] = useState('');
 
   const options = useMemo(() => buildQuickNotePersonOptions(leads, students), [leads, students]);
-
-  const permCtx = useMemo(() => {
-    const acad = (academyList || []).find((a) => a.id === academyId) || {};
-    return { ownerId: acad.ownerId, teamId: acad.teamId, userId: userId || '' };
-  }, [academyList, academyId, userId]);
 
   useEffect(() => {
     if (!open || !academyId) return;
@@ -47,6 +43,7 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
     if (!open) {
       setPersonId('');
       setNote('');
+      setNotifyTeam(false);
       setBusy(false);
       setPersonError('');
       setNoteError('');
@@ -78,14 +75,13 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
 
     setBusy(true);
     try {
-      await addLeadEvent({
+      await createProfileNoteApi({
         academyId,
-        leadId: personId,
-        type: 'note',
+        personId,
         text: trimmed,
-        createdBy: userId || 'user',
-        permissionContext: permCtx,
+        notifyTeam,
       });
+      emitLeadTimelineChanged(personId, { eventType: 'note' });
       const stamp = { lastNoteAt: new Date().toISOString() };
       try {
         if (kind === 'student') {
@@ -96,7 +92,7 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
       } catch {
         /* nota já gravada; lastNoteAt é best-effort */
       }
-      toast.success('Nota adicionada.');
+      toast.success(notifyTeam ? 'Nota adicionada e equipe notificada.' : 'Nota adicionada.');
       onClose?.();
     } catch (err) {
       toast.error(err, 'save');
@@ -166,6 +162,12 @@ export default function QuickNoteModal({ open, onClose, academyId }) {
             }}
           />
           <FieldError id="quick-note-text-error">{noteError}</FieldError>
+          <NotifyTeamCheckbox
+            id="quick-note-notify-team"
+            checked={notifyTeam}
+            onChange={setNotifyTeam}
+            disabled={busy}
+          />
         </div>
       </form>
     </ModalShell>

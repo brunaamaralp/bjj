@@ -32,6 +32,7 @@ import { buildControlIdAttendanceDocument } from '../lib/attendanceDocument.js';
 import publicEnrollmentHandler from '../lib/server/publicEnrollmentHandler.js';
 import publicExperimentalHandler from '../lib/server/publicExperimentalHandler.js';
 import leadEventsListHandler from '../lib/server/leadEventsListHandler.js';
+import profileNoteHandler from '../lib/server/profileNoteHandler.js';
 import academyDocumentHandler from '../lib/server/academyDocumentHandler.js';
 import financeConfigHandler from '../lib/server/financeConfigHandler.js';
 import {
@@ -312,6 +313,7 @@ export default async function handler(req, res) {
   if (req.query.route === 'sales_by_student') return salesByStudentHandler(req, res);
   if (req.query.route === 'students') return studentsHandler(req, res);
   if (req.query.route === 'lead-events') return leadEventsListHandler(req, res);
+  if (req.query.route === 'profile-note') return profileNoteHandler(req, res);
   if (req.query.route === 'academy-document') return academyDocumentHandler(req, res);
   if (req.query.route === 'finance-config') return financeConfigHandler(req, res);
   if (req.query.route === 'controlid_status') return controlidStatusHandler(req, res);

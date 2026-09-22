@@ -147,7 +147,7 @@ Variáveis de ambiente principais. IDs completos: `src/lib/appwrite.js` (fronten
 |---------|---------|-------|
 | `conversations` | `VITE_APPWRITE_CONVERSATIONS_COLLECTION_ID` | Threads WhatsApp / inbox |
 | `labels` | `VITE_APPWRITE_LABELS_COLLECTION_ID` | Etiquetas do funil |
-| `note_notifications` | `VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID` | Notificações internas de @menção |
+| `note_notifications` | `VITE_APPWRITE_NOTE_NOTIFICATIONS_COLLECTION_ID` | Notificações internas (notas Inbox, `profile_note`, avisos de sistema) |
 | `tasks` | `VITE_APPWRITE_TASKS_COLLECTION_ID` | Tarefas operacionais |
 | `task_templates` | `VITE_APPWRITE_TASK_TEMPLATES_COLLECTION_ID` | Playbooks / processos |
 | `classes` | `VITE_APPWRITE_CLASSES_COLLECTION_ID` | Catálogo de **turmas** (nome, modalidade, capacidade, status) |

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
+import { createProfileNoteApi } from '../lib/profileNoteApi.js';
+import NotifyTeamCheckbox from '../components/shared/NotifyTeamCheckbox.jsx';
+import { emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, selectLeadById } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
@@ -684,6 +687,7 @@ const LeadProfile = () => {
     }, [id, refreshTimeline]);
 
     const [note, setNote] = useState('');
+    const [notifyTeam, setNotifyTeam] = useState(false);
     const [dadosQuickNoteOpen, setDadosQuickNoteOpen] = useState(false);
     const noteTextareaRef = useRef(null);
     const dadosNoteTextareaRef = useRef(null);
@@ -1615,17 +1619,18 @@ const LeadProfile = () => {
         if (!note.trim() || addingNote) return;
         setAddingNote(true);
         try {
-            await addLeadEvent({
+            const shouldNotify = notifyTeam;
+            await createProfileNoteApi({
                 academyId,
-                leadId: id,
-                type: 'note',
+                personId: id,
                 text: note.trim().slice(0, 1000),
-                createdBy: userId || 'user',
-                permissionContext: permCtx
+                notifyTeam: shouldNotify,
             });
+            emitLeadTimelineChanged(id, { eventType: 'note' });
             await updateLead(id, { lastNoteAt: new Date().toISOString() });
             setNote('');
-            toast.success('Nota adicionada.');
+            setNotifyTeam(false);
+            toast.success(shouldNotify ? 'Nota adicionada e equipe notificada.' : 'Nota adicionada.');
             focusNoteField();
         } catch (e) {
             toast.error(e, 'save');
@@ -1746,6 +1751,12 @@ const LeadProfile = () => {
                     </button>
                 ))}
             </div>
+            <NotifyTeamCheckbox
+                id={`${idPrefix}-notify-team`}
+                checked={notifyTeam}
+                onChange={setNotifyTeam}
+                disabled={addingNote}
+            />
             <button
                 type="button"
                 id={`${idPrefix}-send-note`}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Bell, MessageSquare, CheckSquare, Banknote, UserCheck } from 'lucide-react';
+import { Bell, MessageSquare, CheckSquare, Banknote, UserCheck, StickyNote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNoteNotifications } from '../../hooks/useNoteNotifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -17,9 +17,78 @@ const PROACTIVE_ICONS = {
   followups: UserCheck,
 };
 
+function NotificationRowContent({ n }) {
+  if (n.is_profile_note || n.type === 'profile_note') {
+    const studentName = String(n.title || n.lead_name || 'aluno').trim() || 'aluno';
+    const preview = String(n.body || '').trim();
+    const author = String(n.created_by_name || 'Equipe').trim() || 'Equipe';
+    return (
+      <>
+        <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.4 }}>
+          <strong>Nova nota · {studentName}</strong>
+        </p>
+        {preview ? (
+          <p
+            style={{
+              margin: '0 0 4px',
+              fontSize: '12px',
+              color: 'var(--text-secondary, var(--text-muted))',
+              lineHeight: 1.4,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            “{preview}”
+          </p>
+        ) : null}
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {author} ·{' '}
+          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+        </span>
+      </>
+    );
+  }
+
+  if (n.is_system) {
+    return (
+      <>
+        <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.4 }}>
+          <strong>{n.title || n.lead_name || 'Aviso do sistema'}</strong>
+          {n.body ? (
+            <>
+              {' — '}
+              <span style={{ fontWeight: 500 }}>{n.body}</span>
+            </>
+          ) : null}
+        </p>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.4 }}>
+        <strong>{n.created_by_name}</strong> adicionou uma nota em{' '}
+        <strong>{n.lead_name || 'um lead'}</strong>
+      </p>
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+      </span>
+    </>
+  );
+}
+
 export default function NotificationBell({ academyId, userId }) {
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, startPolling, stopPolling } = useNoteNotifications(academyId, userId);
+  const { notifications, unreadCount, markAsRead, startPolling, stopPolling } = useNoteNotifications(
+    academyId,
+    userId
+  );
   const leads = useLeadStore((s) => s.leads);
   const modules = useLeadStore((s) => s.modules);
   const financeConfig = useLeadStore((s) => s.financeConfig);
@@ -73,6 +142,10 @@ export default function NotificationBell({ academyId, userId }) {
     }
     if (n.is_system && n.type === 'whatsapp_disconnected') {
       navigate(INTEGRACOES_WHATSAPP_PATH);
+      return;
+    }
+    if (n.lead_id && (n.is_profile_note || n.type === 'profile_note')) {
+      navigate(`/student/${encodeURIComponent(n.lead_id)}?tab=timeline`);
       return;
     }
     navigate(`/inbox?phone=${normalizePhone(n.phone_number || '')}&conversation=${n.conversation_id}`);
@@ -148,30 +221,14 @@ export default function NotificationBell({ academyId, userId }) {
                   onClick={() => handleItemClick(n)}
                 >
                   <span className="notification-dropdown__row-icon notification-dropdown__row-icon--note">
-                    <MessageSquare size={16} />
+                    {n.is_profile_note || n.type === 'profile_note' ? (
+                      <StickyNote size={16} />
+                    ) : (
+                      <MessageSquare size={16} />
+                    )}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: '0 0 4px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.4 }}>
-                      {n.is_system ? (
-                        <>
-                          <strong>{n.title || n.lead_name || 'Aviso do sistema'}</strong>
-                          {n.body ? (
-                            <>
-                              {' — '}
-                              <span style={{ fontWeight: 500 }}>{n.body}</span>
-                            </>
-                          ) : null}
-                        </>
-                      ) : (
-                        <>
-                          <strong>{n.created_by_name}</strong> adicionou uma nota em{' '}
-                          <strong>{n.lead_name || 'um lead'}</strong>
-                        </>
-                      )}
-                    </p>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
-                    </span>
+                    <NotificationRowContent n={n} />
                   </div>
                 </button>
               ))

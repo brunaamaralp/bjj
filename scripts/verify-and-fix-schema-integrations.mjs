@@ -414,6 +414,8 @@ const NOTE_NOTIFICATIONS_ATTRS = [
   { key: 'type', type: 'string', size: 64 },
   { key: 'severity', type: 'string', size: 16 },
   { key: 'action_url', type: 'string', size: 512 },
+  /** Snapshot de preview no sino (fonte da verdade permanece em lead_events / conversation_notes). */
+  { key: 'body', type: 'string', size: 512 },
 ];
 
 const CONVERSATION_NOTES_ATTRS = [
