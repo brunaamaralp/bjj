@@ -32,7 +32,7 @@ export const TIMELINE_FILTER_TYPES = {
   FEE: 'fee',
 };
 
-/** Defaults da aba Histórico no perfil (tudo recente: mensalidades + compras + taxas). */
+/** Defaults da aba Pagamentos no perfil (histórico misto: mensalidades + compras + taxas). */
 export const DEFAULT_TIMELINE_TYPE_FILTER = TIMELINE_FILTER_TYPES.ALL;
 export const DEFAULT_TIMELINE_PERIOD_FILTER = '3m';
 
@@ -448,7 +448,7 @@ export function profilePaymentStatusChrome(summary, { loading = false } = {}) {
 
   return {
     title: summary.situationLabel,
-    subtitle: subtitle || 'Aba Histórico',
+    subtitle: subtitle || 'Aba Pagamentos',
     badge,
     toneClass,
   };

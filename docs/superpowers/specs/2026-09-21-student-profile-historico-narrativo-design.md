@@ -1,10 +1,10 @@
-# Perfil do aluno — aba Histórico (lista mista + copy narrativa)
+# Perfil do aluno — aba Pagamentos como histórico misto + copy narrativa
 
 **Data:** 2026-09-21  
 **Status:** Implementado  
 **Persona principal:** recepcionista (entender o que o aluno pagou e comprou sem caçar filtros)  
 **Fluxo:** [crm/aluno-perfil-presenca.md](../../flows/crm/aluno-perfil-presenca.md)  
-**Complementa:** [2026-07-16-student-profile-payments-status-first-design.md](./2026-07-16-student-profile-payments-status-first-design.md) (topo status-first permanece; este spec altera defaults + rótulos + copy do ledger)  
+**Complementa:** [2026-07-16-student-profile-payments-status-first-design.md](./2026-07-16-student-profile-payments-status-first-design.md) (topo status-first permanece; este spec altera defaults + copy do ledger)  
 **Componente:** `StudentFinancialTimeline` + `buildFinancialTimelineItems`
 
 ---
@@ -13,9 +13,9 @@
 
 A aba financeira do perfil já tem ledger unificado (mensalidades, pacotes, produtos, taxas), mas:
 
-1. O nome **Pagamentos** e o filtro padrão **Mensalidades** fazem a UI parecer só de mensalidade.
+1. O filtro padrão **Mensalidades** fazia a UI parecer só de mensalidade.
 2. Linhas de venda usam `items_summary` sem verbo — não se lê “comprou camiseta / kimono”.
-3. Recepção precisa mudar filtro para ver compras; a história do aluno não aparece de cara.
+3. Recepção precisava mudar filtro para ver compras; a história do aluno não aparecia de cara.
 
 ## Goals
 
@@ -37,8 +37,8 @@ A aba financeira do perfil já tem ledger unificado (mensalidades, pacotes, prod
 
 | Item | Decisão |
 |------|----------|
-| Nome da aba | **Histórico** (não “Pagamentos”; não “Financeiro”) |
-| Confusão com **Linha do tempo** | Aceitável — wording distinto; histórico = movimento financeiro |
+| Nome da aba | **Pagamentos** (rótulo); conteúdo = histórico de compras e pagamentos |
+| Confusão com **Linha do tempo** | Sem conflito — tab continua “Pagamentos”; Linha do tempo é eventos gerais |
 | Filtro tipo padrão | **Todos** (`TIMELINE_FILTER_TYPES.ALL`) |
 | Período padrão | **Últimos 3 meses** (inalterado) |
 | Chip de tipo | **Não** — o verbo no título basta |
@@ -48,9 +48,10 @@ A aba financeira do perfil já tem ledger unificado (mensalidades, pacotes, prod
 
 ### Aba
 
-- Label: `Pagamentos` → `Histórico`
-- `aria-label` / teaser do card de status: “Abrir aba Histórico” (ou equivalente)
-- Id de rota/estado: `payments` (sem breaking change de deep-link `?tab=payments`)
+- Label: **Pagamentos**
+- Conteúdo: histórico misto (mensalidades, planos, produtos, taxas)
+- `aria-label` / teaser: “Abrir aba Pagamentos”
+- Id de rota/estado: `payments` (deep-link `?tab=payments`)
 
 ### Defaults do ledger
 
@@ -97,12 +98,12 @@ Construir `title` (ou `ledgerTitle`) em `buildFinancialTimelineItems`.
 - `src/components/student/StudentFinancialTimeline.jsx` — placeholders do filtro
 - `src/pages/StudentProfile.jsx` — label da tab + aria do teaser
 - Testes: `src/test/studentFinancialTimeline.test.js` — default `all`; asserts de copy
-- Docs de fluxo: atualizar checklist/rótulos em `docs/flows/crm/aluno-perfil-presenca.md` (aba Histórico; default Todos · 3 meses) no mesmo PR
+- Docs de fluxo: checklist em `docs/flows/crm/aluno-perfil-presenca.md` (aba Pagamentos = histórico misto; default Todos · 3 meses)
 - Spec antigo 2026-07-16: defaults “Mensalidades” ficam **superseded** por este doc (não reescrever o histórico; linkar daqui)
 
 ## Aceite
 
-- [x] Aba do perfil mostra **Histórico** (não Pagamentos)
+- [x] Aba do perfil mostra **Pagamentos**; lista é histórico misto (compras + pagamentos)
 - [x] Ao abrir a aba, filtro tipo = **Todos** e período = **3 meses** sem ação do usuário
 - [x] Com aluno que tem mensalidade + venda no período, **ambas** aparecem na lista sem mudar filtro
 - [x] Mensalidade **paga** começa com **Pagou mensalidade**; mensalidade **em atraso/pendente** usa **Mensalidade —** (sem “Pagou”)
