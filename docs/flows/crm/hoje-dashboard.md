@@ -90,7 +90,7 @@ flowchart TD
 | 11c | `/` | `RecepcaoSchedulesGrid` | Ver **Grade de horários** | Grade semanal read-only; scroll horizontal no mobile; filtro por modalidade |
 | 11d | `/` | — | (oculto) **Kimonos** | `KimonoLoanPanel` não renderizado na Recepção desde 2026-09-21 |
 | 12 | `/` | `DashboardBirthdayBanner` | **Parabenizar** | `DashboardBirthdayModal` + template WhatsApp |
-| 12b | `/` | `DashboardFinancialRemindersBanner` | Ver / clicar lembrete | Contas → A pagar (se finance); aluno → perfil Pagamentos |
+| 12b | `/` | `DashboardFinancialRemindersBanner` | Expandir / clicar lembrete | Recolhido por padrão; Contas → A pagar (se finance); aluno → perfil Pagamentos |
 | 13 | `/` | Header | **Novo lead** | `NewLeadModal` global |
 | 14 | `/` (zero state) | Welcome card | **Adicionar primeiro lead** | Modal de novo lead ou link para funil |
 | 15 | `/?tab=catraca` | `RecepcaoCatracaTab` | Ao vivo / Histórico / Liberar catraca | Ver [recepcao-controlid.md](recepcao-controlid.md) |
@@ -138,7 +138,7 @@ O KPI pode ser **menor** que o badge quando há leads em dia (`on_track`) que j�
 11d. [ ] **Kimonos** — painel **oculto** na Recepção (`KimonoLoanPanel` não montado em `Dashboard.jsx`)
 12. [ ] KPI **Tarefas** → `/tarefas?status=pendentes&period=today`
 13. [ ] Aniversariantes: banner + modal + template
-13b. [ ] **Lembretes financeiros** no hero — contas (sem R$), alunos a cobrar e renovar pacote; some se vazio; refresh do hero atualiza
+13b. [ ] **Lembretes financeiros** no hero — recolhido por padrão (badge com contagem); expandir no clique; contas (sem R$), alunos a cobrar e renovar pacote; some se vazio; refresh do hero atualiza
 14. [ ] Trocar academia — KPIs e listas refletem só a nova academia
 15. [ ] Com presença configurada e alunos em risco — banner **«X alunos em risco»** com link para `/?tab=catraca&section=retencao`
 

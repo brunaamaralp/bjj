@@ -202,10 +202,34 @@
           background: color-mix(in srgb, var(--petroleo, var(--color-primary)) 6%, var(--color-card-bg));
           border: 1px solid color-mix(in srgb, var(--petroleo, var(--color-primary)) 22%, var(--color-border));
         }
+        .dashboard-financial-reminders--collapsed {
+          gap: 0;
+        }
+        .dashboard-financial-reminders__toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-family: inherit;
+          text-align: left;
+          color: inherit;
+        }
+        .dashboard-financial-reminders__toggle:focus-visible {
+          outline: 2px solid var(--color-primary);
+          outline-offset: 2px;
+          border-radius: 8px;
+        }
         .dashboard-financial-reminders__head {
           display: flex;
           align-items: center;
           gap: 8px;
+          min-width: 0;
         }
         .dashboard-financial-reminders__icon {
           color: var(--petroleo, var(--color-primary-dark));
@@ -217,6 +241,17 @@
           font-weight: 700;
           color: var(--color-text-heading);
           line-height: 1.3;
+        }
+        .dashboard-financial-reminders__count {
+          flex-shrink: 0;
+        }
+        .dashboard-financial-reminders__chevron {
+          flex-shrink: 0;
+          color: var(--color-text-muted);
+          transition: transform var(--motion-fast, 150ms) var(--ease-standard, ease);
+        }
+        .dashboard-financial-reminders__chevron--open {
+          transform: rotate(180deg);
         }
         .dashboard-financial-reminders__sections {
           display: flex;

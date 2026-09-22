@@ -30,6 +30,7 @@ Na Recepção não há um lugar único que diga: contas a pagar do dia/semana, a
 - Componente: `DashboardFinancialRemindersBanner` (padrão visual próximo de `DashboardBirthdayBanner`).
 - Posição: hero Comercial, junto ao banner de aniversários.
 - Título: `Lembretes financeiros`.
+- **Recolhido por padrão** — cabeçalho clicável com badge de contagem e chevron; lista só após expandir.
 - Até **3** linhas por seção + `+N`.
 - Clique conta → `/financeiro?tab=a-pagar` se módulo finance; senão sem deep-link quebrado.
 - Clique aluno → `/student/:id` (aba pagamentos se possível).
@@ -67,6 +68,7 @@ Na Recepção não há um lugar único que diga: contas a pagar do dia/semana, a
 ## Aceite
 
 - [x] Banner some sem lembretes
+- [x] Banner começa recolhido; expandir no clique do cabeçalho
 - [x] Contas: nome + bucket, sem R$
 - [x] Alunos: nome + valor + bucket mensalidade
 - [x] Pacote: aviso no mês/mês anterior ao fim da cobertura
