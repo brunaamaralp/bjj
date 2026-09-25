@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applySaleStockPatchInMemory,
+  availableAfterReservation,
   availableQuantityForLineKind,
   buildCancelStockPatch,
   buildSaleStockPatch,
   normalizeLineKind,
+  reserveLineQuantity,
   splitPagamentosByGrossShares,
   validateLineKindForParent,
 } from '../lib/saleLineKind.js';
@@ -45,6 +48,37 @@ describe('saleLineKind', () => {
       rental_out: 2,
       current_quantity: 2,
     });
+  });
+
+  it('sale + rental no mesmo SKU acumulam sem lost update', () => {
+    const item = { sale_quantity: 4, rental_available: 2, rental_out: 0, current_quantity: 6 };
+    const afterSale = applySaleStockPatchInMemory(item, 1, 'sale');
+    expect(afterSale).toMatchObject({ sale_quantity: 3, rental_available: 2, current_quantity: 5 });
+    const afterBoth = applySaleStockPatchInMemory(afterSale, 1, 'rental');
+    expect(afterBoth).toMatchObject({
+      sale_quantity: 3,
+      rental_available: 1,
+      rental_out: 1,
+      current_quantity: 4,
+    });
+  });
+
+  it('duas linhas sale do mesmo SKU acumulam', () => {
+    const item = { sale_quantity: 5, rental_available: 0, rental_out: 0, current_quantity: 5 };
+    const a = applySaleStockPatchInMemory(item, 2, 'sale');
+    const b = applySaleStockPatchInMemory(a, 3, 'sale');
+    expect(b).toMatchObject({ sale_quantity: 0, current_quantity: 0 });
+  });
+
+  it('reserva qty por item+line_kind para validação', () => {
+    const reserved = Object.create(null);
+    const item = { sale_quantity: 5, rental_available: 3, rental_out: 0 };
+    expect(availableAfterReservation(item, 'sale', 'both', reserved, 'sku-1')).toBe(5);
+    reserveLineQuantity(reserved, 'sku-1', 'sale', 3);
+    expect(availableAfterReservation(item, 'sale', 'both', reserved, 'sku-1')).toBe(2);
+    expect(availableAfterReservation(item, 'rental', 'both', reserved, 'sku-1')).toBe(3);
+    reserveLineQuantity(reserved, 'sku-1', 'sale', 2);
+    expect(availableAfterReservation(item, 'sale', 'both', reserved, 'sku-1')).toBe(0);
   });
 
   it('cancelamento reverte pools', () => {

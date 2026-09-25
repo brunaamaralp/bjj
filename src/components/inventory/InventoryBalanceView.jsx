@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronDown,
   MoreHorizontal,
+  Download,
 } from 'lucide-react';
 import SearchField from '../shared/SearchField.jsx';
 import SearchableSelect from '../shared/SearchableSelect.jsx';
@@ -17,6 +18,7 @@ import {
   formatCriticalSizesSummary,
   formatMinimumLabel,
 } from '../../lib/inventoryCatalogMerge.js';
+import { exportInventoryBalanceCsv } from '../../lib/inventoryBalanceExport.js';
 import ProductThumb from '../products/ProductThumb';
 import EmptyState from '../shared/EmptyState.jsx';
 import Hint from '../shared/Hint.jsx';
@@ -328,6 +330,16 @@ export default function InventoryBalanceView({
       <div className="flex justify-between items-center gap-2 mb-2 inventory-balance-toolbar">
         <h2 className="navi-section-heading" style={{ margin: 0 }}>Saldo atual</h2>
         <div className="flex gap-2 items-center inventory-balance-toolbar__controls">
+          <button
+            type="button"
+            className="btn-outline navi-btn--toolbar"
+            onClick={() => exportInventoryBalanceCsv(filtered)}
+            disabled={loading}
+            title="Exportar CSV do inventário (filtros atuais)"
+          >
+            <Download size={16} aria-hidden />
+            Exportar CSV
+          </button>
           <button type="button" className="btn-outline navi-btn--toolbar" onClick={() => void onRefresh()} disabled={loading}>
             {loading ? 'Atualizando…' : 'Atualizar'}
           </button>

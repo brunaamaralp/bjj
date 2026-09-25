@@ -148,6 +148,50 @@ export function buildSaleStockPatch(item, quantity, lineKind) {
   return { current_quantity: Math.max(0, prev - q) };
 }
 
+/**
+ * Aplica a baixa em memória e devolve o doc atualizado.
+ * Evita lost update quando o mesmo SKU aparece em várias linhas da venda.
+ * @param {object} item
+ * @param {number} quantity
+ * @param {'sale'|'rental'} lineKind
+ */
+export function applySaleStockPatchInMemory(item, quantity, lineKind) {
+  const patch = buildSaleStockPatch(item, quantity, lineKind);
+  return { ...(item || {}), ...patch };
+}
+
+/** Chave de reserva: item + pool (sale|rental). */
+export function stockReservationKey(itemId, lineKind) {
+  return `${String(itemId || '').trim()}:${normalizeLineKind(lineKind)}`;
+}
+
+/**
+ * @param {Record<string, number>} reserved
+ * @param {string} itemId
+ * @param {'sale'|'rental'} lineKind
+ * @param {number} quantity
+ */
+export function reserveLineQuantity(reserved, itemId, lineKind, quantity) {
+  const key = stockReservationKey(itemId, lineKind);
+  const q = Math.max(0, Math.trunc(Number(quantity) || 0));
+  reserved[key] = (reserved[key] || 0) + q;
+  return reserved[key];
+}
+
+/**
+ * Disponível do pool menos o que já foi reservado nesta venda.
+ * @param {object} item
+ * @param {'sale'|'rental'} lineKind
+ * @param {string} [parentType]
+ * @param {Record<string, number>} reserved
+ * @param {string} itemId
+ */
+export function availableAfterReservation(item, lineKind, parentType, reserved, itemId) {
+  const base = availableQuantityForLineKind(item, lineKind, parentType);
+  const used = reserved?.[stockReservationKey(itemId, lineKind)] || 0;
+  return Math.max(0, base - used);
+}
+
 /** Reverte estoque ao cancelar venda. */
 export function buildCancelStockPatch(item, quantity, lineKind) {
   const q = Math.max(0, Math.trunc(Number(quantity) || 0));

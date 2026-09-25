@@ -13,7 +13,7 @@
 
 **Specs relacionadas:** [2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md](../superpowers/specs/2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md)
 
-**Harness relacionado:** `npm test -- lojaInventoryTabs inventoryMoveFinanceLink inventoryMovesList stockEntryCorrection stockEntryPhase3`
+**Harness relacionado:** `npm test -- lojaInventoryTabs inventoryMoveFinanceLink inventoryMovesList stockEntryCorrection stockEntryPhase3 inventoryBalanceExport`
 
 **Arquivos-chave:** `src/pages/Inventory.jsx`, `src/components/inventory/InventoryBalanceView.jsx`, `src/components/inventory/InventoryMovesPanel.jsx`, `src/components/inventory/InventoryMovesHistory.jsx`, `src/components/inventory/InventoryEntryModal.jsx`, `src/store/useInventoryStore.js`
 
@@ -49,6 +49,7 @@ flowchart TD
 |---|---|---|---|---|
 | 1 | `/loja?tab=estoque` | `Inventory` | Abrir **Estoque** | Default `subtab=saldo` |
 | 2 | `&subtab=saldo` | `InventoryBalanceView` | Ver saldos por item | Quantidade, mínimo, status; **sem** itens `type=rental` |
+| 2b | Inventário | **Exportar CSV** | `exportInventoryBalanceCsv` | CSV com produto, variante, categoria, qty, mínimo, status, unidade (respeita filtros) |
 | 3 | Inventário | **Registrar entrada** | `InventoryEntryModal` | `inventoryMove` tipo entrada |
 | 4 | Entrada | Com financeiro | Custo + conta | Toast «Entrada e despesa no Caixa» |
 | 5 | Inventário | **Ajustar** | `InventoryAdjustModal` | `adjustStock` |
@@ -97,6 +98,7 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 13. [ ] Legacy `/estoque` → `/loja?tab=estoque`
 14. [ ] `?item=` destaca item correto
 15. [ ] Multi-tenant: só itens da academia atual
+16. [ ] **Exportar CSV** baixa inventário filtrado (`inventario-saldo-YYYY-MM-DD.csv`)
 
 ### Estados de erro conhecidos
 
