@@ -60,6 +60,8 @@ export function mapAppwriteDocToLead(doc, operationalStatusSet) {
     missedAt: doc.missed_at || null,
     lostAt: doc.lost_at || null,
     convertedAt: doc.converted_at || null,
+    experimentalProfessorUserId: String(doc.experimental_professor_user_id || '').trim() || null,
+    experimentalProfessorName: String(doc.experimental_professor_name || '').trim() || null,
     importedAt: doc.imported_at || null,
     lastNoteAt: doc.last_note_at || null,
     lastWhatsappActivityAt: doc.last_whatsapp_activity_at || null,

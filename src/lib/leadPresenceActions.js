@@ -11,6 +11,8 @@ export function buildLeadPresenceUndoPatch(lead) {
     pipelineStage: 'Aula experimental',
     attendedAt: null,
     missedAt: null,
+    experimentalProfessorUserId: null,
+    experimentalProfessorName: null,
   };
 }
 

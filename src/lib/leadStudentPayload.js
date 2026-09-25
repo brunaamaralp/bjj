@@ -99,6 +99,17 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
     belt: String(d.belt || '').trim(),
     exit_reason: String(d.exit_reason ?? d.exitReason ?? '').trim(),
     exit_date: String(d.exit_date ?? d.exitDate ?? '').trim().slice(0, 10) || null,
+    experimental_professor_user_id: String(
+      d.experimental_professor_user_id ?? d.experimentalProfessorUserId ?? ''
+    )
+      .trim()
+      .slice(0, 128),
+    experimental_professor_name: String(
+      d.experimental_professor_name ?? d.experimentalProfessorName ?? ''
+    )
+      .trim()
+      .slice(0, 128),
+    attended_at: d.attended_at ?? d.attendedAt ?? null,
   };
 
   const hasPlanPriceSnake = Object.prototype.hasOwnProperty.call(d, 'plan_price');

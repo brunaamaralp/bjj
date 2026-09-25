@@ -146,6 +146,20 @@ function updatesToAppwritePatch(updates, currentLead) {
   if (u.missedAt !== undefined) copyIf('missed_at', u.missedAt);
   if (u.missed_reason !== undefined) copyIf('missed_reason', u.missed_reason);
   if (u.lostAt !== undefined) copyIf('lost_at', u.lostAt);
+  if (u.experimentalProfessorUserId !== undefined) {
+    const id = u.experimentalProfessorUserId;
+    copyIf(
+      'experimental_professor_user_id',
+      id == null || id === '' ? '' : String(id).slice(0, 128)
+    );
+  }
+  if (u.experimentalProfessorName !== undefined) {
+    const nm = u.experimentalProfessorName;
+    copyIf(
+      'experimental_professor_name',
+      nm == null || nm === '' ? '' : String(nm).slice(0, 128)
+    );
+  }
   if (u.importedAt !== undefined) copyIf('imported_at', u.importedAt);
   if (u.statusChangedAt !== undefined) copyIf('status_changed_at', u.statusChangedAt);
   if (u.pipelineStageChangedAt !== undefined) copyIf('pipeline_stage_changed_at', u.pipelineStageChangedAt);

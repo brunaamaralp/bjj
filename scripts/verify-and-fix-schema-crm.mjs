@@ -435,6 +435,8 @@ const LEADS_ATTRS = [
   { key: 'pending_automations', type: 'string', size: 4096 },
   { key: 'has_pending_automations', type: 'boolean' },
   { key: 'label_ids', type: 'string', size: 2048 },
+  { key: 'experimental_professor_user_id', type: 'string', size: 128 },
+  { key: 'experimental_professor_name', type: 'string', size: 128 },
 ];
 
 /** leadStudentPayload.js, useStudentStore, studentsHandler, collectionRules */
@@ -458,6 +460,9 @@ const STUDENTS_ATTRS = [
   { key: 'belt', type: 'string', size: 32 },
   { key: 'enrollmentDate', type: 'string', size: 16 },
   { key: 'converted_at', type: 'string', size: 64 },
+  { key: 'experimental_professor_user_id', type: 'string', size: 128 },
+  { key: 'experimental_professor_name', type: 'string', size: 128 },
+  { key: 'attended_at', type: 'datetime' },
   { key: 'exit_reason', type: 'string', size: 256 },
   { key: 'exit_date', type: 'string', size: 16 },
   { key: 'emergencyContact', type: 'string', size: 256 },

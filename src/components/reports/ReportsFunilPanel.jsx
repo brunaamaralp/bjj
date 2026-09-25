@@ -11,9 +11,12 @@ import ReportKpiCard, { ReportKpiCardSkeleton } from './shared/ReportKpiCard.jsx
 import ReportsPanelShell from './shared/ReportsPanelShell.jsx';
 import ReportsPanelSection from './shared/ReportsPanelSection.jsx';
 import ReportsMethodologyNote from './ReportsMethodologyNote.jsx';
+import ReportDataTable from './shared/ReportDataTable.jsx';
 import { pctVar } from '../../lib/reportsFunnelUtils.js';
 import { reportKpiTooltip } from '../../lib/reportKpiTooltip.js';
 import { kpiRagProps } from '../../lib/reportKpiGoalsUi.js';
+import { downloadCsv } from '../../lib/reportsExport.js';
+import { buildExperimentalProfessorCsvRows } from '../../../lib/experimentalProfessor.js';
 import './reports.css';
 
 const ReportsFunilBarChart = lazy(() =>
@@ -404,6 +407,55 @@ export default function ReportsFunilPanel({
             )}
           </ReportsPanelSection>
           </div>
+
+          <ReportsPanelSection
+            title="Experimentais por professor"
+            action={
+              reportData?.experimentalByProfessor?.rows?.length ? (
+                <button
+                  type="button"
+                  className="btn-outline btn-sm"
+                  onClick={() => {
+                    const rows = buildExperimentalProfessorCsvRows(reportData.experimentalByProfessor);
+                    const from = String(range?.from || '').slice(0, 10);
+                    const to = String(range?.to || '').slice(0, 10);
+                    downloadCsv(rows, `experimentais-professor-${from}_${to}.csv`);
+                  }}
+                >
+                  Exportar CSV
+                </button>
+              ) : null
+            }
+          >
+            {!reportData?.experimentalByProfessor?.rows?.length ? (
+              <p className="text-small text-muted">
+                Sem comparecimentos, faltas ou matrículas com professor neste período. Ao marcar
+                compareceu/faltou, informe o responsável (opcional).
+              </p>
+            ) : (
+              <>
+                <p className="text-small text-muted mb-2">
+                  Compareceu = comissão. Matriculados = conversão atribuída ao professor da
+                  experimental. Sem responsável = ainda sem professor informado.
+                </p>
+                <ReportDataTable
+                  columns={[
+                    { key: 'name', label: 'Professor' },
+                    { key: 'attended', label: 'Compareceu', align: 'right' },
+                    { key: 'converted', label: 'Matriculados', align: 'right' },
+                    { key: 'missed', label: 'Não compareceu', align: 'right' },
+                  ]}
+                  rows={(reportData.experimentalByProfessor.rows || []).map((r) => ({
+                    id: r.userId,
+                    name: r.name,
+                    attended: r.attended,
+                    converted: r.converted,
+                    missed: r.missed,
+                  }))}
+                />
+              </>
+            )}
+          </ReportsPanelSection>
           </section>
         </>
       ) : null}

@@ -35,6 +35,14 @@ const ScheduleModal = lazy(() => import('../components/ScheduleModal.jsx'));
 import { DateInputField } from '../components/DateInput';
 import { getAcademyQuickTimeChipValues } from '../lib/academyQuickTimes.js';
 import { buildSchedulePatch } from '../lib/scheduleHelpers.js';
+import ConfirmExperimentalProfessorModal from '../components/leads/ConfirmExperimentalProfessorModal.jsx';
+import { useExperimentalProfessorOptions } from '../hooks/useExperimentalProfessorOptions.js';
+import {
+    buildExperimentalProfessorEvent,
+    buildExperimentalProfessorPatch,
+    experimentalProfessorChanged,
+    readExperimentalProfessor,
+} from '../../lib/experimentalProfessor.js';
 import { parseAutomationsConfig } from '../lib/useAutomations.js';
 import {
     afterExperimentalScheduled,
@@ -294,6 +302,7 @@ const LeadProfile = () => {
     const deleteLead = useLeadStore((s) => s.deleteLead);
     const toast = useToast();
     const academyId = useLeadStore((s) => s.academyId);
+    const experimentalProfessorOptions = useExperimentalProfessorOptions(academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
     const modules = useLeadStore((s) => s.modules);
 
@@ -550,6 +559,7 @@ const LeadProfile = () => {
     const [confirmModal, setConfirmModal] = useState(null);
     const [confirmBusy, setConfirmBusy] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [professorModal, setProfessorModal] = useState(null);
     const [saving, setSaving] = useState(false);
     const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
     const [addingNote, setAddingNote] = useState(false);
@@ -1319,7 +1329,7 @@ const LeadProfile = () => {
         await executeSaveLead(payload);
     };
 
-    const handleUpdateStatus = async (newStatus) => {
+    const handleUpdateStatus = async (newStatus, professorSelection) => {
         if (updatingStatus) return;
         setUpdatingStatus(true);
         const nowIso = new Date().toISOString();
@@ -1341,6 +1351,33 @@ const LeadProfile = () => {
                     : 'stage_change';
 
         try {
+            const professorPatch =
+                professorSelection === undefined
+                    ? {}
+                    : buildExperimentalProfessorPatch(professorSelection);
+            if (
+                professorSelection !== undefined &&
+                experimentalProfessorChanged(lead, professorSelection)
+            ) {
+                const ev = buildExperimentalProfessorEvent({
+                    prevLead: lead,
+                    nextSelection: professorSelection,
+                    actorUserId: userId || '',
+                });
+                try {
+                    await addLeadEvent({
+                        academyId,
+                        leadId: id,
+                        type: ev.type,
+                        text: ev.text,
+                        createdBy: userId || 'user',
+                        permissionContext: permCtx,
+                        payloadJson: ev.payloadJson,
+                    });
+                } catch {
+                    /* auditoria best-effort */
+                }
+            }
             await addLeadEvent({
                 academyId,
                 leadId: id,
@@ -1354,12 +1391,14 @@ const LeadProfile = () => {
                 status: newStatus,
                 // Mantém alinhamento com o fluxo de matrícula do Pipeline.
                 ...(newStatus === LEAD_STATUS.CONVERTED ? { contact_type: 'student' } : {}),
-                ...(pipelineStage ? { pipelineStage } : {})
+                ...(pipelineStage ? { pipelineStage } : {}),
+                ...professorPatch,
             };
             if (newStatus === LEAD_STATUS.COMPLETED) patch.attendedAt = nowIso;
             if (newStatus === LEAD_STATUS.MISSED) patch.missedAt = nowIso;
             if (newStatus === LEAD_STATUS.CONVERTED) patch.convertedAt = nowIso;
             await updateLead(id, patch);
+            setProfessorModal(null);
             const waOutbound = {
                 name: waCtx.name,
                 zapster_instance_id: waCtx.zapster,
@@ -1403,6 +1442,46 @@ const LeadProfile = () => {
         } finally {
             setUpdatingStatus(false);
         }
+    };
+
+    const confirmProfessorModal = async (selection) => {
+        const mode = professorModal?.mode;
+        if (mode === 'edit') {
+            setUpdatingStatus(true);
+            try {
+                const professorPatch = buildExperimentalProfessorPatch(selection || { userId: '', name: '' });
+                if (experimentalProfessorChanged(lead, selection || { userId: '', name: '' })) {
+                    const ev = buildExperimentalProfessorEvent({
+                        prevLead: lead,
+                        nextSelection: selection || { userId: '', name: '' },
+                        actorUserId: userId || '',
+                    });
+                    try {
+                        await addLeadEvent({
+                            academyId,
+                            leadId: id,
+                            type: ev.type,
+                            text: ev.text,
+                            createdBy: userId || 'user',
+                            permissionContext: permCtx,
+                            payloadJson: ev.payloadJson,
+                        });
+                    } catch {
+                        /* best-effort */
+                    }
+                }
+                await updateLead(id, professorPatch, { fallbackLead: lead });
+                setProfessorModal(null);
+                toast.success('Professor da experimental atualizado.');
+            } catch (e) {
+                toast.error(e, 'save');
+            } finally {
+                setUpdatingStatus(false);
+            }
+            return;
+        }
+        const status = mode === 'missed' ? LEAD_STATUS.MISSED : LEAD_STATUS.COMPLETED;
+        await handleUpdateStatus(status, selection);
     };
 
     const onConfirmScheduleFromModal = async ({ date, time, note }) => {
@@ -2331,7 +2410,7 @@ const LeadProfile = () => {
                                         <button
                                             type="button"
                                             className="btn-state-attended btn-success-action"
-                                            onClick={() => void handleUpdateStatus(LEAD_STATUS.COMPLETED)}
+                                            onClick={() => setProfessorModal({ mode: 'attended' })}
                                             disabled={updatingStatus}
                                         >
                                             Compareceu
@@ -2339,13 +2418,34 @@ const LeadProfile = () => {
                                         <button
                                             type="button"
                                             className="btn-state-missed"
-                                            onClick={() => void handleUpdateStatus(LEAD_STATUS.MISSED)}
+                                            onClick={() => setProfessorModal({ mode: 'missed' })}
                                             disabled={updatingStatus}
                                         >
                                             Não compareceu
                                         </button>
                                     </div>
                                 ) : null}
+                                {(lead.status === LEAD_STATUS.COMPLETED ||
+                                    lead.status === LEAD_STATUS.MISSED) && (
+                                    <div className="mt-3 flex-col gap-1">
+                                        <p className="text-small text-muted">
+                                            Professor:{' '}
+                                            {readExperimentalProfessor(lead).name || (
+                                                <em>não informado</em>
+                                            )}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            className="schedule-secondary-link"
+                                            onClick={() => setProfessorModal({ mode: 'edit' })}
+                                            disabled={updatingStatus}
+                                        >
+                                            {readExperimentalProfessor(lead).userId
+                                                ? 'Alterar professor'
+                                                : 'Informar professor'}
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     type="button"
                                     className="schedule-secondary-link"
@@ -3092,6 +3192,18 @@ const LeadProfile = () => {
                 saving={savingFollowupOutcome}
                 onClose={closeFollowupOutcome}
                 onConfirm={(payload) => void confirmFollowupOutcome(payload)}
+            />
+
+            <ConfirmExperimentalProfessorModal
+                open={Boolean(professorModal)}
+                lead={lead}
+                mode={professorModal?.mode || 'attended'}
+                options={experimentalProfessorOptions}
+                saving={updatingStatus}
+                onClose={() => {
+                    if (!updatingStatus) setProfessorModal(null);
+                }}
+                onConfirm={(selection) => void confirmProfessorModal(selection)}
             />
 </div>
     );

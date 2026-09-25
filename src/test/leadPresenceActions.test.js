@@ -13,6 +13,8 @@ describe('leadPresenceActions', () => {
       pipelineStage: 'Aula experimental',
       attendedAt: null,
       missedAt: null,
+      experimentalProfessorUserId: null,
+      experimentalProfessorName: null,
     });
   });
 
@@ -30,9 +32,11 @@ describe('leadPresenceActions', () => {
     expect(canUndoLeadPresence({ status: LEAD_STATUS.SCHEDULED })).toBe(false);
   });
 
-  it('undo limpa attendedAt e missedAt', () => {
+  it('undo limpa attendedAt, missedAt e professor', () => {
     const patch = buildLeadPresenceUndoPatch({ status: LEAD_STATUS.COMPLETED });
     expect(patch?.attendedAt).toBeNull();
     expect(patch?.missedAt).toBeNull();
+    expect(patch?.experimentalProfessorUserId).toBeNull();
+    expect(patch?.experimentalProfessorName).toBeNull();
   });
 });

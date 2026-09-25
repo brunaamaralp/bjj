@@ -17,6 +17,13 @@ import { DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LABELS } from '../../lib/
 import { isCriancaProfileType } from '../../lib/leadTypeNormalize.js';
 import { sendWhatsappTemplateOutbound } from '../lib/outboundWhatsappTemplate.js';
 import { PIPELINE_WAITING_DECISION_STAGE } from '../constants/pipeline.js';
+import ConfirmExperimentalProfessorModal from '../components/leads/ConfirmExperimentalProfessorModal.jsx';
+import { useExperimentalProfessorOptions } from '../hooks/useExperimentalProfessorOptions.js';
+import {
+    buildExperimentalProfessorEvent,
+    buildExperimentalProfessorPatch,
+    experimentalProfessorChanged,
+} from '../../lib/experimentalProfessor.js';
 import { isActiveStudent, isInactiveStudent, isStudentRecord } from '../lib/studentStatus.js';
 import {
     buildPipelineStageLeadCounts,
@@ -1199,6 +1206,7 @@ const Pipeline = () => {
     const terms = useTerms();
     const contactLabel = useMemo(() => contactLabelSingular(labels), [labels]);
     const academyId = useLeadStore((s) => s.academyId);
+    const experimentalProfessorOptions = useExperimentalProfessorOptions(academyId);
     const financeConfig = useLeadStore((s) => s.financeConfig);
 
     const userId = useLeadStore((s) => s.userId);
@@ -1326,6 +1334,8 @@ const Pipeline = () => {
     const [searchStageScope, setSearchStageScope] = useState(() => pipelineSessionInitialFilters(initialSaved).searchStageScope);
     const [waDropdownOpenId, setWaDropdownOpenId] = useState(null);
     const [missedModalLead, setMissedModalLead] = useState(null);
+    const [professorModal, setProfessorModal] = useState(null);
+    const [professorSaving, setProfessorSaving] = useState(false);
     const [activeId, setActiveId] = useState(null);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
@@ -2003,73 +2013,114 @@ const Pipeline = () => {
         const lead = getLeadById(leadId);
         setLostModal({ leadId, leadName: lead?.name || contactLabel, onConfirm });
     }, [getLeadById, contactLabel]);
-    const handleConfirmPresence = useCallback(async (e, lead) => {
+    const handleConfirmPresence = useCallback((e, lead) => {
         e.stopPropagation();
-        try {
-            await updateLead(lead.id, {
-                status: LEAD_STATUS.COMPLETED,
-                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
-                attendedAt: new Date().toISOString(),
-                statusChangedAt: new Date().toISOString()
-            });
-            const autoResult = await safeAutomationDispatch(
-                afterPresenceConfirmed({
-                    lead: { ...lead, status: LEAD_STATUS.COMPLETED, pipelineStage: PIPELINE_WAITING_DECISION_STAGE },
-                    ...automationCtxBase(),
-                    getLead: () => getLeadById(lead.id) || lead,
-                }),
-                'presence_confirmed'
-            );
-            reportAutomations(autoResult);
-            await addLeadEvent({
-                academyId,
-                leadId: lead.id,
-                type: 'attended',
-                from: lead.pipelineStage || '',
-                to: PIPELINE_WAITING_DECISION_STAGE,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
-            });
-            toast.success(`${terms.attendance} confirmada`);
-            setOpenMenuId(null);
-        } catch (err) {
-            toast.error(err, 'action');
-        }
-    }, [updateLead, academyId, automationCtxBase, reportAutomations, userId, permCtx, terms.attendance, toast, getLeadById]);
+        setOpenMenuId(null);
+        setProfessorModal({ lead, kind: 'attended' });
+    }, []);
 
-    const handleMissedWithReason = async (lead, reason) => {
+    const handleMissedWithReason = (lead, reason) => {
+        setMissedModalLead(null);
+        setOpenMenuId(null);
+        setProfessorModal({ lead, kind: 'missed', missedReason: reason });
+    };
+
+    const confirmPipelineProfessor = async (selection) => {
+        const ctx = professorModal;
+        if (!ctx?.lead) return;
+        const lead = ctx.lead;
+        const kind = ctx.kind === 'missed' ? 'missed' : 'attended';
+        const reason = String(ctx.missedReason || '').trim();
+        setProfessorSaving(true);
         try {
+            const professorPatch =
+                selection === undefined ? {} : buildExperimentalProfessorPatch(selection);
+            if (selection !== undefined && experimentalProfessorChanged(lead, selection)) {
+                const ev = buildExperimentalProfessorEvent({
+                    prevLead: lead,
+                    nextSelection: selection,
+                    actorUserId: userId || '',
+                });
+                try {
+                    await addLeadEvent({
+                        academyId,
+                        leadId: lead.id,
+                        type: ev.type,
+                        text: ev.text,
+                        createdBy: userId || 'user',
+                        permissionContext: permCtx,
+                        payloadJson: ev.payloadJson,
+                    });
+                } catch {
+                    /* best-effort */
+                }
+            }
             const now = new Date().toISOString();
-            await updateLead(lead.id, {
-                status: LEAD_STATUS.MISSED,
-                pipelineStage: LEAD_STATUS.MISSED,
-                missedAt: now,
-                missed_reason: reason,
-                statusChangedAt: now
-            });
-            const autoResult = await safeAutomationDispatch(
-                afterMissed({
-                    lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
-                    ...automationCtxBase(),
-                }),
-                'missed'
-            );
-            reportAutomations(autoResult);
-            await addLeadEvent({
-                academyId,
-                leadId: lead.id,
-                type: 'missed',
-                from: lead.pipelineStage || '',
-                to: LEAD_STATUS.MISSED,
-                text: `Motivo: ${reason}`,
-                createdBy: userId || 'user',
-                permissionContext: permCtx
-            });
-            toast.success(`${contactLabel} movido para Não compareceu`);
-            setMissedModalLead(null);
-            setOpenMenuId(null);
+            if (kind === 'missed') {
+                await updateLead(lead.id, {
+                    status: LEAD_STATUS.MISSED,
+                    pipelineStage: LEAD_STATUS.MISSED,
+                    missedAt: now,
+                    missed_reason: reason,
+                    statusChangedAt: now,
+                    ...professorPatch,
+                });
+                const autoResult = await safeAutomationDispatch(
+                    afterMissed({
+                        lead: { ...lead, status: LEAD_STATUS.MISSED, pipelineStage: LEAD_STATUS.MISSED },
+                        ...automationCtxBase(),
+                    }),
+                    'missed'
+                );
+                reportAutomations(autoResult);
+                await addLeadEvent({
+                    academyId,
+                    leadId: lead.id,
+                    type: 'missed',
+                    from: lead.pipelineStage || '',
+                    to: LEAD_STATUS.MISSED,
+                    text: reason ? `Motivo: ${reason}` : '',
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                });
+                toast.success(`${contactLabel} movido para Não compareceu`);
+            } else {
+                await updateLead(lead.id, {
+                    status: LEAD_STATUS.COMPLETED,
+                    pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                    attendedAt: now,
+                    statusChangedAt: now,
+                    ...professorPatch,
+                });
+                const autoResult = await safeAutomationDispatch(
+                    afterPresenceConfirmed({
+                        lead: {
+                            ...lead,
+                            status: LEAD_STATUS.COMPLETED,
+                            pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                        },
+                        ...automationCtxBase(),
+                        getLead: () => getLeadById(lead.id) || lead,
+                    }),
+                    'presence_confirmed'
+                );
+                reportAutomations(autoResult);
+                await addLeadEvent({
+                    academyId,
+                    leadId: lead.id,
+                    type: 'attended',
+                    from: lead.pipelineStage || '',
+                    to: PIPELINE_WAITING_DECISION_STAGE,
+                    createdBy: userId || 'user',
+                    permissionContext: permCtx,
+                });
+                toast.success(`${terms.attendance} confirmada`);
+            }
+            setProfessorModal(null);
         } catch (err) {
             toast.error(err, 'action');
+        } finally {
+            setProfessorSaving(false);
         }
     };
 
@@ -3519,6 +3570,18 @@ const Pipeline = () => {
                     </div>
                 </div>
             )}
+
+            <ConfirmExperimentalProfessorModal
+                open={Boolean(professorModal?.lead)}
+                lead={professorModal?.lead || null}
+                mode={professorModal?.kind === 'missed' ? 'missed' : 'attended'}
+                options={experimentalProfessorOptions}
+                saving={professorSaving}
+                onClose={() => {
+                    if (!professorSaving) setProfessorModal(null);
+                }}
+                onConfirm={(selection) => void confirmPipelineProfessor(selection)}
+            />
 
             {lostModalLead && (
                 <LostReasonModal

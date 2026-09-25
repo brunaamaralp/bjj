@@ -175,6 +175,7 @@ flowchart TD
 - **Entrada alternativa:** lead criado a partir do **Inbox** ao associar conversa (`docs/flows/crm/conversas-inbox.md`)
 - **Experimental online:** link público em Empresa → Alunos → **Configurações de matrícula** (`PublicExperimentalSection`); formulário em `/experimental/:token`; reagenda lead existente pelo telefone (não duplica); bloqueia se já matriculado ou lead convertido
 - **Matrícula pelo funil:** menu rápido no card sem abrir perfil
+- **Professor da experimental:** ao marcar Compareceu / Não compareceu (Hoje, Funil, perfil), modal opcional grava o responsável; edição depois no perfil; relatório em Relatórios → Funil → **Experimentais por professor**
 - **Matrícula online:** link público em Empresa → Alunos → **Cadastro online** (`PublicEnrollmentSection`); toggle **Pedir graduação no formulário online** (default off) só aparece com graduações salvas; formulário em `/inscricao/:token` envia `belt` quando toggle ativo
 - **Automações:** ao mudar estágio, processos em `/automacoes?tab=processos` podem enviar mensagens
 - **Mobile (≤1023px):** vista lista agrupada por estágio; kanban só no desktop
@@ -186,6 +187,7 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-09-24 | — | Professor da experimental no compareceu/faltou + relatório por professor no Funil |
 | 2026-07-23 | — | Matrícula grava `plan_price` (snapshot do plano escolhido) |
 | 2026-07-06 | — | Link público `/experimental/:token` para agendar experimental; reagendamento por telefone |
 | 2026-06-23 | — | Matrícula passa a aceitar desconto individual recorrente com preview do valor final |

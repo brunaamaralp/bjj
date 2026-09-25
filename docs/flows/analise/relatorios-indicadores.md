@@ -11,7 +11,7 @@
 | **última revisão** | 2026-07-12 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** —
+**Specs relacionadas:** [2026-09-24-experimental-professor-report-design.md](../../superpowers/specs/2026-09-24-experimental-professor-report-design.md)
 
 **Harness relacionado:** `npm test -- reportsFinancePanel reportsFinanceDrill financeTxQueryOperational reportsFinanceParity reportsPeople`
 
@@ -51,6 +51,7 @@ flowchart TD
 | 2 | Hub | `HubTabBar` | Trocar aba | Query `?tab=` atualizada |
 | 3 | Toolbar | `ReportsPeriodToolbar` | Preset 7d/30d/mês/custom | `from`/`to` validados |
 | 4 | Funil | `ReportsFunilPanel` | Ver KPIs e funil | `useFunnelReport` |
+| 4b | Funil | Seção **Experimentais por professor** | Totais compareceu / matriculados / faltou por responsável + CSV | `experimentalByProfessor` |
 | 5 | Funil | Clique em KPI | `ReportsDrillDialog` | Lista de leads do bucket |
 | 6 | Funil | Exportar | Menu export | CSV; contato só para owner |
 | 7 | Funil | Filtro perfil | `profileFilter` | Recarrega relatório |

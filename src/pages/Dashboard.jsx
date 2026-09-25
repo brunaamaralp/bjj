@@ -103,6 +103,13 @@ import '../styles/sales.css';
 import TaskCard from '../components/shared/TaskCard.jsx';
 import { patchFollowupContactCache } from '../lib/followupEventsCache.js';
 import { buildLeadPresenceUndoPatch } from '../lib/leadPresenceActions.js';
+import ConfirmExperimentalProfessorModal from '../components/leads/ConfirmExperimentalProfessorModal.jsx';
+import { useExperimentalProfessorOptions } from '../hooks/useExperimentalProfessorOptions.js';
+import {
+    buildExperimentalProfessorEvent,
+    buildExperimentalProfessorPatch,
+    experimentalProfessorChanged,
+} from '../../lib/experimentalProfessor.js';
 import { FOLLOWUP_AGENDA_MAX_DAYS } from '../lib/followupState.js';
 import { readFollowupPlaybook } from '../lib/followupPlaybookDefaults.js';
 import FollowupTemperatureBadge from '../components/followup/FollowupTemperatureBadge.jsx';
@@ -259,7 +266,9 @@ const Dashboard = () => {
     const [academyWaLoadFailed, setAcademyWaLoadFailed] = useState(false);
     const [financialReminderSections, setFinancialReminderSections] = useState([]);
     const [savingPresence, setSavingPresence] = useState({});
+    const [professorModal, setProfessorModal] = useState(null);
     const [listModalType, setListModalType] = useState('');
+    const experimentalProfessorOptions = useExperimentalProfessorOptions(academyId);
     const followupLeadCandidates = useMemo(
         () =>
             (leads || []).filter(
@@ -1079,68 +1088,90 @@ const Dashboard = () => {
         }
     };
 
-    const markLeadAttended = async (lead) => {
-        const k = `${lead.id}:attended`;
+    const markLeadAttended = (lead) => {
+        setProfessorModal({ lead, kind: 'attended' });
+    };
+
+    const markLeadMissed = (lead) => {
+        setProfessorModal({ lead, kind: 'missed' });
+    };
+
+    const confirmPresenceWithProfessor = async (selection) => {
+        const ctx = professorModal;
+        if (!ctx?.lead) return;
+        const lead = ctx.lead;
+        const kind = ctx.kind === 'missed' ? 'missed' : 'attended';
+        const k = `${lead.id}:${kind === 'missed' ? 'missed' : 'attended'}`;
         const attendedTodayBefore = todayScheduled.filter(
             (l) => l.status === LEAD_STATUS.COMPLETED
         ).length;
-        const isFirstOfDay = attendedTodayBefore === 0;
+        const isFirstOfDay = kind === 'attended' && attendedTodayBefore === 0;
         setSavingPresence((p) => ({ ...p, [k]: true }));
         try {
             const st = useLeadStore.getState();
             const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
             const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
+            const professorPatch =
+                selection === undefined ? {} : buildExperimentalProfessorPatch(selection);
+            if (selection !== undefined && experimentalProfessorChanged(lead, selection)) {
+                const ev = buildExperimentalProfessorEvent({
+                    prevLead: lead,
+                    nextSelection: selection,
+                    actorUserId: st.userId || '',
+                });
+                try {
+                    await addLeadEvent({
+                        academyId: st.academyId,
+                        leadId: lead.id,
+                        type: ev.type,
+                        text: ev.text,
+                        createdBy: st.userId || 'user',
+                        permissionContext: permCtx,
+                        payloadJson: ev.payloadJson,
+                    });
+                } catch {
+                    /* auditoria best-effort */
+                }
+            }
             await addLeadEvent({
                 academyId: st.academyId,
                 leadId: lead.id,
-                type: 'attended',
+                type: kind === 'missed' ? 'missed' : 'attended',
                 from: lead.pipelineStage || lead.status || '',
-                to: LEAD_STATUS.COMPLETED,
+                to: kind === 'missed' ? LEAD_STATUS.MISSED : LEAD_STATUS.COMPLETED,
                 createdBy: st.userId || 'user',
-                permissionContext: permCtx
+                permissionContext: permCtx,
             });
+            const nowIso = new Date().toISOString();
             await st.updateLead(lead.id, {
-                status: LEAD_STATUS.COMPLETED,
-                pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
-                attendedAt: new Date().toISOString(),
-                missedAt: null,
+                ...(kind === 'missed'
+                    ? {
+                          status: LEAD_STATUS.MISSED,
+                          pipelineStage: LEAD_STATUS.MISSED,
+                          missedAt: nowIso,
+                      }
+                    : {
+                          status: LEAD_STATUS.COMPLETED,
+                          pipelineStage: PIPELINE_WAITING_DECISION_STAGE,
+                          attendedAt: nowIso,
+                          missedAt: null,
+                      }),
+                ...professorPatch,
             });
-            showPresenceToast(toastAttendedSuccess(isFirstOfDay), lead.id);
+            setProfessorModal(null);
+            if (kind === 'missed') {
+                showPresenceToast(toastMissedSuccess(), lead.id);
+            } else {
+                showPresenceToast(toastAttendedSuccess(isFirstOfDay), lead.id);
+            }
         } catch {
-            addToast({ type: 'error', message: 'Erro ao registrar comparecimento.' });
-        } finally {
-            setSavingPresence((p) => {
-                const n = { ...p };
-                delete n[k];
-                return n;
+            addToast({
+                type: 'error',
+                message:
+                    kind === 'missed'
+                        ? 'Erro ao registrar não compareceu.'
+                        : 'Erro ao registrar comparecimento.',
             });
-        }
-    };
-
-    const markLeadMissed = async (lead) => {
-        const k = `${lead.id}:missed`;
-        setSavingPresence((p) => ({ ...p, [k]: true }));
-        try {
-            const st = useLeadStore.getState();
-            const acad = (st.academyList || []).find((a) => a.id === st.academyId) || {};
-            const permCtx = { ownerId: acad.ownerId, teamId: acad.teamId, userId: st.userId || '' };
-            await addLeadEvent({
-                academyId: st.academyId,
-                leadId: lead.id,
-                type: 'missed',
-                from: lead.pipelineStage || lead.status || '',
-                to: LEAD_STATUS.MISSED,
-                createdBy: st.userId || 'user',
-                permissionContext: permCtx
-            });
-            await st.updateLead(lead.id, {
-                status: LEAD_STATUS.MISSED,
-                pipelineStage: LEAD_STATUS.MISSED,
-                missedAt: new Date().toISOString()
-            });
-            showPresenceToast(toastMissedSuccess(), lead.id);
-        } catch {
-            addToast({ type: 'error', message: 'Erro ao registrar não compareceu.' });
         } finally {
             setSavingPresence((p) => {
                 const n = { ...p };
@@ -1852,6 +1883,29 @@ const Dashboard = () => {
                     </div>
                 )}
             </ModalShell>
+
+            <ConfirmExperimentalProfessorModal
+                open={Boolean(professorModal?.lead)}
+                lead={professorModal?.lead || null}
+                mode={professorModal?.kind === 'missed' ? 'missed' : 'attended'}
+                options={experimentalProfessorOptions}
+                saving={Boolean(
+                    professorModal?.lead &&
+                        (savingPresence[`${professorModal.lead.id}:attended`] ||
+                            savingPresence[`${professorModal.lead.id}:missed`])
+                )}
+                onClose={() => {
+                    if (
+                        professorModal?.lead &&
+                        (savingPresence[`${professorModal.lead.id}:attended`] ||
+                            savingPresence[`${professorModal.lead.id}:missed`])
+                    ) {
+                        return;
+                    }
+                    setProfessorModal(null);
+                }}
+                onConfirm={(selection) => void confirmPresenceWithProfessor(selection)}
+            />
 
             <FollowUpMicroToast
                 open={followUpMicroToastOpen}
