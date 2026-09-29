@@ -107,7 +107,7 @@ export default function MensalidadesListTable({
   const mobileVirtualizer = useVirtualizer({
     count: shouldVirtualizeMobile ? displayedStudents.length : 0,
     getScrollElement: () => mobileListRef.current,
-    estimateSize: () => 168,
+    estimateSize: () => 180,
     overscan: 5,
   });
 
@@ -194,7 +194,7 @@ export default function MensalidadesListTable({
   const desktopVirtualizer = useVirtualizer({
     count: shouldVirtualizeDesktop ? desktopFlatRows.length : 0,
     getScrollElement: () => desktopScrollRef.current,
-    estimateSize: (index) => (desktopFlatRows[index]?.type === 'group' ? 44 : 58),
+    estimateSize: (index) => (desktopFlatRows[index]?.type === 'group' ? 44 : 68),
     overscan: 8,
   });
 
@@ -689,10 +689,11 @@ export default function MensalidadesListTable({
                 return (
                   <div
                     key={row.key}
+                    data-index={vi.index}
+                    ref={desktopVirtualizer.measureElement}
                     className="mensal-desktop-virtual-row"
                     style={{
                       transform: `translateY(${vi.start}px)`,
-                      height: vi.size,
                     }}
                   >
                     <table className="mensal-table mensal-table--virt-slice">
@@ -745,6 +746,8 @@ export default function MensalidadesListTable({
               return (
                 <div
                   key={student.id}
+                  data-index={vi.index}
+                  ref={mobileVirtualizer.measureElement}
                   className="mensal-virtual-item"
                   style={{ transform: `translateY(${vi.start}px)` }}
                 >

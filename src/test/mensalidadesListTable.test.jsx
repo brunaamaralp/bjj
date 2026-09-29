@@ -7,6 +7,7 @@ vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
     getVirtualItems: () => [],
     getTotalSize: () => 0,
+    measureElement: vi.fn(),
   }),
 }));
 

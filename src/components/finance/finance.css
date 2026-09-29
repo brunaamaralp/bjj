@@ -2743,7 +2743,7 @@
 }
 
 .mensalidades-page .mensal-table td {
-  padding: 12px 16px;
+  padding: 14px 16px;
   font-size: var(--font-sm);
   color: var(--text-primary, var(--text, #1a1a1a));
   border-bottom: 1px solid var(--border-light, #e8e8ef);
@@ -4907,6 +4907,7 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   left: 0;
   width: 100%;
   padding-bottom: 10px;
+  box-sizing: border-box;
 }
 .mensal-mobile-list--virtual {
   max-height: 70vh;
@@ -5079,12 +5080,22 @@ button.mensal-summary-card--static:not(.mensal-summary-card--filter-active):hove
   top: 0;
   left: 0;
   width: 100%;
+  min-height: 68px;
+  box-sizing: border-box;
 }
 
 .mensalidades-page .mensal-table--virt-slice {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
+}
+
+.mensalidades-page .mensal-table--virt-slice td {
+  overflow: visible;
+}
+
+.mensalidades-page .mensal-table--virt-slice .mensal-cell-action {
+  vertical-align: middle;
 }
 
 .mensalidades-page .mensal-table--virt-slice colgroup,

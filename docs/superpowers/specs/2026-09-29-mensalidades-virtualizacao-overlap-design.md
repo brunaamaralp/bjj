@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Status** | Aprovado (design) |
+| **Status** | Implementado |
 | **Data** | 2026-09-29 |
 | **Contexto** | Financeiro → A receber (Mensalidades embutida; mesma grade standalone) |
 | **Persona** | recepcionista / admin / owner — desktop |
