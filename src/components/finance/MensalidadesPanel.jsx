@@ -6,9 +6,9 @@ import PaymentModalFooterHint from '../shared/PaymentModalFooterHint.jsx';
 import { useLeadStore, LEAD_STATUS } from '../../store/useLeadStore';
 import { useToast } from '../../hooks/useToast';
 import { account } from '../../lib/appwrite';
-import { getMonthlyPayments, createPayment, updatePayment, PAYMENT_CATEGORY } from '../../lib/studentPayments';
+import { getMonthlyPaymentsWithCoverage, createPayment, updatePayment, PAYMENT_CATEGORY } from '../../lib/studentPayments';
 import { BUNDLE_DURATION_OPTIONS } from '../../lib/paymentCategories.js';
-import { bundlePlanShortLabel } from '../../lib/bundleCoverage.js';
+import { bundlePlanShortLabel, effectivePaymentForBundleCoverage } from '../../lib/bundleCoverage.js';
 import { loadMergedFinanceConfigForAcademy } from '../../lib/prefetchFinanceConfig.js';
 import { expectedAmountForStudent, resolveGridDisplayStatus } from '../../lib/paymentStatus';
 import MonthlyPaymentGrid from './MonthlyPaymentGrid.jsx';
@@ -210,6 +210,7 @@ export default function MensalidadesPanel({
     setCurrentMonth((cur) => (cur === ext ? cur : ext));
   }, [referenceMonthProp]);
   const [payments, setPayments] = useState([]);
+  const [bundleCoveredLeadIds, setBundleCoveredLeadIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(false);
   const [studentsBootstrapDone, setStudentsBootstrapDone] = useState(false);
@@ -308,12 +309,15 @@ export default function MensalidadesPanel({
     setLoading(true);
     setLoadingError(false);
     try {
-      const docs = await getMonthlyPayments(academyId, currentMonth);
+      const { payments: docs, bundleCoveredLeadIds: coveredIds } =
+        await getMonthlyPaymentsWithCoverage(academyId, currentMonth);
       setPayments(docs);
+      setBundleCoveredLeadIds(coveredIds);
     } catch (err) {
       console.error('getMonthlyPayments error:', err);
       setLoadingError(true);
       setPayments([]);
+      setBundleCoveredLeadIds([]);
     } finally {
       setLoading(false);
     }
@@ -388,6 +392,7 @@ export default function MensalidadesPanel({
   useEffect(() => {
     if (!academyId) {
       setPayments([]);
+      setBundleCoveredLeadIds([]);
       setLoading(false);
       setLoadingError(false);
       return;
@@ -397,14 +402,17 @@ export default function MensalidadesPanel({
     setLoadingError(false);
     (async () => {
       try {
-        const docs = await getMonthlyPayments(academyId, currentMonth);
+        const { payments: docs, bundleCoveredLeadIds: coveredIds } =
+          await getMonthlyPaymentsWithCoverage(academyId, currentMonth);
         if (!active) return;
         setPayments(docs);
+        setBundleCoveredLeadIds(coveredIds);
       } catch (err) {
         if (!active) return;
         console.error('getMonthlyPayments error:', err);
         setLoadingError(true);
         setPayments([]);
+        setBundleCoveredLeadIds([]);
       } finally {
         if (active) setLoading(false);
       }
@@ -448,8 +456,16 @@ export default function MensalidadesPanel({
       };
       if (!cur || rank(p.status) >= rank(cur.status)) map[lid] = p;
     }
+
+    // Pacote anual/trimestral: mês coberto sem doc covered (ou com pending residual) → Coberto.
+    const coveredSet = new Set([currentMonth]);
+    for (const leadId of bundleCoveredLeadIds || []) {
+      const id = String(leadId || '').trim();
+      if (!id) continue;
+      map[id] = effectivePaymentForBundleCoverage(map[id] || null, currentMonth, coveredSet);
+    }
     return map;
-  }, [payments]);
+  }, [payments, bundleCoveredLeadIds, currentMonth]);
 
   const recentPaymentsForNl = useMemo(() => {
     const nameByLead = {};
@@ -652,8 +668,23 @@ export default function MensalidadesPanel({
         overdueOpen: 0,
       };
     }
-    return computeMensalidadesMonthKpis(deferredStudents, payments, financeConfig, currentMonth);
-  }, [heavyMetricsReady, deferredStudents, payments, financeConfig, currentMonth]);
+    const coveragePayments = (bundleCoveredLeadIds || []).map((lead_id) => ({
+      lead_id,
+      status: 'covered',
+      reference_month: currentMonth,
+      payment_category: 'bundle',
+    }));
+    return computeMensalidadesMonthKpis(deferredStudents, payments, financeConfig, currentMonth, {
+      coveragePayments,
+    });
+  }, [
+    heavyMetricsReady,
+    deferredStudents,
+    payments,
+    financeConfig,
+    currentMonth,
+    bundleCoveredLeadIds,
+  ]);
 
   const monthOpenTotal = useMemo(
     () => Math.max(0, Math.round((monthKpis.expectedTotal - monthKpis.receivedTotal) * 100) / 100),

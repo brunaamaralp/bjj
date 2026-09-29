@@ -89,6 +89,10 @@ vi.mock('../../lib/server/studentPaymentBundleCreate.js', () => ({
   repairBundleCoverageForMonth: vi.fn().mockResolvedValue({ repaired: [] }),
 }));
 
+vi.mock('../../lib/server/financeReceivablesData.js', () => ({
+  listBundleCoveragePaymentsForAcademy: vi.fn().mockResolvedValue({ rows: [] }),
+}));
+
 vi.mock('@vercel/functions', () => ({
   waitUntil: (task) => {
     // Em teste, executa imediatamente para assertir o agendamento do repair.
@@ -238,7 +242,7 @@ describe('studentPaymentsHandler', () => {
   });
 
   it('preserva amount e expected_amount explícitos iguais a zero no create', async () => {
-    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.listDocuments.mockResolvedValue({ documents: [] });
     handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
       ...payload,
       $id: id,
@@ -351,7 +355,7 @@ describe('studentPaymentsHandler', () => {
   });
 
   it('cria taxa avulsa sem upsert por reference_month', async () => {
-    handlerMocks.listDocuments.mockResolvedValueOnce({ documents: [] });
+    handlerMocks.listDocuments.mockResolvedValue({ documents: [] });
     handlerMocks.createDocument.mockImplementation(async (_db, _col, id, payload) => ({
       ...payload,
       $id: id,
@@ -389,7 +393,9 @@ describe('studentPaymentsHandler', () => {
     );
 
     expect(handlerMocks.createDocument).toHaveBeenCalled();
-    expect(handlerMocks.updateDocument).not.toHaveBeenCalled();
+    // Sem upsert por reference_month (taxa avulsa) — createDocument, não update do mês.
+    const updateIds = handlerMocks.updateDocument.mock.calls.map((c) => c[2]);
+    expect(updateIds.every((id) => id === 'id-new' || id === 'fee-1')).toBe(true);
     expect(res.statusCode).toBe(200);
   });
 
@@ -604,6 +610,7 @@ describe('handleListStudentPayments — repair de pacote', () => {
     expect(bundleCreate.repairBundleCoverageForMonth).toHaveBeenCalledTimes(1);
     expect(res.statusCode).toBe(200);
     expect(res.body.payments).toHaveLength(1);
+    expect(res.body.bundle_covered_lead_ids).toEqual([]);
 
     vi.mocked(bundleCreate.repairBundleCoverageForMonth).mockClear();
     handlerMocks.listDocuments.mockResolvedValue({

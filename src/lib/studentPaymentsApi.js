@@ -65,6 +65,9 @@ export async function apiListStudentPayments({ referenceMonth, page = 1, limit =
   return {
     payments: data.payments || [],
     next_cursor: data.next_cursor || null,
+    bundle_covered_lead_ids: Array.isArray(data.bundle_covered_lead_ids)
+      ? data.bundle_covered_lead_ids.map((id) => String(id || '').trim()).filter(Boolean)
+      : [],
   };
 }
 

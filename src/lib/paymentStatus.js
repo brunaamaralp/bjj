@@ -5,6 +5,7 @@
 import { parseCurrencyBRL } from './masks.js';
 import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
+import { effectivePaymentForBundleCoverage } from './bundleCoverage.js';
 import {
   canonicalPaymentMethodKey,
   isPlanFeeEligiblePaymentMethod,
@@ -132,10 +133,25 @@ export function receivedAmountForPayment(payment) {
 
 /**
  * Status exibido na grade (prioriza registro no banco sobre calendário).
+ * @param {object} [opts]
+ * @param {Set<string>} [opts.bundleCoveredMonths] — meses cobertos por pacote pago (âncora)
  * @returns {{ key: string, label: string, dbStatus: string|null, row: ReturnType<typeof getPaymentRowStatus> }}
  */
-export function resolveGridDisplayStatus(student, payment, currentMonth, today = new Date(), financeConfig = null) {
-  if (isStudentOnExemptPlan(student, financeConfig, payment)) {
+export function resolveGridDisplayStatus(
+  student,
+  payment,
+  currentMonth,
+  today = new Date(),
+  financeConfig = null,
+  opts = null
+) {
+  const effectivePayment = effectivePaymentForBundleCoverage(
+    payment,
+    currentMonth,
+    opts?.bundleCoveredMonths
+  );
+
+  if (isStudentOnExemptPlan(student, financeConfig, effectivePayment)) {
     return {
       key: 'exempt',
       label: GRID_STATUS_LABELS.exempt,
@@ -143,14 +159,14 @@ export function resolveGridDisplayStatus(student, payment, currentMonth, today =
       row: { status: 'exempt', dueDate: null, paidAt: null, daysOverdue: 0 },
     };
   }
-  const row = getPaymentRowStatus(student, payment, currentMonth, today);
-  const db = String(payment?.status || '').toLowerCase();
+  const row = getPaymentRowStatus(student, effectivePayment, currentMonth, today, financeConfig);
+  const db = String(effectivePayment?.status || '').toLowerCase();
 
   if (db === 'frozen') {
     return { key: 'frozen', label: GRID_STATUS_LABELS.frozen, dbStatus: 'frozen', row };
   }
 
-  if (db === 'cancelled' || !payment) {
+  if (db === 'cancelled' || !effectivePayment) {
     if (row.status === 'paid') {
       return { key: 'paid', label: GRID_STATUS_LABELS.paid, dbStatus: null, row };
     }
@@ -165,7 +181,7 @@ export function resolveGridDisplayStatus(student, payment, currentMonth, today =
       label: GRID_STATUS_LABELS.covered,
       dbStatus: 'covered',
       row,
-      bundleOriginId: String(payment.bundle_origin_id || '').trim() || null,
+      bundleOriginId: String(effectivePayment.bundle_origin_id || '').trim() || null,
     };
   }
   if (db === 'awaiting') {

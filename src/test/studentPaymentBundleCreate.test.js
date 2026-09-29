@@ -144,4 +144,46 @@ describe('studentPaymentBundleCreate', () => {
     expect(repaired[0].bundle_months).toBe(12);
     expect(repaired[0].bundle_origin_id).toBe('anchor-1');
   });
+
+  it('repairBundleCoverageForMonth promove pending residual a covered no mês do pacote', async () => {
+    databases.store.set('anchor-1', {
+      $id: 'anchor-1',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      payment_category: 'bundle',
+      bundle_origin_id: 'anchor-1',
+      bundle_months: 12,
+      reference_month: '2026-01',
+      status: 'paid',
+      amount: 2400,
+      method: 'pix',
+      paid_at: '2026-01-05T12:00:00.000Z',
+    });
+    databases.store.set('pending-1', {
+      $id: 'pending-1',
+      lead_id: 'lead-1',
+      academy_id: 'acad-1',
+      payment_category: 'plan',
+      reference_month: '2026-06',
+      status: 'pending',
+      expected_amount: 200,
+      amount: 0,
+      method: 'pix',
+    });
+
+    const { repaired } = await repairBundleCoverageForMonth({
+      databases,
+      dbId: 'db',
+      paymentsCol: 'payments',
+      academyId: 'acad-1',
+      referenceMonth: '2026-06',
+    });
+
+    expect(repaired).toHaveLength(1);
+    expect(repaired[0].$id).toBe('pending-1');
+    expect(repaired[0].status).toBe('covered');
+    expect(repaired[0].payment_category).toBe('bundle');
+    expect(repaired[0].bundle_origin_id).toBe('anchor-1');
+    expect(databases.store.get('pending-1').status).toBe('covered');
+  });
 });

@@ -708,10 +708,11 @@ export async function getStudentPayments(leadId, academyId, limit = 120) {
 
 /**
  * Lista pagamentos do mês para a grade de Mensalidades (exclui taxa/outro).
+ * @returns {Promise<{ payments: Array, bundleCoveredLeadIds: string[] }>}
  */
-export async function getMonthlyPayments(academyId, referenceMonth) {
+export async function getMonthlyPaymentsWithCoverage(academyId, referenceMonth) {
   const ym = String(referenceMonth || '').trim();
-  if (!academyId || !ym) return [];
+  if (!academyId || !ym) return { payments: [], bundleCoveredLeadIds: [] };
 
   const useApi = import.meta.env.VITE_USE_STUDENT_PAYMENTS_API !== 'false';
   if (useApi) {
@@ -719,9 +720,14 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
     let page = 1;
     let cursor = null;
     let all = [];
+    let coveredIds = [];
     try {
       for (;;) {
-        const { payments: batch, next_cursor: nextCursor } = await apiListStudentPayments({
+        const {
+          payments: batch,
+          next_cursor: nextCursor,
+          bundle_covered_lead_ids: pageCovered,
+        } = await apiListStudentPayments({
           referenceMonth: ym,
           page,
           limit: pageSize,
@@ -729,6 +735,9 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
           academyId,
         });
         all = all.concat(batch);
+        if (page === 1 && !cursor && Array.isArray(pageCovered)) {
+          coveredIds = pageCovered;
+        }
         if (batch.length < pageSize) break;
         if (nextCursor) {
           cursor = nextCursor;
@@ -739,14 +748,17 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
         }
         if (page > 50 && !cursor) break;
       }
-      return all.filter(isMensalidadesGridPayment);
+      return {
+        payments: all.filter(isMensalidadesGridPayment),
+        bundleCoveredLeadIds: coveredIds,
+      };
     } catch (err) {
       console.warn('[getMonthlyPayments] API indisponível, fallback Appwrite:', err?.message || err);
       if (!PAYMENTS_COL) throw err;
     }
   }
 
-  if (!PAYMENTS_COL) return [];
+  if (!PAYMENTS_COL) return { payments: [], bundleCoveredLeadIds: [] };
 
   const PAGE_SIZE = 100;
   let allDocs = [];
@@ -773,7 +785,18 @@ export async function getMonthlyPayments(academyId, referenceMonth) {
     }
   }
 
-  return allDocs.filter(isMensalidadesGridPayment);
+  return {
+    payments: allDocs.filter(isMensalidadesGridPayment),
+    bundleCoveredLeadIds: [],
+  };
+}
+
+/**
+ * Lista pagamentos do mês para a grade de Mensalidades (exclui taxa/outro).
+ */
+export async function getMonthlyPayments(academyId, referenceMonth) {
+  const { payments } = await getMonthlyPaymentsWithCoverage(academyId, referenceMonth);
+  return payments;
 }
 
 /**

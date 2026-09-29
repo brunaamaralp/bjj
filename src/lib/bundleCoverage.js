@@ -301,3 +301,45 @@ export function isMonthCoveredByPaidBundle(ym, coveredMonths) {
   if (!/^\d{4}-\d{2}$/.test(month)) return false;
   return coveredMonths?.has(month) === true;
 }
+
+/**
+ * Lead IDs cobertos por pacote no mês de referência.
+ * @param {Array} coveragePayments
+ * @param {string} referenceMonth
+ * @returns {string[]}
+ */
+export function listBundleCoveredLeadIdsForMonth(coveragePayments, referenceMonth) {
+  const ym = String(referenceMonth || '').trim().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(ym)) return [];
+  const byLead = buildPaidBundleCoveredMonthsByLead(coveragePayments);
+  const ids = [];
+  for (const [leadId, months] of byLead) {
+    if (isMonthCoveredByPaidBundle(ym, months)) ids.push(leadId);
+  }
+  return ids;
+}
+
+const SETTLED_FOR_BUNDLE_COVERAGE = new Set(['paid', 'covered', 'frozen', 'partial']);
+
+/**
+ * Pagamento efetivo para a grade/régua: mês coberto por pacote anual/trimestral
+ * não deve aparecer como pendente/atraso mesmo sem doc `covered` (ou com pending residual).
+ * @param {object|null|undefined} payment
+ * @param {string} referenceMonth
+ * @param {Set<string>|undefined} coveredMonths
+ * @returns {object|null}
+ */
+export function effectivePaymentForBundleCoverage(payment, referenceMonth, coveredMonths) {
+  if (!isMonthCoveredByPaidBundle(referenceMonth, coveredMonths)) {
+    return payment || null;
+  }
+  const st = String(payment?.status || '').toLowerCase();
+  if (SETTLED_FOR_BUNDLE_COVERAGE.has(st)) return payment;
+  const ym = String(referenceMonth || '').trim().slice(0, 7);
+  return {
+    ...(payment && typeof payment === 'object' ? payment : {}),
+    status: 'covered',
+    reference_month: ym,
+    amount: Number(payment?.amount) || 0,
+  };
+}

@@ -50,6 +50,33 @@ describe('paymentStatus', () => {
     expect(r.label).toBe('Coberto');
   });
 
+  it('resolveGridDisplayStatus trata mês coberto por pacote anual mesmo com pending residual', () => {
+    const coveredMonths = new Set(['2026-05']);
+    const r = resolveGridDisplayStatus(
+      student,
+      { status: 'pending', expected_amount: 200 },
+      '2026-05',
+      new Date('2026-05-20T12:00:00'),
+      financeConfig,
+      { bundleCoveredMonths: coveredMonths }
+    );
+    expect(r.key).toBe('covered');
+    expect(r.label).toBe('Coberto');
+  });
+
+  it('resolveGridDisplayStatus trata mês coberto sem pagamento do mês', () => {
+    const coveredMonths = new Set(['2026-05']);
+    const r = resolveGridDisplayStatus(
+      student,
+      null,
+      '2026-05',
+      new Date('2026-05-20T12:00:00'),
+      financeConfig,
+      { bundleCoveredMonths: coveredMonths }
+    );
+    expect(r.key).toBe('covered');
+  });
+
   it('expectedAmountForStudent retorna 0 para covered', () => {
     expect(expectedAmountForStudent(student, financeConfig, { status: 'covered' })).toBe(0);
   });

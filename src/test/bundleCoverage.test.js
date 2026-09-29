@@ -8,6 +8,8 @@ import {
   listCancellableCoveredMonths,
   buildPaidBundleCoveredMonthsByLead,
   isMonthCoveredByPaidBundle,
+  effectivePaymentForBundleCoverage,
+  listBundleCoveredLeadIdsForMonth,
   HISTORICAL_COVERED_REASON,
   isHistoricalCoveragePayment,
 } from '../lib/bundleCoverage.js';
@@ -132,6 +134,51 @@ describe('bundleCoverage', () => {
     ]);
     expect(isMonthCoveredByPaidBundle('2026-07', byLead.get('L3'))).toBe(true);
     expect(isMonthCoveredByPaidBundle('2026-08', byLead.get('L3'))).toBe(false);
+  });
+
+  it('listBundleCoveredLeadIdsForMonth lista leads cobertos no mês', () => {
+    const ids = listBundleCoveredLeadIdsForMonth(
+      [
+        {
+          $id: 'a1',
+          lead_id: 'L1',
+          payment_category: 'bundle',
+          bundle_origin_id: 'a1',
+          bundle_months: 12,
+          reference_month: '2026-01',
+          status: 'paid',
+        },
+        {
+          $id: 'a2',
+          lead_id: 'L2',
+          payment_category: 'bundle',
+          bundle_origin_id: 'a2',
+          bundle_months: 3,
+          reference_month: '2026-01',
+          status: 'paid',
+        },
+      ],
+      '2026-06'
+    );
+    expect(ids).toEqual(['L1']);
+  });
+
+  it('effectivePaymentForBundleCoverage trata pending/null como covered no mês do pacote', () => {
+    const covered = new Set(['2026-06', '2026-07']);
+    expect(effectivePaymentForBundleCoverage(null, '2026-06', covered)).toEqual(
+      expect.objectContaining({ status: 'covered', reference_month: '2026-06' })
+    );
+    expect(
+      effectivePaymentForBundleCoverage(
+        { status: 'pending', expected_amount: 200, lead_id: 'L1' },
+        '2026-07',
+        covered
+      )
+    ).toEqual(expect.objectContaining({ status: 'covered', lead_id: 'L1' }));
+    expect(
+      effectivePaymentForBundleCoverage({ status: 'paid', amount: 200 }, '2026-06', covered)
+    ).toEqual(expect.objectContaining({ status: 'paid' }));
+    expect(effectivePaymentForBundleCoverage(null, '2026-08', covered)).toBeNull();
   });
 
   it('listCancellableCoveredMonths filtra futuros', () => {
