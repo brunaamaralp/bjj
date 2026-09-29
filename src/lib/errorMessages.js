@@ -100,6 +100,14 @@ const ERROR_MAP = {
   // Empréstimo de kimono (recepção)
   kimono_loans_collection_missing:
     'Empréstimos de kimono ainda não estão ativos no banco. Rode o script de schema (verify-and-fix-schema).',
+
+  // Trancamento de matrícula
+  student_not_frozen: 'Este aluno não está com trancamento ativo. Recarregue a página.',
+  'Aluno não está com trancamento ativo.':
+    'Este aluno não está com trancamento ativo. Recarregue a página.',
+  student_already_frozen: 'Este aluno já está com a matrícula trancada.',
+  plan_not_eligible_for_freeze: 'Este plano não permite trancamento de matrícula.',
+  access_denied: 'Sem permissão para esta ação.',
 };
 
 const FINANCE_TX_CODES = {

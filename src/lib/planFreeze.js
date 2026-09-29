@@ -34,7 +34,7 @@ const PLAN_FREEZES_COL = import.meta.env.VITE_APPWRITE_PLAN_FREEZES_COLLECTION_I
 const PAYMENTS_COL = import.meta.env.VITE_APPWRITE_STUDENT_PAYMENTS_COL_ID || '';
 
 function freezeIsoFromYmd(ymd) {
-  return `${String(ymd).slice(0, 10)}T12:00:00.000Z`;
+  return String(ymd || '').trim().slice(0, 10);
 }
 
 export { monthsToRevertOnUnfreeze } from '../../lib/planFreezeProjection.js';
