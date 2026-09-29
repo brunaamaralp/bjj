@@ -138,7 +138,7 @@ export function validateMixedCart({
 function pickDominantPayment(pagamentosScaled) {
   let best = null;
   for (const p of pagamentosScaled || []) {
-    const net = roundMoney(Number(p?.valor || 0) - Number(p?.troco || 0));
+    const net = roundMoney(Number(p?.valor || 0));
     if (!best || net > best.net) {
       best = { ...p, net };
     }

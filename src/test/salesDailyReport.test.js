@@ -48,7 +48,7 @@ describe('aggregatePaymentTotalsFromSaleDocs', () => {
     expect(totals.dinheiro).toBe(40);
   });
 
-  it('desconta troco da forma de troco', () => {
+  it('desconta troco da forma de troco e conta valor recebido em dinheiro', () => {
     const totals = aggregatePaymentTotalsFromSaleDocs([
       {
         status: 'concluida',
@@ -57,7 +57,7 @@ describe('aggregatePaymentTotalsFromSaleDocs', () => {
         ]),
       },
     ]);
-    expect(totals.dinheiro).toBe(100);
+    expect(totals.dinheiro).toBe(120);
     expect(totals.pix).toBe(-20);
   });
 });

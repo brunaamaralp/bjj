@@ -67,10 +67,9 @@ export function normalizePagamentosInput(list) {
     .slice(0, 3);
 }
 
+/** Soma do valor aplicado à venda. Troco é devolução, não reduz o total pago. */
 export function sumPagamentosNet(pagamentos) {
-  return roundMoney(
-    (pagamentos || []).reduce((acc, p) => acc + Number(p.valor || 0) - Number(p.troco || 0), 0)
-  );
+  return roundMoney((pagamentos || []).reduce((acc, p) => acc + Number(p.valor || 0), 0));
 }
 
 export function validatePagamentosAgainstTotal(pagamentos, totalVenda) {
@@ -101,8 +100,8 @@ export function validatePagamentosForSettlement(pagamentos, totalVenda, opts = {
   const prior = roundMoney(opts?.alreadyPaid ?? 0);
   const net = sumPagamentosNet(pagamentos);
   for (const p of pagamentos || []) {
-    if (p.forma === 'dinheiro' && Number(p.troco) > Number(p.valor)) {
-      return { ok: false, reason: 'troco_exceeds_valor', net, total, prior };
+    if (Number(p.troco || 0) < -0.009) {
+      return { ok: false, reason: 'troco_invalid', net, total, prior };
     }
   }
   if (opts?.allowPartial === true) {

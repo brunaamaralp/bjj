@@ -19,7 +19,7 @@ describe('salePayments', () => {
   it('valida soma com troco', () => {
     const pagamentos = [
       { forma: 'cartao_credito', valor: 400 },
-      { forma: 'dinheiro', valor: 400, troco: 71, forma_troco: 'pix' },
+      { forma: 'dinheiro', valor: 329, troco: 71, forma_troco: 'pix' },
     ];
     expect(validatePagamentosAgainstTotal(pagamentos, 729).ok).toBe(true);
   });
@@ -73,9 +73,9 @@ describe('salePayments', () => {
       },
     ];
     const balanced = rebalancePaymentsForTotal(rows, 72900);
-    expect(balanced[0].valorCents).toBe(76450);
+    expect(balanced[0].valorCents).toBe(72900);
     expect(balanced[0].recebidoCents).toBe(80000);
-    expect(rowTrocoCents(balanced[0])).toBe(3550);
+    expect(rowTrocoCents(balanced[0])).toBe(7100);
     expect(netPaidCentsFromRows(balanced)).toBe(72900);
     expect(paymentsUiValid(balanced, 72900).ok).toBe(true);
   });
@@ -99,9 +99,29 @@ describe('salePayments', () => {
       },
     ];
     const balanced = rebalancePaymentsForTotal(rows, 72900);
-    expect(balanced[0].valorCents).toBe(43550);
+    expect(balanced[0].valorCents).toBe(40000);
+    expect(balanced[0].recebidoCents).toBe(47100);
+    expect(rowTrocoCents(balanced[0])).toBe(7100);
     expect(netPaidCentsFromRows(balanced)).toBe(72900);
     expect(paymentsUiValid(balanced, 72900).ok).toBe(true);
+  });
+
+  it('dinheiro com troco: produto 8, recebido 10 → net 8 e troco 2', () => {
+    const rows = [
+      {
+        id: '1',
+        forma: 'dinheiro',
+        valorCents: 800,
+        recebidoCents: 1000,
+        formaTroco: 'pix',
+      },
+    ];
+    expect(rowTrocoCents(rows[0])).toBe(200);
+    expect(netPaidCentsFromRows(rows)).toBe(800);
+    expect(paymentsUiValid(rows, 800).ok).toBe(true);
+    const api = serializePagamentosForApi(rows);
+    expect(api[0]).toMatchObject({ forma: 'dinheiro', valor: 8, troco: 2, forma_troco: 'pix' });
+    expect(validatePagamentosAgainstTotal(api, 8).ok).toBe(true);
   });
 
   it('serializa cartao de credito com installments e capture_method_id', () => {

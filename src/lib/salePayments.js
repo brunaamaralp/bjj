@@ -86,54 +86,41 @@ export function rowTrocoCents(row) {
   return Math.max(0, recebido - valor);
 }
 
+/**
+ * Valor aplicado à venda (soma dos `valorCents`).
+ * Troco não entra no net: é devolução do excesso em dinheiro, não desconto da venda.
+ */
 export function netPaidCentsFromRows(rows) {
   let sum = 0;
   for (const r of rows || []) {
     sum += Math.max(0, Math.round(Number(r.valorCents) || 0));
-    sum -= rowTrocoCents(r);
   }
   return sum;
 }
 
-/** Valor da 1ª linha (flex) para fechar o total com troco de dinheiro. */
-function flexFirstRowValorCents(rows, totalCents) {
-  const total = Math.max(0, Math.round(Number(totalCents) || 0));
-  const row0 = rows[0];
-  const restVal = rows.slice(1).reduce((s, r) => s + Math.max(0, Math.round(Number(r.valorCents) || 0)), 0);
-  const otherTroco = rows.slice(1).reduce((s, r) => s + rowTrocoCents(r), 0);
-  if (normalizePaymentForma(row0?.forma) === 'dinheiro') {
-    const recebido = Math.max(0, Math.round(Number(row0.recebidoCents ?? row0.valorCents) || 0));
-    if (recebido > 0) {
-      // net₀ = 2·valor₀ − recebido₀; total = net₀ + restVal − otherTroco
-      return Math.max(0, Math.round((total + recebido - restVal + otherTroco) / 2));
-    }
-  }
-  const allTroco = rows.reduce((s, r) => s + rowTrocoCents(r), 0);
-  return Math.max(0, Math.round(total - restVal + allTroco));
+function ensureCashRecebidoAtLeastValor(row) {
+  if (normalizePaymentForma(row?.forma) !== 'dinheiro') return row;
+  const valorCents = Math.max(0, Math.round(Number(row.valorCents) || 0));
+  const recebido = Math.max(0, Math.round(Number(row.recebidoCents ?? row.valorCents) || 0));
+  return { ...row, recebidoCents: Math.max(recebido, valorCents) };
 }
 
-/** Recalcula a 1ª forma quando há 2+ linhas (total = soma valores − trocos). */
+/** Recalcula a 1ª forma quando há 2+ linhas (total = soma dos valores da venda). */
 export function rebalancePaymentsForTotal(rows, totalCents) {
   if (!rows?.length) return [createEmptyPaymentRow(totalCents)];
   const total = Math.max(0, Math.round(Number(totalCents) || 0));
   if (rows.length === 1) {
     const r = rows[0];
-    const isCash = normalizePaymentForma(r.forma) === 'dinheiro';
-    const recebido = Math.max(0, Math.round(Number(r.recebidoCents ?? r.valorCents) || 0));
-    if (isCash) {
-      let valorCents = total;
-      let recebidoCents = Math.max(recebido, total);
-      if (recebidoCents > total) {
-        // net = valor − troco = valor − (recebido − valor) = 2·valor − recebido
-        valorCents = Math.round((total + recebidoCents) / 2);
-        recebidoCents = Math.max(recebidoCents, valorCents);
-      }
-      return [{ ...r, valorCents, recebidoCents }];
-    }
-    return [{ ...r, valorCents: total, recebidoCents: r.recebidoCents }];
+    return [ensureCashRecebidoAtLeastValor({ ...r, valorCents: total })];
   }
   const next = rows.map((r) => ({ ...r }));
-  next[0] = { ...next[0], valorCents: flexFirstRowValorCents(next, total) };
+  const restVal = next
+    .slice(1)
+    .reduce((s, r) => s + Math.max(0, Math.round(Number(r.valorCents) || 0)), 0);
+  next[0] = ensureCashRecebidoAtLeastValor({
+    ...next[0],
+    valorCents: Math.max(0, Math.round(total - restVal)),
+  });
   return next;
 }
 
@@ -219,10 +206,9 @@ export function normalizePagamentosInput(list) {
     .slice(0, MAX_SALE_PAYMENTS);
 }
 
+/** Soma do valor aplicado à venda. Troco é devolução, não reduz o total pago. */
 export function sumPagamentosNet(pagamentos) {
-  return roundMoney(
-    (pagamentos || []).reduce((acc, p) => acc + Number(p.valor || 0) - Number(p.troco || 0), 0)
-  );
+  return roundMoney((pagamentos || []).reduce((acc, p) => acc + Number(p.valor || 0), 0));
 }
 
 export function validatePagamentosAgainstTotal(pagamentos, totalVenda) {
@@ -259,8 +245,8 @@ export function validatePagamentosForSettlement(pagamentos, totalVenda, opts = {
   const prior = roundMoney(opts?.alreadyPaid ?? 0);
   const net = sumPagamentosNet(pagamentos);
   for (const p of pagamentos || []) {
-    if (p.forma === 'dinheiro' && Number(p.troco) > Number(p.valor)) {
-      return { ok: false, reason: 'troco_exceeds_valor', net, total, prior };
+    if (Number(p.troco || 0) < -0.009) {
+      return { ok: false, reason: 'troco_invalid', net, total, prior };
     }
   }
   if (opts?.allowPartial === true) {

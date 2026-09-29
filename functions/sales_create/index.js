@@ -149,7 +149,11 @@ export default async function (req, res) {
       const shortId = String(vendaId).slice(-4).toUpperCase();
 
       for (const p of pagamentosNorm) {
-        const gross = roundMoney(p.valor);
+        const trocoAmt = roundMoney(p.troco || 0);
+        const forma = String(p.forma || "");
+        const gross = roundMoney(
+          forma === "dinheiro" && trocoAmt > 0 ? Number(p.valor) + trocoAmt : p.valor
+        );
         const already = existing.some(
           (d) =>
             String(d.type || "") === "product" &&
