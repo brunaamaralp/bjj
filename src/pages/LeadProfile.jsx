@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { addLeadEvent, getLeadEvents, updateLeadEvent } from '../lib/leadEvents.js';
 import { createProfileNoteApi } from '../lib/profileNoteApi.js';
 import NotifyTeamCheckbox from '../components/shared/NotifyTeamCheckbox.jsx';
-import { emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
+import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useLeadStore, LEAD_STATUS, LEAD_ORIGIN, selectLeadById } from '../store/useLeadStore';
 import { useStudentStore } from '../store/useStudentStore';
@@ -22,7 +22,6 @@ const CreateContractModal = lazy(() => import('../components/contracts/CreateCon
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { useNlPageContext } from '../hooks/useNlPageContext.js';
 import { getStudentPayments } from '../lib/studentPayments';
-import { LEAD_TIMELINE_CHANGED, emitLeadTimelineChanged } from '../lib/leadTimelineEvents.js';
 import { PIPELINE_WAITING_DECISION_STAGE, PIPELINE_STAGES } from '../constants/pipeline.js';
 import { LEAD_PROFILE_QUICK_NOTE_CHIPS } from '../lib/leadProfileQuickNotes.js';
 import { maskPhone } from '../lib/masks.js';

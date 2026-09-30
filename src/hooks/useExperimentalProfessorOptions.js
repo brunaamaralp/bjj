@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchTeamMemberships } from './teamApi.js';
-import { normalizeReportsOperatorTeam } from './reportsOperatorTeam.js';
+import { fetchTeamMemberships } from '../lib/teamApi.js';
+import { normalizeReportsOperatorTeam } from '../lib/reportsOperatorTeam.js';
 import { useStaffRosterStore, isStaffRosterConfigured } from '../store/staffRosterStore.js';
 import { buildLessonStaffPickerOptions } from '../../lib/staffRoster.js';
 
