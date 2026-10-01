@@ -29,7 +29,12 @@ const ERROR_MAP = {
   jwt_missing: 'Sessão expirada. Faça login novamente.',
   'JWT inválido': 'Sessão expirada. Faça login novamente.',
   'JWT ausente': 'Sessão expirada. Faça login novamente.',
+  'x-academy-id ausente': 'Academia não selecionada. Recarregue a página.',
   user_missing: 'Usuário não identificado. Recarregue a página.',
+  lead_id_obrigatorio: 'Não foi possível identificar o contato. Recarregue a página.',
+  texto_obrigatorio: 'Digite o texto da nota antes de salvar.',
+  pessoa_nao_encontrada: 'Contato não encontrado nesta academia. Recarregue a página.',
+  falha_ao_gravar_nota: 'Não foi possível gravar a nota. Tente novamente.',
   api_proxy_unavailable:
     'Servidor de API local indisponível. Rode `npx vercel dev --listen 3000` e recarregue a página.',
 

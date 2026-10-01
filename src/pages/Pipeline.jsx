@@ -2963,17 +2963,25 @@ const Pipeline = () => {
             return;
         }
         setNoteError('');
-        await addLeadEvent({
-            academyId,
-            leadId: noteLead.id,
-            type: 'note',
-            text: noteText.trim().slice(0, 1000),
-            createdBy: userId || 'user',
-            permissionContext: permCtx
-        });
-        await updateLead(noteLead.id, { lastNoteAt: new Date().toISOString() });
-        setNoteOpen(false);
-        toast.success('Observação salva');
+        try {
+            await addLeadEvent({
+                academyId,
+                leadId: noteLead.id,
+                type: 'note',
+                text: noteText.trim().slice(0, 1000),
+                createdBy: userId || 'user',
+                permissionContext: permCtx
+            });
+            try {
+                await updateLead(noteLead.id, { lastNoteAt: new Date().toISOString() });
+            } catch {
+                /* nota já gravada; lastNoteAt é best-effort */
+            }
+            setNoteOpen(false);
+            toast.success('Observação salva');
+        } catch (e) {
+            toast.error(e, 'save');
+        }
     };
 
     const scheduleModalLeadId = scheduleModalLead?.id ?? null;

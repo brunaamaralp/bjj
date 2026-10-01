@@ -1705,7 +1705,11 @@ const LeadProfile = () => {
                 notifyTeam: shouldNotify,
             });
             emitLeadTimelineChanged(id, { eventType: 'note' });
-            await updateLead(id, { lastNoteAt: new Date().toISOString() });
+            try {
+                await updateLead(id, { lastNoteAt: new Date().toISOString() });
+            } catch {
+                /* nota já gravada; lastNoteAt é best-effort */
+            }
             setNote('');
             setNotifyTeam(false);
             toast.success(shouldNotify ? 'Nota adicionada e equipe notificada.' : 'Nota adicionada.');

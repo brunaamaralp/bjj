@@ -1320,7 +1320,11 @@ export default function StudentProfile() {
                 notifyTeam: shouldNotify,
             });
             emitLeadTimelineChanged(leadId, { eventType: 'note' });
-            await updateStudent(leadId, { lastNoteAt: new Date().toISOString() });
+            try {
+                await updateStudent(leadId, { lastNoteAt: new Date().toISOString() });
+            } catch {
+                /* nota já gravada; lastNoteAt é best-effort */
+            }
             setNote('');
             setNotifyTeam(false);
             void refreshTimeline();
