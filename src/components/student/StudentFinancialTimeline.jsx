@@ -131,7 +131,12 @@ function TimelineRow({
           className: 'student-pay-ledger-row__icon',
           'aria-hidden': true,
         })}
-        <span className="student-pay-ledger-row__title">{title}</span>
+        <span className="student-pay-ledger-row__title-block">
+          <span className="student-pay-ledger-row__title">{title}</span>
+          {item.subtitle && !expanded ? (
+            <span className="student-pay-ledger-row__subtitle">{item.subtitle}</span>
+          ) : null}
+        </span>
         <TimelineBadge badge={item.badge} />
         <span className="student-pay-ledger-row__amount">{fmtMoney(item.amount)}</span>
         {onToggle ? (
@@ -266,6 +271,7 @@ function ProductTimelineRow({ item, onOpenDetail }) {
   const [expanded, setExpanded] = useState(false);
   const sale = item.sale;
   const canOpenDetail = Boolean(sale?.id && onOpenDetail);
+  const canReceiveBalance = Boolean(item.can_receive_balance && canOpenDetail);
   return (
     <TimelineRow
       icon={ShoppingBag}
@@ -275,24 +281,29 @@ function ProductTimelineRow({ item, onOpenDetail }) {
       onToggle={() => setExpanded((v) => !v)}
       caixaMeta={saleCaixaMeta(sale)}
     >
-      {(sale?.items || []).map((it) => (
-        <div
-          key={`${it.id || it.item_estoque_id}-${it.quantidade}`}
-          style={{
-            fontSize: 12,
-            display: 'flex',
-            justifyContent: 'space-between',
-            padding: '4px 0',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <span>
-            {it.display_label} × {it.quantidade}
-          </span>
-          <span>{fmtMoney(it.subtotal)}</span>
-        </div>
-      ))}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+      <div className="student-pay-product-items">
+        {(sale?.items || []).map((it) => (
+          <div
+            key={`${it.id || it.item_estoque_id}-${it.quantidade}`}
+            className="student-pay-product-item"
+          >
+            <span>
+              {it.display_label} × {it.quantidade}
+            </span>
+            <span>{fmtMoney(it.subtotal)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="student-pay-ledger-row__actions">
+        {canReceiveBalance ? (
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            onClick={() => onOpenDetail(sale, { liquidate: true })}
+          >
+            Receber saldo
+          </button>
+        ) : null}
         {canOpenDetail ? (
           <button type="button" className="btn-outline btn-sm" onClick={() => onOpenDetail(sale)}>
             Ver detalhes
@@ -342,7 +353,7 @@ function ExtratoTotalsCard({ totals }) {
   if (!totals) return null;
   return (
     <div className="student-pay-extrato-totals">
-      <div className="student-pay-extrato-totals__title">Totais do período</div>
+      <div className="student-pay-extrato-totals__title">Totais (histórico)</div>
       <div className="student-pay-extrato-totals__grid">
         <span>
           <strong>Produtos:</strong> {fmtMoney(totals.total_gasto_produtos)}
@@ -383,6 +394,9 @@ function SituationHero({
         <span>{summary.planLabel}</span>
         {summary.dueLabel ? <span>{summary.dueLabel}</span> : null}
       </div>
+      {summary.productDebtLabel ? (
+        <div className="student-pay-situation__debt">{summary.productDebtLabel}</div>
+      ) : null}
       {summary.discountLabel ? (
         <div className="student-pay-situation__discount">
           {summary.discountLabel}
@@ -475,6 +489,7 @@ export default function StudentFinancialTimeline({
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSale, setDetailSale] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLiquidateOpen, setDetailLiquidateOpen] = useState(false);
   const [editItemOpen, setEditItemOpen] = useState(false);
   const [editSaleItem, setEditSaleItem] = useState(null);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -491,8 +506,9 @@ export default function StudentFinancialTimeline({
     [student]
   );
 
-  const openSaleDetail = async (sale) => {
+  const openSaleDetail = async (sale, { liquidate = false } = {}) => {
     if (!sale?.id) return;
+    setDetailLiquidateOpen(Boolean(liquidate));
     setDetailOpen(true);
     setDetailSale(enrichSaleForModal(sale));
     setDetailLoading(true);
@@ -506,6 +522,12 @@ export default function StudentFinancialTimeline({
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const closeSaleDetail = () => {
+    setDetailOpen(false);
+    setDetailLiquidateOpen(false);
+    setDetailSale(null);
   };
 
   const handleCancelConfirm = async (motivo) => {
@@ -528,8 +550,7 @@ export default function StudentFinancialTimeline({
             : 'Venda cancelada.',
     });
     setCancelOpen(false);
-    setDetailOpen(false);
-    setDetailSale(null);
+    closeSaleDetail();
     onSalesRefresh?.();
   };
 
@@ -711,7 +732,7 @@ export default function StudentFinancialTimeline({
         open={detailOpen && !cancelOpen && !editItemOpen}
         sale={detailSale}
         loading={detailLoading}
-        onClose={() => setDetailOpen(false)}
+        onClose={closeSaleDetail}
         onCancelClick={() => setCancelOpen(true)}
         canCancelSale={canEditSale}
         canEditSale={canEditSale}
@@ -720,6 +741,7 @@ export default function StudentFinancialTimeline({
           setEditItemOpen(true);
         }}
         onLiquidated={() => onSalesRefresh?.()}
+        initialLiquidateOpen={detailLiquidateOpen}
       />
 
       <SalesCancelModal

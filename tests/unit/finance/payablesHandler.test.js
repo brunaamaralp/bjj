@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   ensureAcademyAccess: vi.fn(),
   isAcademyOwnerOrAdminUser: vi.fn(),
   loadPayablesInputs: vi.fn(),
+  listRecurrenceInstancesForCadastro: vi.fn(),
 }));
 
 vi.mock('../../../lib/server/academyAccess.js', () => ({
@@ -15,6 +16,8 @@ vi.mock('../../../lib/server/academyAccess.js', () => ({
 
 vi.mock('../../../lib/server/payablesData.js', () => ({
   loadPayablesInputs: (...args) => mocks.loadPayablesInputs(...args),
+  listRecurrenceInstancesForCadastro: (...args) =>
+    mocks.listRecurrenceInstancesForCadastro(...args),
 }));
 
 import payablesHandler from '../../../lib/server/payablesHandler.js';
@@ -43,6 +46,7 @@ describe('payablesHandler', () => {
       recurrenceTemplates: [],
       pendingTruncated: false,
     });
+    mocks.listRecurrenceInstancesForCadastro.mockResolvedValue([]);
   });
 
   it('rejects non-GET', async () => {
@@ -93,5 +97,55 @@ describe('payablesHandler', () => {
     );
     expect(res.statusCode).toBe(200);
     expect(res.body.items.every((it) => it.status === 'overdue')).toBe(true);
+  });
+
+  it('returns cadastro grid for section=cadastro', async () => {
+    mocks.loadPayablesInputs.mockResolvedValue({
+      pendingTransactions: [],
+      recurrenceTemplates: [
+        {
+          id: 'tpl-1',
+          is_recurrence_template: true,
+          status: 'pending',
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 9,
+          planName: 'Aluguel',
+          category: 'Aluguel do espaço',
+          gross: 2500,
+        },
+        {
+          id: 'tpl-x',
+          is_recurrence_template: true,
+          status: 'cancelled',
+          direction: 'out',
+          recurrence_type: 'monthly',
+          recurrence_day: 15,
+          planName: 'Netwise',
+          gross: 100,
+        },
+      ],
+      pendingTruncated: false,
+    });
+    mocks.listRecurrenceInstancesForCadastro.mockResolvedValue([
+      {
+        id: 's1',
+        recurrence_origin_id: 'tpl-1',
+        status: 'settled',
+        competence_month: '2026-09',
+        gross: 2500,
+      },
+    ]);
+    const res = mockRes();
+    await payablesHandler(
+      { method: 'GET', query: { route: 'payables', section: 'cadastro' } },
+      res
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.body.section).toBe('cadastro');
+    expect(res.body.cadastro.activeCount).toBe(1);
+    expect(res.body.cadastro.rows[0].vendor_label).toBe('Aluguel');
+    expect(res.body.cadastro.months).toHaveLength(9);
+    expect(mocks.listRecurrenceInstancesForCadastro).toHaveBeenCalled();
   });
 });

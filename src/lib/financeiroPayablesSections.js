@@ -4,6 +4,7 @@ export const PAYABLES_SECTIONS = {
   VISAO: 'visao',
   CONTAS_FIXAS: 'contas-fixas',
   VENCIDAS: 'vencidas',
+  CADASTRO: 'cadastro',
 };
 
 const VALID = new Set(Object.values(PAYABLES_SECTIONS));
@@ -12,6 +13,7 @@ export const PAYABLES_SECTION_LABELS = {
   [PAYABLES_SECTIONS.VISAO]: 'Visão geral',
   [PAYABLES_SECTIONS.CONTAS_FIXAS]: 'Contas fixas',
   [PAYABLES_SECTIONS.VENCIDAS]: 'Vencidas',
+  [PAYABLES_SECTIONS.CADASTRO]: 'Cadastro',
 };
 
 export function parsePayablesSection(searchParams) {

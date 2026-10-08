@@ -38,13 +38,14 @@ function SaleDetailModalContent({
   onDiscardDraftClick,
   onEditItemClick,
   onLiquidated,
+  initialLiquidateOpen = false,
 }) {
   const liquidateSale = useSalesStore((s) => s.liquidateSale);
   const creating = useSalesStore((s) => s.creating);
   const addToast = useUiStore((s) => s.addToast);
   const financeConfig = useLeadStore((s) => s.financeConfig);
 
-  const [liquidateOpen, setLiquidateOpen] = useState(false);
+  const [liquidateOpen, setLiquidateOpen] = useState(() => Boolean(initialLiquidateOpen));
   const [payments, setPayments] = useState(() => [createEmptyPaymentRow(0)]);
   const [liquidateError, setLiquidateError] = useState('');
 
@@ -381,11 +382,12 @@ export default function SaleDetailModal({
   onDiscardDraftClick,
   onEditItemClick,
   onLiquidated,
+  initialLiquidateOpen = false,
 }) {
   if (!open || !sale) return null;
   return (
     <SaleDetailModalContent
-      key={sale.id}
+      key={`${sale.id}:${initialLiquidateOpen ? 'liq' : 'view'}`}
       sale={sale}
       loading={loading}
       onClose={onClose}
@@ -396,6 +398,7 @@ export default function SaleDetailModal({
       onDiscardDraftClick={onDiscardDraftClick}
       onEditItemClick={onEditItemClick}
       onLiquidated={onLiquidated}
+      initialLiquidateOpen={initialLiquidateOpen}
     />
   );
 }

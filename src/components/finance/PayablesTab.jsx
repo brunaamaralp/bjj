@@ -59,6 +59,7 @@ import FieldError from '../shared/FieldError.jsx';
 import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import PayablesVisaoPanel from './PayablesVisaoPanel.jsx';
+import PayablesCadastroPanel from './PayablesCadastroPanel.jsx';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
 
@@ -262,6 +263,7 @@ export default function PayablesTab({
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [cadastro, setCadastro] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -346,29 +348,44 @@ export default function PayablesTab({
 
   const recurrenceEndOptions = useMemo(() => buildRecurrenceEndOptions(), []);
 
+  const isCadastroSection = resolvedSection === PAYABLES_SECTIONS.CADASTRO;
+
   const load = useCallback(async () => {
     if (!academyId) return;
     setLoading(true);
     setError('');
     try {
-      const body = await fetchPayablesCached({
-        academyId,
-        from: range.from,
-        to: range.to,
-        force: refreshToken > 0,
-      });
-      setData(body);
-      onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);
+      if (isCadastroSection) {
+        const body = await fetchPayablesCached({
+          academyId,
+          from: range.from,
+          to: range.to,
+          section: PAYABLES_SECTIONS.CADASTRO,
+          force: refreshToken > 0,
+        });
+        setCadastro(body?.cadastro || null);
+        onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);
+      } else {
+        const body = await fetchPayablesCached({
+          academyId,
+          from: range.from,
+          to: range.to,
+          force: refreshToken > 0,
+        });
+        setData(body);
+        onPayablesSummaryChange?.(Number(body?.summary?.overdueCount) || 0);
+      }
     } catch (e) {
       console.error('[PayablesTab]', e);
-      setData(null);
+      if (isCadastroSection) setCadastro(null);
+      else setData(null);
       setError('Não foi possível carregar as contas a pagar.');
       onPayablesSummaryChange?.(0);
     } finally {
       setLoading(false);
       setLoadedOnce(true);
     }
-  }, [academyId, range.from, range.to, refreshToken, onPayablesSummaryChange]);
+  }, [academyId, range.from, range.to, refreshToken, onPayablesSummaryChange, isCadastroSection]);
 
   useEffect(() => {
     void load();
@@ -459,6 +476,8 @@ export default function PayablesTab({
     }
   }, [highlightTxId, items]);
 
+  const cadastroActiveCount = Number(cadastro?.activeCount) || 0;
+
   const sectionTabs = useMemo(() => {
     const withAmount = (label, amount) => `${label} · ${fmtCompactMoney(amount)}`;
     return [
@@ -480,8 +499,16 @@ export default function PayablesTab({
             : PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VENCIDAS],
         shortLabel: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.VENCIDAS],
       },
+      {
+        id: PAYABLES_SECTIONS.CADASTRO,
+        label:
+          cadastroActiveCount > 0
+            ? `${PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.CADASTRO]} (${cadastroActiveCount})`
+            : PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.CADASTRO],
+        shortLabel: PAYABLES_SECTION_LABELS[PAYABLES_SECTIONS.CADASTRO],
+      },
     ];
-  }, [summary.totalOpen, summary.overdueCount]);
+  }, [summary.totalOpen, summary.overdueCount, cadastroActiveCount]);
 
   function canPayPayableItem(item) {
     if (!item) return false;
@@ -770,6 +797,12 @@ export default function PayablesTab({
           {summary.overdueCount} conta{summary.overdueCount !== 1 ? 's' : ''} em atraso
         </p>
       </div>
+    ) : resolvedSection === PAYABLES_SECTIONS.CADASTRO ? (
+      <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
+        <p className="finance-kpi__label">Contas fixas ativas</p>
+        <p className="finance-kpi__value">{cadastroActiveCount}</p>
+        <p className="finance-kpi__hint">Cadastro consultivo · grade dos últimos 6 meses + atual + 2</p>
+      </div>
     ) : (
       <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
         <p className="finance-kpi__label">Em aberto (90 dias)</p>
@@ -861,23 +894,25 @@ export default function PayablesTab({
                 </option>
               ))}
             </select>
-            <div
-              className="finance-hub-filters__chips"
-              role="group"
-              aria-label="Filtrar por vencimento"
-            >
-              {STATUS_FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`finance-filter-pill${statusFilter === opt.id ? ' is-active' : ''}`}
-                  aria-pressed={statusFilter === opt.id}
-                  onClick={() => setStatusFilter(opt.id)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            {resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS ? (
+              <div
+                className="finance-hub-filters__chips"
+                role="group"
+                aria-label="Filtrar por vencimento"
+              >
+                {STATUS_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`finance-filter-pill${statusFilter === opt.id ? ' is-active' : ''}`}
+                    aria-pressed={statusFilter === opt.id}
+                    onClick={() => setStatusFilter(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -887,6 +922,44 @@ export default function PayablesTab({
             formatCategory={(raw) => formatPayableCategoryLabel(raw, chartAccounts)}
             loading={loading && !loadedOnce}
           />
+        ) : resolvedSection === PAYABLES_SECTIONS.CADASTRO ? (
+          !cadastro?.rows?.length && !error ? (
+            <EmptyState
+              variant="compact"
+              icon={TrendingDown}
+              title={
+                debouncedSearch || categoryFilter
+                  ? 'Nenhum resultado'
+                  : 'Nenhuma conta fixa ativa cadastrada'
+              }
+              description={
+                debouncedSearch || categoryFilter
+                  ? 'Ajuste a busca ou o filtro de categoria.'
+                  : 'Cadastre contas fixas em Contas fixas para vê-las aqui com a grade mensal.'
+              }
+              primaryAction={
+                debouncedSearch || categoryFilter
+                  ? {
+                      label: 'Limpar filtros',
+                      onClick: () => {
+                        setSearch('');
+                        setCategoryFilter('');
+                      },
+                    }
+                  : {
+                      label: 'Nova conta',
+                      onClick: openNewForm,
+                    }
+              }
+            />
+          ) : (
+            <PayablesCadastroPanel
+              cadastro={cadastro}
+              chartAccounts={chartAccounts}
+              search={debouncedSearch}
+              categoryFilter={categoryFilter}
+            />
+          )
         ) : items.length === 0 && !error ? (
           <EmptyState
             variant="compact"

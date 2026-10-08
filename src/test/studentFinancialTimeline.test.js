@@ -113,6 +113,72 @@ describe('studentFinancialTimeline', () => {
     expect(items[0].title).toBe('Pagou mensalidade — março de 2026');
   });
 
+  it('venda parcial mostra em aberto como valor e subtítulo recebido/saldo', () => {
+    const sales = [
+      {
+        id: 'sale-partial',
+        status: 'parcial',
+        total: 115,
+        paid_amount: 100,
+        remaining_amount: 15,
+        created_at: '2026-10-01T10:00:00.000Z',
+        items: [{ display_label: 'Camisa', quantidade: 1, subtotal: 115 }],
+        payment_label: 'PIX',
+      },
+    ];
+    const items = buildFinancialTimelineItems([], sales);
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('product');
+    expect(items[0].title).toBe('Comprou Camisa');
+    expect(items[0].badge.label).toBe('Parcial');
+    expect(items[0].amount).toBe(15);
+    expect(items[0].amount_total).toBe(115);
+    expect(items[0].amount_paid).toBe(100);
+    expect(items[0].amount_remaining).toBe(15);
+    expect(items[0].can_receive_balance).toBe(true);
+    expect(items[0].subtitle).toMatch(/Recebido.*100/);
+    expect(items[0].subtitle).toMatch(/Em aberto.*15/);
+  });
+
+  it('countTimelineHistory inclui produtos parcial/pendente', () => {
+    const sales = [
+      { id: 'a', status: 'concluida', total: 10 },
+      { id: 'b', status: 'parcial', total: 115, paid_amount: 100, remaining_amount: 15 },
+      { id: 'c', status: 'pendente', total: 50, paid_amount: 0, remaining_amount: 50 },
+      { id: 'd', status: 'cancelada', total: 20 },
+    ];
+    const counts = countTimelineHistory([], sales);
+    expect(counts.products).toBe(3);
+  });
+
+  it('buildFinancialSummary expõe dívida em produtos', () => {
+    const summary = buildFinancialSummary({
+      student: { plan: 'Adulto', due_day: 10 },
+      financeConfig: { plans: [{ name: 'Adulto', price: 200 }] },
+      payments: [],
+      sales: [
+        {
+          id: 's1',
+          status: 'parcial',
+          total: 115,
+          paid_amount: 100,
+          remaining_amount: 15,
+        },
+        {
+          id: 's2',
+          status: 'pendente',
+          total: 50,
+          paid_amount: 0,
+          remaining_amount: 50,
+        },
+      ],
+      paymentStatus: { status: 'paid' },
+    });
+    expect(summary.productDebt).toBe(65);
+    expect(summary.productDebtLabel).toMatch(/Dívida em produtos/);
+    expect(summary.productDebtLabel).toMatch(/65/);
+  });
+
   it('títulos narrativos: Pagou só quando pago; Comprou com truncamento', () => {
     const payments = [
       {

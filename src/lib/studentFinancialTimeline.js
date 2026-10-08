@@ -23,6 +23,7 @@ import {
   resolveStudentPlanBasePrice,
   resolveStudentPlanFinalPrice,
 } from './planBilling.js';
+import { resolveSalePaidAmount, resolveSaleRemaining } from './salesHistory.js';
 
 export const TIMELINE_FILTER_TYPES = {
   ALL: 'all',
@@ -217,22 +218,47 @@ export function buildFinancialTimelineItems(payments, sales, freezeRecords = [])
   for (const sale of sales || []) {
     const st = String(sale.status || '').toLowerCase();
     const cancelled = st === 'cancelada';
+    const openBalance = st === 'parcial' || st === 'pendente';
+    const total = Math.round((Number(sale.total) || 0) * 100) / 100;
+    const paid = Math.round(resolveSalePaidAmount(sale) * 100) / 100;
+    const remaining = Math.round(resolveSaleRemaining(sale) * 100) / 100;
     const itemLabels =
       Array.isArray(sale.items) && sale.items.length > 0
         ? sale.items
         : sale.items_summary
           ? [{ display_label: String(sale.items_summary) }]
           : [];
+    const money = (n) => {
+      try {
+        return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      } catch {
+        return `R$ ${Number(n || 0).toFixed(2)}`;
+      }
+    };
+    let subtitle = sale.payment_label || sale.forma_pagamento || '';
+    if (openBalance) {
+      subtitle = `Recebido ${money(paid)} · Em aberto ${money(remaining)}`;
+    }
     items.push({
-      id: `sale:${sale.id}`,
+      id: `sale:${sale.id || sale.$id}`,
       kind: 'product',
       sortDate: sale.created_at || sale.cancelada_em,
       title: formatProductPurchaseTitle(itemLabels, { cancelled }),
-      subtitle: sale.payment_label || sale.forma_pagamento || '',
-      amount: Number(sale.total || 0),
+      subtitle,
+      amount: openBalance ? remaining : total,
+      amount_total: total,
+      amount_paid: paid,
+      amount_remaining: remaining,
+      can_receive_balance: openBalance && remaining > 0.009,
       badge: {
-        label: cancelled ? 'Cancelada' : st === 'pendente' ? 'Pendente' : 'Concluída',
-        tone: cancelled ? 'muted' : st === 'pendente' ? 'warning' : 'success',
+        label: cancelled
+          ? 'Cancelada'
+          : st === 'pendente'
+            ? 'Pendente'
+            : st === 'parcial'
+              ? 'Parcial'
+              : 'Concluída',
+        tone: cancelled ? 'muted' : st === 'pendente' || st === 'parcial' ? 'warning' : 'success',
       },
       sale,
     });
@@ -278,8 +304,22 @@ export function countTimelineHistory(payments, sales) {
     else if (cat === PAYMENT_CATEGORY.BUNDLE && isBundleAnchorPayment(p)) bundles += 1;
     else if (cat === PAYMENT_CATEGORY.FEE) fees += 1;
   }
-  const products = (sales || []).filter((s) => String(s.status || '').toLowerCase() === 'concluida').length;
+  const products = (sales || []).filter((s) => {
+    const st = String(s.status || '').toLowerCase();
+    return st === 'concluida' || st === 'parcial' || st === 'pendente';
+  }).length;
   return { plans, bundles, fees, products, mensalidades: plans + bundles };
+}
+
+/** Soma remaining de vendas pendente/parcial. */
+export function sumProductDebt(sales = []) {
+  let debt = 0;
+  for (const s of sales || []) {
+    const st = String(s.status || '').toLowerCase();
+    if (st !== 'parcial' && st !== 'pendente') continue;
+    debt += resolveSaleRemaining(s);
+  }
+  return Math.round(debt * 100) / 100;
 }
 
 /**
@@ -319,6 +359,17 @@ export function buildFinancialSummary({
   const dueLabel = dueDay ? `dia ${dueDay}` : '—';
 
   const counts = countTimelineHistory(payments, sales);
+  const productDebt = sumProductDebt(sales);
+  const productDebtFields =
+    productDebt > 0.009
+      ? {
+          productDebt,
+          productDebtLabel: `Dívida em produtos: ${productDebt.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })}`,
+        }
+      : { productDebt: 0, productDebtLabel: '' };
 
   const activeBundle = (payments || []).find(
     (p) => isBundleAnchorPayment(p) && String(p.status || '').toLowerCase() === 'paid'
@@ -342,6 +393,7 @@ export function buildFinancialSummary({
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: true,
       ...discountSummary,
+      ...productDebtFields,
     };
   }
 
@@ -356,6 +408,7 @@ export function buildFinancialSummary({
       isBundle: false,
       isFrozen: true,
       ...discountSummary,
+      ...productDebtFields,
     };
   }
 
@@ -367,6 +420,7 @@ export function buildFinancialSummary({
       situationTone: 'muted',
       historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
       isBundle: false,
+      ...productDebtFields,
     };
   }
 
@@ -418,6 +472,7 @@ export function buildFinancialSummary({
     historyLabel: `${counts.mensalidades} mensalidades · ${counts.products} compras · ${counts.fees} taxas`,
     isBundle: false,
     ...discountSummary,
+    ...productDebtFields,
   };
 }
 

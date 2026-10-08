@@ -87,13 +87,13 @@ export function itemsSummaryFromSnapshot(doc) {
   }
 }
 
-function resolveSalePaidAmount(sale) {
+export function resolveSalePaidAmount(sale) {
   const fromField = Number(sale?.paid_amount);
   if (Number.isFinite(fromField) && fromField >= 0) return fromField;
   return salePaidAmountNet(sale?.pagamentos ?? sale?.pagamentos_json);
 }
 
-function resolveSaleRemaining(sale) {
+export function resolveSaleRemaining(sale) {
   const fromField = Number(sale?.remaining_amount);
   if (Number.isFinite(fromField) && fromField >= 0) return fromField;
   const total = Number(sale?.total) || 0;
