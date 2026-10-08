@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import { lazyWithRetry } from '../../lib/lazyWithRetry.js';
 import './finance.css';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ExternalLink,
   FileSpreadsheet,
+  MoreHorizontal,
   Pencil,
   Plus,
   RefreshCw,
@@ -60,6 +61,7 @@ import ConfirmDialog from '../shared/ConfirmDialog.jsx';
 import BankAccountSelect from './BankAccountSelect.jsx';
 import PayablesVisaoPanel from './PayablesVisaoPanel.jsx';
 import PayablesCadastroPanel from './PayablesCadastroPanel.jsx';
+import { DropdownMenu, DropdownMenuPanel, DropdownMenuItem } from '../shared/menu';
 import { useModalA11y } from '../../hooks/useModalA11y.js';
 import useDebounce from '../../hooks/useDebounce.js';
 
@@ -100,6 +102,96 @@ const STATUS_FILTER_OPTIONS = [
 
 const VALID_SECTIONS = new Set(Object.values(PAYABLES_SECTIONS));
 
+function PayableRowMoreMenu({
+  item,
+  open,
+  onOpenChange,
+  canManageAdvanced,
+  onEdit,
+  onCancelPayable,
+  onCancelTemplate,
+}) {
+  const navigate = useNavigate();
+  const isLancamento = item.source === PAYABLE_SOURCE.LANCAMENTO;
+  const isTemplate = item.source === PAYABLE_SOURCE.TEMPLATE;
+  const hasItems =
+    (isLancamento && (canManageAdvanced || item.tx_id)) ||
+    (isTemplate && canManageAdvanced);
+  if (!hasItems) return null;
+
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={onOpenChange}
+      className="payables-row-menu"
+      align="end"
+    >
+      <button
+        type="button"
+        className="btn-ghost btn-sm payables-row-menu__trigger"
+        aria-label={`Mais ações — ${item.vendor_label}`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title="Mais ações"
+        onClick={() => onOpenChange(!open)}
+      >
+        <MoreHorizontal size={16} aria-hidden />
+      </button>
+      {open ? (
+        <DropdownMenuPanel aria-label={`Ações de ${item.vendor_label}`}>
+          {isLancamento ? (
+            <>
+              <DropdownMenuItem
+                icon={<Pencil size={16} aria-hidden />}
+                onClick={() => {
+                  onOpenChange(false);
+                  onEdit(item);
+                }}
+              >
+                Editar
+              </DropdownMenuItem>
+              {item.tx_id ? (
+                <DropdownMenuItem
+                  icon={<ExternalLink size={16} aria-hidden />}
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate(`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`);
+                  }}
+                >
+                  Ver lançamento
+                </DropdownMenuItem>
+              ) : null}
+              {canManageAdvanced ? (
+                <DropdownMenuItem
+                  danger
+                  icon={<Trash2 size={16} aria-hidden />}
+                  onClick={() => {
+                    onOpenChange(false);
+                    onCancelPayable(item);
+                  }}
+                >
+                  Excluir
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : null}
+          {isTemplate && canManageAdvanced ? (
+            <DropdownMenuItem
+              danger
+              onClick={() => {
+                onOpenChange(false);
+                onCancelTemplate(item.template_id);
+              }}
+            >
+              Cancelar recorrência
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuPanel>
+      ) : null}
+    </DropdownMenu>
+  );
+}
+
 function PayableItemsTable({
   items,
   chartAccounts,
@@ -110,64 +202,69 @@ function PayableItemsTable({
   onCancelPayable,
   onCancelTemplate,
 }) {
+  const [menuId, setMenuId] = useState('');
+
   return (
-    <div className="finance-table-wrap">
-      <table className="finance-table finance-table--compact">
+    <div className="finance-table-wrap payables-table-wrap">
+      <table className="finance-table finance-table--compact payables-table">
         <thead>
           <tr>
+            <th>Conta</th>
             <th>Vencimento</th>
-            <th>Fornecedor</th>
-            <th>Categoria</th>
             <th className="text-right">Valor</th>
-            <th>Status</th>
-            <th aria-label="Ações" />
+            <th aria-label="Ações" className="payables-table__actions-col" />
           </tr>
         </thead>
         <tbody>
           {items.map((item) => {
             const dueHint = payableDueRelativeHint(item.due_date);
+            const categoryLabel = formatPayableCategoryLabel(item.category, chartAccounts);
+            const canAct =
+              item.source === PAYABLE_SOURCE.LANCAMENTO ||
+              item.source === PAYABLE_SOURCE.TEMPLATE ||
+              item.source === PAYABLE_SOURCE.RECORRENCIA;
+            const showPay = canAct && item.source !== PAYABLE_SOURCE.TEMPLATE;
             return (
               <tr key={item.id}>
                 <td>
-                  <span className="finance-table__date">{fmtDateBr(item.due_date)}</span>
-                  {dueHint ? (
-                    <span className="text-small text-muted d-block">{dueHint}</span>
-                  ) : null}
-                </td>
-                <td>
-                  <span className="finance-table__primary">
-                    {item.recurrence?.active ? (
-                      <Repeat size={14} title="Recorrente" aria-hidden className="icon-inline" />
-                    ) : null}
-                    {item.vendor_label}
-                  </span>
-                  {item.source === PAYABLE_SOURCE.TEMPLATE ? (
-                    <span className="text-small text-muted d-block">
-                      Mensal · dia {item.recurrence?.day || '—'}
+                  <div className="payables-table__account">
+                    <span className="payables-table__vendor">
+                      {item.recurrence?.active ? (
+                        <Repeat size={13} title="Recorrente" aria-hidden className="icon-inline" />
+                      ) : null}
+                      {item.vendor_label}
                     </span>
-                  ) : null}
+                    <span className="payables-table__meta">
+                      {categoryLabel}
+                      {item.source === PAYABLE_SOURCE.TEMPLATE
+                        ? ` · dia ${item.recurrence?.day || '—'}`
+                        : ''}
+                    </span>
+                  </div>
                 </td>
-                <td className="text-small">
-                  {formatPayableCategoryLabel(item.category, chartAccounts)}
-                </td>
-                <td className="text-right finance-value-negative">{fmtMoney(item.amount)}</td>
                 <td>
-                  <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
-                    {item.status === 'overdue' || item.status === 'due_today' ? (
-                      <AlertCircle size={12} aria-hidden className="icon-inline" />
-                    ) : null}
-                    {payableStatusLabel(item.status)}
-                  </span>
+                  <div className="payables-table__due">
+                    <span className="payables-table__due-date" title={dueHint || undefined}>
+                      {fmtDateBr(item.due_date)}
+                    </span>
+                    <span className={`finance-badge ${payableStatusBadgeClass(item.status)}`}>
+                      {item.status === 'overdue' || item.status === 'due_today' ? (
+                        <AlertCircle size={11} aria-hidden className="icon-inline" />
+                      ) : null}
+                      {payableStatusLabel(item.status)}
+                    </span>
+                  </div>
+                </td>
+                <td className="text-right finance-value-negative payables-table__amount">
+                  {fmtMoney(item.amount)}
                 </td>
                 <td className="text-right">
-                  <div className="finance-table__actions">
-                    {item.source === PAYABLE_SOURCE.LANCAMENTO ||
-                    item.source === PAYABLE_SOURCE.TEMPLATE ||
-                    item.source === PAYABLE_SOURCE.RECORRENCIA ? (
-                      <>
+                  {canAct ? (
+                    <div className="payables-table__actions">
+                      {showPay ? (
                         <button
                           type="button"
-                          className="btn-outline btn-sm"
+                          className="btn-primary btn-sm"
                           onClick={() => onSettle(item)}
                           disabled={!canPayPayableItem(item)}
                           title={
@@ -178,47 +275,18 @@ function PayableItemsTable({
                         >
                           Pagar
                         </button>
-                        {item.source === PAYABLE_SOURCE.LANCAMENTO ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm"
-                              onClick={() => onEdit(item)}
-                              aria-label={`Editar ${item.vendor_label}`}
-                            >
-                              <Pencil size={14} aria-hidden />
-                            </button>
-                            <Link
-                              to={`/financeiro?tab=movimentacoes&tx=${encodeURIComponent(item.tx_id)}`}
-                              className="btn-ghost btn-sm"
-                              aria-label={`Ver lançamento ${item.vendor_label}`}
-                            >
-                              <ExternalLink size={14} aria-hidden />
-                            </Link>
-                            {canManageAdvanced ? (
-                              <button
-                                type="button"
-                                className="btn-ghost btn-sm text-muted"
-                                onClick={() => onCancelPayable(item)}
-                                aria-label={`Excluir ${item.vendor_label}`}
-                                title="Excluir conta"
-                              >
-                                <Trash2 size={14} aria-hidden />
-                              </button>
-                            ) : null}
-                          </>
-                        ) : item.source === PAYABLE_SOURCE.TEMPLATE && canManageAdvanced ? (
-                          <button
-                            type="button"
-                            className="btn-ghost btn-sm text-muted"
-                            onClick={() => onCancelTemplate(item.template_id)}
-                          >
-                            Cancelar
-                          </button>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
+                      ) : null}
+                      <PayableRowMoreMenu
+                        item={item}
+                        open={menuId === item.id}
+                        onOpenChange={(next) => setMenuId(next ? item.id : '')}
+                        canManageAdvanced={canManageAdvanced}
+                        onEdit={onEdit}
+                        onCancelPayable={onCancelPayable}
+                        onCancelTemplate={onCancelTemplate}
+                      />
+                    </div>
+                  ) : null}
                 </td>
               </tr>
             );
@@ -799,13 +867,13 @@ export default function PayablesTab({
       </div>
     ) : resolvedSection === PAYABLES_SECTIONS.CADASTRO ? (
       <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
-        <p className="finance-kpi__label">Contas fixas ativas</p>
+        <p className="finance-kpi__label">Ativas</p>
         <p className="finance-kpi__value">{cadastroActiveCount}</p>
-        <p className="finance-kpi__hint">Cadastro consultivo · grade dos últimos 6 meses + atual + 2</p>
+        <p className="finance-kpi__hint">Grade mensal · só consulta</p>
       </div>
     ) : (
       <div className="finance-kpi finance-kpi--compact receivables-tab__total-kpi">
-        <p className="finance-kpi__label">Em aberto (90 dias)</p>
+        <p className="finance-kpi__label">Em aberto</p>
         <p className="finance-kpi__value finance-value-negative">{fmtMoney(summary.totalOpen)}</p>
         {summary.overdueCount > 0 ? (
           <p className="finance-kpi__hint">
@@ -814,17 +882,9 @@ export default function PayablesTab({
           </p>
         ) : summary.dueSoonCount > 0 ? (
           <p className="finance-kpi__hint">
-            {summary.dueSoonCount} vence{summary.dueSoonCount !== 1 ? 'm' : ''} em 7 dias
+            {summary.dueSoonCount} em 7 dias
           </p>
-        ) : summary.activeTemplates > 0 ? (
-          <p className="finance-kpi__hint">
-            {summary.activeTemplates === 1
-              ? '1 conta fixa ativa'
-              : `${summary.activeTemplates} contas fixas ativas`}
-          </p>
-        ) : (
-          <p className="finance-kpi__hint">Nenhuma conta programada na janela</p>
-        )}
+        ) : null}
       </div>
     );
 
@@ -872,22 +932,22 @@ export default function PayablesTab({
 
         {resolvedSection !== PAYABLES_SECTIONS.VENCIDAS &&
         resolvedSection !== PAYABLES_SECTIONS.VISAO ? (
-          <div className="finance-filters-bar finance-filters-bar--compact mb-3">
+          <div className="finance-filters-bar finance-filters-bar--compact payables-filters mb-3">
             <input
               type="search"
-              className="form-input"
-              placeholder="Buscar fornecedor ou categoria…"
+              className="form-input payables-filters__search"
+              placeholder="Buscar fornecedor…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Buscar contas a pagar"
             />
             <select
-              className="form-input"
+              className="form-input payables-filters__select"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               aria-label="Filtrar por categoria"
             >
-              <option value="">Todas as categorias</option>
+              <option value="">Categoria</option>
               {categoryFilterOptions.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -895,23 +955,18 @@ export default function PayablesTab({
               ))}
             </select>
             {resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS ? (
-              <div
-                className="finance-hub-filters__chips"
-                role="group"
+              <select
+                className="form-input payables-filters__select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 aria-label="Filtrar por vencimento"
               >
                 {STATUS_FILTER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`finance-filter-pill${statusFilter === opt.id ? ' is-active' : ''}`}
-                    aria-pressed={statusFilter === opt.id}
-                    onClick={() => setStatusFilter(opt.id)}
-                  >
+                  <option key={opt.id} value={opt.id}>
                     {opt.label}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             ) : null}
           </div>
         ) : null}
@@ -998,9 +1053,10 @@ export default function PayablesTab({
           resolvedSection === PAYABLES_SECTIONS.CONTAS_FIXAS ? (
             <div className="payables-op-groups">
               {operationalGroups.now.length > 0 ? (
-                <section className="payables-op-group mb-3" aria-label="A pagar agora">
-                  <h3 className="navi-section-heading text-base mb-2">
-                    A pagar agora ({operationalGroups.now.length})
+                <section className="payables-op-group" aria-label="A pagar agora">
+                  <h3 className="payables-op-group__title">
+                    A pagar agora
+                    <span className="payables-op-group__count">{operationalGroups.now.length}</span>
                   </h3>
                   <PayableItemsTable
                     items={operationalGroups.now}
@@ -1015,9 +1071,10 @@ export default function PayablesTab({
                 </section>
               ) : null}
               {operationalGroups.scheduled.length > 0 ? (
-                <section className="payables-op-group mb-3" aria-label="Programadas">
-                  <h3 className="navi-section-heading text-base mb-2">
-                    Programadas ({operationalGroups.scheduled.length})
+                <section className="payables-op-group" aria-label="Programadas">
+                  <h3 className="payables-op-group__title">
+                    Programadas
+                    <span className="payables-op-group__count">{operationalGroups.scheduled.length}</span>
                   </h3>
                   <PayableItemsTable
                     items={operationalGroups.scheduled}

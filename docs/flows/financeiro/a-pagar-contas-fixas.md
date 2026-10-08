@@ -28,12 +28,12 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 |---|---|---|---|
 | 1 | `?tab=a-pagar` | Abrir **A pagar** | Hub alinhado a A receber: KPI compacto + subnav (Visão / Contas fixas / Vencidas / Cadastro) + Importar / Nova / Atualizar |
 | 2 | `&section=visao` (padrão) | Visão geral | KPI no shell; painel só com próximos ≤8 vencimentos + CTAs (sem métricas duplicadas) |
-| 3 | `&section=contas-fixas` | Ver fila operacional | Grupos **A pagar agora** (pending) e **Programadas** (templates); busca/categoria; chips de vencimento; badges + hint na data |
+| 3 | `&section=contas-fixas` | Ver fila operacional | Grupos **A pagar agora** (pending) e **Programadas** (templates); busca/categoria/vencimento em selects; tabela enxuta (conta · vencimento · valor · Pagar/⋯) |
 | 4 | Nova conta | Modal cadastro | Avulsa ou recorrente mensal |
 | 5 | Pagar | Modal liquidação | TX `settled` + espelho contábil |
 | 6 | `&section=vencidas` | Regularizar atrasos | KPI só vencidas + filtro overdue; hint `há N dias` |
 | 7 | Cancelar (template) | Confirmar cancelamento | Template desativado; pendentes gerados permanecem |
-| 8 | `&section=cadastro` | Consultar cadastro | Grade só leitura: fornecedor, categoria, dia, valor, status + meses (6 passados + atual + 2); canceladas omitidas |
+| 8 | `&section=cadastro` | Consultar cadastro | Grade só leitura: conta (categoria · dia) + valor + pontos mensais (6+atual+2); canceladas omitidas |
 
 ---
 
@@ -48,9 +48,9 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 7. [ ] Previsão mostra saída na semana correta
 8. [ ] Sidebar **A pagar** linka para contas fixas
 9. [ ] Recepção Comercial: **Lembretes financeiros** mostra contas do dia/semana/atrasadas **sem valor**; com módulo finance, clique abre A pagar
-10. [ ] Conta com vencimento **hoje** mostra badge **Vence hoje**; hint relativo na coluna (hoje / em N dias / há N dias); chips de filtro na Contas fixas
+10. [ ] Conta com vencimento **hoje** mostra badge **Vence hoje**; filtro de vencimento em select na Contas fixas
 11. [ ] Contas fixas separa **A pagar agora** (instâncias pendentes) de **Programadas** (templates); grupo vazio omitido
-12. [ ] Aba **Cadastro** lista templates ativos com grade mensal (pago / em aberto / vencido / —); sem ações de pagar
+12. [ ] Aba **Cadastro** lista templates ativos com grade mensal (pontos: pago / em aberto / vencido / vazio); sem ações de pagar
 
 ---
 
@@ -58,6 +58,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 
 | Data | Mudança |
 |---|---|
+| 2026-10-08 | Contas fixas/Cadastro: UI menos densa (tabela 4 colunas, selects, grade por pontos) |
 | 2026-10-08 | Aba Cadastro: grade consultiva 6+1+2 meses |
 | 2026-09-22 | Fila operacional: grupos A pagar agora / Programadas |
 | 2026-09-22 | Clareza de vencimento: `due_today`, chips, hints relativos |

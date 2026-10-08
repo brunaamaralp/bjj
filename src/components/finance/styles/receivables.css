@@ -112,13 +112,159 @@
   }
 }
 
+/* A pagar — filtros e fila operacional */
+.payables-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.payables-filters__search {
+  flex: 1 1 180px;
+  min-width: 140px;
+  max-width: 280px;
+}
+
+.payables-filters__select {
+  flex: 0 1 160px;
+  min-width: 120px;
+}
+
+.payables-op-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.payables-op-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.payables-op-group__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.payables-table-wrap {
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.payables-table {
+  margin: 0;
+}
+
+.payables-table thead th {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  background: var(--surface-muted, #f8fafc);
+}
+
+.payables-table__account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.payables-table__vendor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.payables-table__meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.payables-table__due {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.payables-table__due-date {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.payables-table__amount {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.payables-table__actions-col {
+  width: 1%;
+}
+
+.payables-table__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.payables-row-menu {
+  position: relative;
+}
+
+.payables-row-menu__trigger {
+  padding: 4px 6px;
+}
+
+.payables-table .finance-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
 /* A pagar — Cadastro (grade mensal consultiva) */
 .payables-cadastro__wrap {
   max-height: min(70vh, 640px);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: auto;
 }
 
 .payables-cadastro__table {
-  min-width: 920px;
+  min-width: 720px;
+  margin: 0;
+}
+
+.payables-cadastro__table thead th {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  background: var(--surface-muted, #f8fafc);
 }
 
 .payables-cadastro__sticky {
@@ -127,47 +273,91 @@
   z-index: 2;
   background: var(--surface);
   box-shadow: 1px 0 0 var(--border-light);
-  min-width: 9rem;
+  min-width: 11rem;
 }
 
 .payables-cadastro__table thead .payables-cadastro__sticky {
   z-index: 3;
+  background: var(--surface-muted, #f8fafc);
+}
+
+.payables-cadastro__account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.payables-cadastro__vendor {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.payables-cadastro__meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.payables-cadastro__amount-col {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5rem;
 }
 
 .payables-cadastro__month {
-  min-width: 3.25rem;
+  min-width: 2.75rem;
   text-align: center !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
 .payables-cadastro__cell {
   text-align: center !important;
-  font-weight: 600;
+  padding: 10px 4px !important;
+  vertical-align: middle;
 }
 
-.payables-cadastro__cell--paid {
-  color: var(--color-success, #1a7f4b);
+.payables-cadastro__dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
 }
 
-.payables-cadastro__cell--open {
-  color: var(--text-muted);
+.payables-cadastro__cell--paid,
+.payables-cadastro__legend .payables-cadastro__cell--paid {
+  color: var(--color-accent, #1faa5e);
 }
 
-.payables-cadastro__cell--overdue {
+.payables-cadastro__cell--open,
+.payables-cadastro__legend .payables-cadastro__cell--open {
+  color: var(--color-primary-light, #afa9ec);
+}
+
+.payables-cadastro__cell--overdue,
+.payables-cadastro__legend .payables-cadastro__cell--overdue {
   color: var(--color-danger, #c0392b);
 }
 
-.payables-cadastro__cell--empty {
-  color: var(--text-muted);
-  font-weight: 400;
+.payables-cadastro__cell--empty .payables-cadastro__dot,
+.payables-cadastro__legend .payables-cadastro__cell--empty {
+  color: var(--border-light, #e8e5f5);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--border-light, #e8e5f5);
 }
 
 .payables-cadastro__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
+  gap: 0.5rem 1rem;
   list-style: none;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .payables-cadastro__legend li {

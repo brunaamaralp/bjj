@@ -28,13 +28,6 @@ function cellTitle(cell) {
   return parts.join(' · ');
 }
 
-function cellMark(state) {
-  if (state === CADASTRO_CELL.PAID) return '✓';
-  if (state === CADASTRO_CELL.OVERDUE) return '!';
-  if (state === CADASTRO_CELL.OPEN) return '○';
-  return '—';
-}
-
 /**
  * Grade consultiva: contas fixas ativas × meses.
  */
@@ -76,21 +69,18 @@ export default function PayablesCadastroPanel({
 
   return (
     <div className="payables-cadastro">
-      <p className="text-small text-muted mb-2">
-        Consulta das contas fixas ativas e situação por mês (últimos 6 + atual + próximos 2). Sem
-        ações de pagamento nesta aba.
-      </p>
-      <div className="finance-table-wrap payables-cadastro__wrap" role="region" aria-label="Cadastro de contas fixas">
+      <div
+        className="finance-table-wrap payables-cadastro__wrap"
+        role="region"
+        aria-label="Cadastro de contas fixas"
+      >
         <table className="finance-table payables-cadastro__table">
           <thead>
             <tr>
-              <th className="payables-cadastro__sticky">Fornecedor</th>
-              <th>Categoria</th>
-              <th className="finance-num">Dia</th>
-              <th className="finance-num">Valor</th>
-              <th>Status</th>
+              <th className="payables-cadastro__sticky">Conta</th>
+              <th className="finance-num payables-cadastro__amount-col">Valor</th>
               {months.map((m) => (
-                <th key={m.ym} className="payables-cadastro__month finance-num" title={m.ym}>
+                <th key={m.ym} className="payables-cadastro__month" title={m.ym}>
                   {m.label}
                 </th>
               ))}
@@ -100,25 +90,29 @@ export default function PayablesCadastroPanel({
             {rows.map((row) => (
               <tr key={row.template_id}>
                 <td className="payables-cadastro__sticky">
-                  <span className="font-medium">{row.vendor_label}</span>
+                  <div className="payables-cadastro__account">
+                    <span className="payables-cadastro__vendor">{row.vendor_label}</span>
+                    <span className="payables-cadastro__meta">
+                      {formatPayableCategoryLabel(row.category, chartAccounts)}
+                      {row.recurrence_day ? ` · dia ${row.recurrence_day}` : ''}
+                    </span>
+                  </div>
                 </td>
-                <td className="text-muted">
-                  {formatPayableCategoryLabel(row.category, chartAccounts)}
-                </td>
-                <td className="finance-num">{row.recurrence_day}</td>
-                <td className="finance-num">{fmtMoney(row.amount)}</td>
-                <td>
-                  <span className="finance-badge-pago">{row.statusLabel || 'Ativo'}</span>
+                <td className="finance-num payables-cadastro__amount-col">
+                  {fmtMoney(row.amount)}
                 </td>
                 {months.map((m) => {
                   const cell = row.cells?.[m.ym] || { state: CADASTRO_CELL.EMPTY };
                   return (
                     <td
                       key={m.ym}
-                      className={`payables-cadastro__cell finance-num payables-cadastro__cell--${cell.state}`}
+                      className={`payables-cadastro__cell payables-cadastro__cell--${cell.state}`}
                       title={cellTitle(cell)}
                     >
-                      <span aria-label={cellTitle(cell)}>{cellMark(cell.state)}</span>
+                      <span
+                        className="payables-cadastro__dot"
+                        aria-label={cellTitle(cell)}
+                      />
                     </td>
                   );
                 })}
@@ -127,18 +121,22 @@ export default function PayablesCadastroPanel({
           </tbody>
         </table>
       </div>
-      <ul className="payables-cadastro__legend text-small text-muted mt-2" aria-label="Legenda">
+      <ul className="payables-cadastro__legend" aria-label="Legenda">
         <li>
-          <span className="payables-cadastro__cell--paid">✓</span> Pago
+          <span className="payables-cadastro__dot payables-cadastro__cell--paid" aria-hidden />
+          Pago
         </li>
         <li>
-          <span className="payables-cadastro__cell--open">○</span> Em aberto
+          <span className="payables-cadastro__dot payables-cadastro__cell--open" aria-hidden />
+          Em aberto
         </li>
         <li>
-          <span className="payables-cadastro__cell--overdue">!</span> Vencido
+          <span className="payables-cadastro__dot payables-cadastro__cell--overdue" aria-hidden />
+          Vencido
         </li>
         <li>
-          <span className="payables-cadastro__cell--empty">—</span> Sem registro
+          <span className="payables-cadastro__dot payables-cadastro__cell--empty" aria-hidden />
+          Sem registro
         </li>
       </ul>
     </div>
