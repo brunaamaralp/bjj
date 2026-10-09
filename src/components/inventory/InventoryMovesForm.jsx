@@ -11,7 +11,6 @@ const MOVE_TYPES = [
   { value: 'ajuste', label: 'Ajuste' },
   { value: 'saida_venda', label: 'Saída (venda)' },
   { value: 'saida_aluguel', label: 'Saída (uso interno)' },
-  { value: 'saida_professor', label: 'Saída (professor)' },
   { value: 'devolucao', label: 'Devolução' },
   { value: 'reversao_venda', label: 'Reversão de venda' },
   { value: 'avulso', label: 'Avulso' },
@@ -267,9 +266,7 @@ export default function InventoryMovesForm({
         <button type="submit" className="btn-secondary" disabled={loading}>
           {form.tipo === 'entrada' && <PackagePlus size={16} />}
           {form.tipo === 'ajuste' && <Wrench size={16} />}
-          {(form.tipo === 'saida_venda' || form.tipo === 'saida_aluguel' || form.tipo === 'saida_professor') && (
-            <ArrowUpFromLine size={16} />
-          )}
+          {(form.tipo === 'saida_venda' || form.tipo === 'saida_aluguel') && <ArrowUpFromLine size={16} />}
           {form.tipo === 'devolucao' && <ArrowDownToLine size={16} />}
           {form.tipo === 'avulso' && <Scissors size={16} />}
           <span style={{ marginLeft: 6 }}>{loading ? 'Aplicando…' : 'Aplicar'}</span>
