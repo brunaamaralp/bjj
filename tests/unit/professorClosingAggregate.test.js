@@ -140,6 +140,32 @@ describe('buildClosingHubRow', () => {
       debits_products: 70,
       net: 390,
     });
+    expect(row.post_paid_activity).toBe(true);
+  });
+
+  it('post_paid_activity false when live matches paid snapshot', () => {
+    const row = buildClosingHubRow({
+      staff_ref: 'roster:x',
+      name: 'Ana',
+      role: 'instructor',
+      counts: { lessons: 8, experimentals: 2, withdrawals: 1 },
+      productDebits: [70],
+      rates: { lesson_amount: 50, experimental_amount: 30 },
+      closing: {
+        $id: 'c1',
+        status: CLOSING_STATUS_PAID,
+        finance_tx_id: 'tx1',
+        counts_json: JSON.stringify({ lessons: 8, experimentals: 2, withdrawals: 1 }),
+        amounts_json: JSON.stringify({
+          credits_lessons: 400,
+          credits_experimental: 60,
+          debits_products: 70,
+          net: 390,
+        }),
+        role: 'instructor',
+        staff_name: 'Ana',
+      },
+    });
     expect(row.post_paid_activity).toBe(false);
   });
 });
