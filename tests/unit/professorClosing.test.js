@@ -3,6 +3,7 @@ import {
   countLessonsForStaff,
   buildClosingAmounts,
   financeExpenseAmountFromNet,
+  buildProfessorClosingExpenseDescription,
   CLOSING_STATUS_OPEN,
   CLOSING_STATUS_PAID,
 } from '../../lib/professorClosing.js';
@@ -38,5 +39,13 @@ describe('professorClosing', () => {
   it('financeExpenseAmountFromNet clamps negative to 0', () => {
     expect(financeExpenseAmountFromNet(-40)).toBe(0);
     expect(financeExpenseAmountFromNet(120)).toBe(120);
+  });
+
+  it('buildProfessorClosingExpenseDescription formats name and month', () => {
+    expect(buildProfessorClosingExpenseDescription('Ana', '2026-10')).toBe(
+      'Fechamento professor — Ana — 2026-10'
+    );
+    expect(CLOSING_STATUS_OPEN).toBe('aberto');
+    expect(CLOSING_STATUS_PAID).toBe('pago');
   });
 });
