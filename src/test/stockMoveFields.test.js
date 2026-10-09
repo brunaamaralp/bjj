@@ -11,6 +11,7 @@ import {
   cmvUnitFromTotals,
   stockMoveTipoForSchemaWrite,
   buildCadastroInicialStockMovePayload,
+  buildProfessorWithdrawStockMovePayload,
   recordCadastroInicialStockMove,
 } from '../../lib/server/stockMoveFields.js';
 
@@ -37,10 +38,43 @@ describe('stockMoveFields', () => {
   it('stockMoveTipoForSchemaWrite normaliza tipos granulares', () => {
     expect(stockMoveTipoForSchemaWrite('saida_venda')).toBe('saida');
     expect(stockMoveTipoForSchemaWrite('saida_aluguel')).toBe('saida');
+    expect(stockMoveTipoForSchemaWrite('saida_professor')).toBe('saida');
     expect(stockMoveTipoForSchemaWrite('reversao_venda')).toBe('entrada');
     expect(stockMoveTipoForSchemaWrite('devolucao')).toBe('entrada');
     expect(stockMoveTipoForSchemaWrite('entrada')).toBe('entrada');
     expect(stockMoveTipoForSchemaWrite('ajuste')).toBe('ajuste');
+  });
+
+  it('buildProfessorWithdrawStockMovePayload', () => {
+    const payload = buildProfessorWithdrawStockMovePayload({
+      academyId: 'ac1',
+      itemEstoqueId: 'var1',
+      productId: 'prod1',
+      quantidade: 2,
+      staffRef: 'roster:abc',
+      staffName: 'João',
+      unitPrice: 100,
+      discountPct: 30,
+      debitAmount: 140,
+      usuarioId: 'user1',
+      usuarioName: 'Admin',
+    });
+    expect(payload).toEqual({
+      academy_id: 'ac1',
+      item_estoque_id: 'var1',
+      tipo: 'saida_professor',
+      quantidade: 2,
+      referencia_id: 'roster:abc',
+      motivo: 'Retirada professor: João',
+      usuario_id: 'user1',
+      movement_kind: 'professor',
+      product_id: 'prod1',
+      unit_price: 100,
+      line_total: 140,
+      source: 'professor_withdraw',
+      notes: JSON.stringify({ discount_pct: 30, staff_name: 'João' }),
+      usuario_name: 'Admin',
+    });
   });
 
   it('buildCadastroInicialStockMovePayload', () => {

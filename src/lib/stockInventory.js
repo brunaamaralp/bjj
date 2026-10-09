@@ -134,6 +134,7 @@ export const STOCK_MOVE_TYPE_LABELS = {
   entrada: 'Entrada',
   saida_venda: 'Saída (venda)',
   saida_aluguel: 'Saída (aluguel)',
+  saida_professor: 'Saída (professor)',
   devolucao: 'Devolução',
   reversao_venda: 'Reversão de venda',
   ajuste: 'Ajuste',
@@ -193,6 +194,7 @@ export function quantityDeltaForMoveType(tipo, quantidade) {
       return q;
     case 'saida_venda':
     case 'saida_aluguel':
+    case 'saida_professor':
     case 'saida':
       return q > 0 ? -q : 0;
     default:

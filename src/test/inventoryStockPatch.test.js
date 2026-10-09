@@ -21,4 +21,11 @@ describe('inventoryStockPatch', () => {
       current_quantity: 5,
     });
   });
+
+  it('saida_professor espelha saida_venda (pool SALE)', () => {
+    const item = { sale_quantity: 5, rental_available: 0, rental_out: 0, current_quantity: 5 };
+    expect(buildInventoryMoveStockPatch(item, 'sale', 'saida_professor', 2)).toEqual(
+      buildInventoryMoveStockPatch(item, 'sale', 'saida_venda', 2)
+    );
+  });
 });

@@ -20,7 +20,9 @@ export function buildInventoryMoveStockPatch(item, parentType, tipo, quantidade)
   const tipoL = String(tipo || '').toLowerCase();
   const q = Math.abs(Math.trunc(Number(quantidade) || 0));
 
-  if (tipoL === 'saida_venda') return buildSaleStockPatch(item, q, LINE_KINDS.SALE);
+  if (tipoL === 'saida_venda' || tipoL === 'saida_professor') {
+    return buildSaleStockPatch(item, q, LINE_KINDS.SALE);
+  }
   if (tipoL === 'saida_aluguel') return buildSaleStockPatch(item, q, LINE_KINDS.RENTAL);
   if (tipoL === 'devolucao') return buildCancelStockPatch(item, q, LINE_KINDS.RENTAL);
   if (tipoL === 'reversao_venda') return buildCancelStockPatch(item, q, LINE_KINDS.SALE);

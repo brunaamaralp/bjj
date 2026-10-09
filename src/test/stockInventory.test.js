@@ -75,6 +75,7 @@ describe('stockInventory', () => {
   it('quantityDeltaForMoveType', () => {
     expect(quantityDeltaForMoveType('entrada', 3)).toBe(3);
     expect(quantityDeltaForMoveType('saida_venda', 2)).toBe(-2);
+    expect(quantityDeltaForMoveType('saida_professor', 2)).toBe(-2);
     expect(quantityDeltaForMoveType('ajuste', -1)).toBe(-1);
   });
 
