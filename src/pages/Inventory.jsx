@@ -16,6 +16,7 @@ import InventoryConfigureModal from '../components/inventory/InventoryConfigureM
 import InventoryEntryModal from '../components/inventory/InventoryEntryModal';
 import InventoryCheckModal from '../components/inventory/InventoryCheckModal';
 import InventoryAdjustModal from '../components/inventory/InventoryAdjustModal';
+import ProfessorProductWithdrawModal from '../components/professores/ProfessorProductWithdrawModal.jsx';
 import { formatAdjustToast } from '../lib/inventoryAdjust';
 import { mergeCatalogWithInventoryItems } from '../lib/inventoryCatalogMerge.js';
 import { lojaEstoqueTabParams, resolveInventorySubtab } from '../lib/lojaInventoryTabs.js';
@@ -24,6 +25,10 @@ import {
   LOJA_PRODUCT_SCOPES,
 } from '../lib/lojaProductScope.js';
 import { useUserRole } from '../lib/useUserRole.js';
+import { useExperimentalProfessorOptions } from '../hooks/useExperimentalProfessorOptions.js';
+import { fetchProfessorCompensation } from '../lib/professorCompensationApi.js';
+import { DEFAULT_PRODUCT_DISCOUNT_PCT } from '../../lib/professorCompensation.js';
+
 const Inventory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightItemId = searchParams.get('item') || '';
@@ -37,6 +42,7 @@ const Inventory = () => {
   );
   const navRole = useUserRole(academyDoc);
   const canCorrectEntry = navRole === 'owner' || navRole === 'admin';
+  const staffOptions = useExperimentalProfessorOptions(academyId);
   const [stockConfigOpen, setStockConfigOpen] = useState(false);
   const stockConfigRef = useRef(null);
   const items = useInventoryStore((s) => s.items);
@@ -56,6 +62,9 @@ const Inventory = () => {
   const [adjustItem, setAdjustItem] = useState(null);
   const [adjustSaving, setAdjustSaving] = useState(false);
   const [movesPanelTab, setMovesPanelTab] = useState('historico');
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+  const [discountPct, setDiscountPct] = useState(DEFAULT_PRODUCT_DISCOUNT_PCT);
 
   const openAdjustItem = useCallback((item) => {
     requestAnimationFrame(() => setAdjustItem(item));
@@ -103,7 +112,53 @@ const Inventory = () => {
     void refresh();
   }, [academyId, tab, refresh]);
 
+  useEffect(() => {
+    if (!academyId) {
+      setDiscountPct(DEFAULT_PRODUCT_DISCOUNT_PCT);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchProfessorCompensation(academyId)
+      .then((compensation) => {
+        if (cancelled) return;
+        const pct = compensation?.product_discount_pct;
+        setDiscountPct(
+          pct != null && Number.isFinite(Number(pct))
+            ? Number(pct)
+            : DEFAULT_PRODUCT_DISCOUNT_PCT
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setDiscountPct(DEFAULT_PRODUCT_DISCOUNT_PCT);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academyId]);
+
   const activeMovesPanelTab = highlightMoveId ? 'historico' : movesPanelTab;
+
+  const openProfessorWithdraw = () => {
+    void loadItems();
+    setWithdrawOpen(true);
+  };
+
+  const submitProfessorWithdraw = async (payload) => {
+    setWithdrawBusy(true);
+    try {
+      const result = await inventoryMove(payload);
+      if (!result) {
+        const msg = useInventoryStore.getState().error || 'Erro na retirada';
+        addToast({ type: 'error', message: msg });
+        throw new Error(msg);
+      }
+      addToast({ type: 'success', message: 'Retirada registrada.' });
+      await refreshStockStores();
+      await useInventoryStore.getState().listMoves({});
+    } finally {
+      setWithdrawBusy(false);
+    }
+  };
 
   const handleRegisterEntry = (item) => {
     setEntryItem(item);
@@ -217,6 +272,14 @@ const Inventory = () => {
         <div className="loja-subnav__actions inventory-page-actions">
           <button
             type="button"
+            className="btn-outline navi-btn--toolbar"
+            onClick={openProfessorWithdraw}
+            title="Retirada de produto para professor ou instrutor"
+          >
+            Retirada professor
+          </button>
+          <button
+            type="button"
             className={`btn-outline inventory-config-btn${stockConfigOpen ? ' inventory-config-btn--active' : ''}`}
             onClick={toggleStockConfig}
             aria-expanded={stockConfigOpen}
@@ -309,6 +372,18 @@ const Inventory = () => {
         loading={adjustSaving}
         onClose={() => setAdjustItem(null)}
         onSubmit={submitAdjust}
+      />
+
+      <ProfessorProductWithdrawModal
+        open={withdrawOpen}
+        onClose={() => {
+          if (!withdrawBusy) setWithdrawOpen(false);
+        }}
+        staffOptions={staffOptions}
+        products={itemsWithImages}
+        discountPct={discountPct}
+        loading={withdrawBusy}
+        onSubmit={submitProfessorWithdraw}
       />
 
     </div>

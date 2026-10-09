@@ -8,13 +8,14 @@
 | **rotas** | `/financeiro?tab=movimentacoes`, `/financeiro?tab=movimentacoes&new=1`, `/financeiro?tab=movimentacoes&tx=` |
 | **pré-requisitos** | Módulo `finance`; categorias/plano de contas (recomendado); contas bancárias para liquidação |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-16 |
+| **última revisão** | 2026-10-09 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
 
 - [2026-06-15-financeiro-lancamentos-refactor-PRODUCT.md](../../superpowers/specs/2026-06-15-financeiro-lancamentos-refactor-PRODUCT.md)
 - [2026-06-15-plano-contas-categorias-PRODUCT.md](../../superpowers/specs/2026-06-15-plano-contas-categorias-PRODUCT.md)
+- [2026-10-08-professores-fechamento-design.md](../../superpowers/specs/2026-10-08-professores-fechamento-design.md)
 
 **Harness relacionado:** [docs/harness/finance-lancamentos.md](../../harness/finance-lancamentos.md) — `npm test -- financeTx`
 
@@ -148,6 +149,7 @@ flowchart TD
 - **A receber → Outros:** itens com link para `?tab=movimentacoes&tx=`
 - **Regime competência:** toggle em toolbar (`FinanceRegimeToggle`)
 - **Recorrência:** lançamentos recorrentes no modal (ícone `Repeat`)
+- **Origem fechamento professor:** ao marcar pago em `/professores`, cria despesa liquidada com origem `professor_closing`, categoria tipo **Salários e encargos** (não pró-labore) — ver [professores-fechamento.md](../operacao/professores-fechamento.md); deep link da ficha → `?tab=movimentacoes&tx=`
 
 ---
 
@@ -155,5 +157,6 @@ flowchart TD
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-10-09 | — | Origem `professor_closing` / Salários no fechamento professores |
 | 2026-06-15 | — | Criação Fase 2A |
 | 2026-06-16 | — | Banner `FinanceBankAccountsSetupBanner` quando sem conta |

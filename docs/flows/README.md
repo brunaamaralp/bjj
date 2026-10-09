@@ -89,6 +89,12 @@ Status `revisado` = conferido contra código; execução manual em staging ainda
 | Agente IA e WhatsApp | [atendimento/agente-ia-whatsapp.md](atendimento/agente-ia-whatsapp.md) | revisado (código) |
 | Automações do funil | [atendimento/automacoes-funil.md](atendimento/automacoes-funil.md) | revisado (código) |
 
+### Operação
+
+| Fluxo | Arquivo | Status |
+|---|---|---|
+| Professores — fechamento mensal | [operacao/professores-fechamento.md](operacao/professores-fechamento.md) | revisado (código) |
+
 ### Configuração
 
 | Fluxo | Arquivo | Status |

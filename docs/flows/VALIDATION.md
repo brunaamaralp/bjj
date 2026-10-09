@@ -2,6 +2,7 @@
 
 Validação estática (código + testes Vitest). Checklists manuais em staging ainda pendentes onde indicado.
 
+- 2026-10-09: Professores — fechamento mensal + retirada `saida_professor` (atalhos em `/professores` e Estoque) ([2026-10-08-professores-fechamento-design.md](../superpowers/specs/2026-10-08-professores-fechamento-design.md)); fluxo [professores-fechamento.md](operacao/professores-fechamento.md); links em estoque, equipe e lançamentos.
 - 2026-09-22: trancamento de matrícula também para plano **semestral** (45 dias / ciclo ~182 dias) ([2026-09-22-trancamento-plano-semestral-design.md](../superpowers/specs/2026-09-22-trancamento-plano-semestral-design.md)); fluxo [aluno-perfil-presenca.md](crm/aluno-perfil-presenca.md).
 - 2026-09-10: vários instrutores por aula na confirmação da Recepção (1 professor + N instrutores; cada um +1 no relatório) ([2026-09-10-multi-instrutores-aula-design.md](../superpowers/specs/2026-09-10-multi-instrutores-aula-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
 - 2026-09-10: confirmação de equipe **na grade** (qualquer dia da semana); removida seção «Aulas de hoje» ([2026-09-10-confirmacao-staff-na-grade-design.md](../superpowers/specs/2026-09-10-confirmacao-staff-na-grade-design.md)); fluxo [hoje-dashboard.md](crm/hoje-dashboard.md).
@@ -485,6 +486,32 @@ Academia GBLP (`699f21b70006985daa90`) · 76 alunos ativos (`student_status != i
 | 10–14 | Cancel, faturas, CPF alert, senha | ✅ Código | componentes `billing/*` |
 
 Harness: `billingGateClient`, `trialCopy`, `lib/billing/planOrder.test.js`.
+
+---
+
+## Resumo por fluxo — Operação
+
+| Fluxo | Itens checklist | OK (código) | Ajustes doc | Staging pendente |
+|---|---|---|---|---|
+| [professores-fechamento](operacao/professores-fechamento.md) | 9 | 9 | 0 | 9 |
+
+---
+
+## professores-fechamento
+
+| # | Item | Resultado | Evidência |
+|---|---|---|---|
+| 1 | Rota `/professores` | ✅ Código | `App.jsx`, `Professores.jsx`, `naviMenu.js` |
+| 2 | Hub do mês + `?month=` | ✅ Código | `ProfessoresHub`, `fetchProfessorClosingMonth` |
+| 3 | Ficha `?staff=` | ✅ Código | `ProfessorClosingSheet` |
+| 4 | Config remuneração (owner/admin) | ✅ Código | `ProfessorCompensationConfig`, `professorCompensationApi` |
+| 5 | Retirada em Professores | ✅ Código | `ProfessorProductWithdrawModal` + `inventoryMove` |
+| 6 | Retirada em Estoque | ✅ Código | botão **Retirada professor** em `Inventory.jsx` |
+| 7 | Tipo `saida_professor` | ✅ Código | `stockInventory.js`, `stockMoveFields` |
+| 8 | Marcar pago → Caixa (Salários) | ✅ Código | `professorClosingApi` mark-paid, origem `professor_closing` |
+| 9 | Member sem mark-paid/config | ✅ Código | `useCanManageStudentPayments` / `canManage` |
+
+Harness: `professorCompensation`, `professorClosing`, `stockMoveFields`, `professorCompensationStorage`.
 
 ---
 

@@ -178,6 +178,7 @@ Fonte: `teamPermissions.js` — testes Vitest cobrem matriz.
 - **API:** rewrite `vercel.json` `/api/team/members` → `api/agent.js?route=team-members`
 - **Relatórios loja:** mesma lista de membros para filtro operador
 - **Tarefas:** atribuição requer equipe vinculada
+- **Professores / fechamento:** papéis Professor e Instrutor (roster) entram no fechamento mensal em [professores-fechamento.md](../operacao/professores-fechamento.md) (`/professores`)
 
 ---
 
@@ -185,4 +186,5 @@ Fonte: `teamPermissions.js` — testes Vitest cobrem matriz.
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-10-09 | — | Link para fluxo Professores fechamento |
 | 2026-06-15 | — | Criação inicial |

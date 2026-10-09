@@ -8,10 +8,10 @@
 | **rotas** | `/loja?tab=estoque`, `/loja?tab=estoque&subtab=saldo|movimentos`, `?item=` |
 | **pré-requisitos** | Módulo `inventory` ativo; produtos cadastrados |
 | **status** | revisado (código) |
-| **última revisão** | 2026-06-25 |
+| **última revisão** | 2026-10-09 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
-**Specs relacionadas:** [2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md](../superpowers/specs/2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md)
+**Specs relacionadas:** [2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md](../superpowers/specs/2026-06-25-entrada-estoque-correcao-vinculo-caixa-PRODUCT.md), [2026-10-08-professores-fechamento-design.md](../superpowers/specs/2026-10-08-professores-fechamento-design.md)
 
 **Harness relacionado:** `npm test -- lojaInventoryTabs inventoryMoveFinanceLink inventoryMovesList stockEntryCorrection stockEntryPhase3`
 
@@ -57,9 +57,10 @@ flowchart TD
 | 8 | `&subtab=movimentos` | `InventoryMovesPanel` | Histórico + nova movimentação | Abas Histórico / Nova movimentação |
 | 8b | Histórico | `InventoryMovesHistory` | Ver movimentos + link Caixa | Badge «No Caixa» → `/financeiro?tab=movimentacoes&tx=` |
 | 8c | Histórico | **Corrigir** (admin) | `StockEntryCorrectionWizard` | Estorno Caixa + ajuste de quantidade |
-| 9 | Toolbar | **Configurações** | `StockSettingsSection` | Regras de estoque da academia |
-| 10 | Toolbar | **Importar em lote** | Link → `produtos&import=1` | Import centralizado em Produtos |
-| 11 | `?item=<id>` | Highlight | Destacar linha no inventário | Scroll/foco no item |
+| 9 | Toolbar | **Retirada professor** | `ProfessorProductWithdrawModal` | Movimento `saida_professor` (débito no fechamento) |
+| 10 | Toolbar | **Configurações** | `StockSettingsSection` | Regras de estoque da academia |
+| 11 | Toolbar | **Importar em lote** | Link → `produtos&import=1` | Import centralizado em Produtos |
+| 12 | `?item=<id>` | Highlight | Destacar linha no inventário | Scroll/foco no item |
 
 ---
 
@@ -97,6 +98,7 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 13. [ ] Legacy `/estoque` → `/loja?tab=estoque`
 14. [ ] `?item=` destaca item correto
 15. [ ] Multi-tenant: só itens da academia atual
+16. [ ] **Retirada professor** abre o mesmo modal de `/professores` e grava `tipo=saida_professor`
 
 ### Estados de erro conhecidos
 
@@ -143,7 +145,8 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 
 - **Sub-abas:** `INVENTORY_SUBTAB_LABELS` — Inventário / Movimentações
 - **Onboarding:** `onboardingStepPath('first_stock_entry')` → esta rota
-- **Relacionado:** [produtos-catalogo.md](produtos-catalogo.md), [pdv-nova-venda.md](pdv-nova-venda.md)
+- **Retirada professor:** tipo `saida_professor` (label «Saída (professor)»); atalho **Retirada professor** na toolbar do Estoque — mesmo `ProfessorProductWithdrawModal` que em [professores-fechamento.md](../operacao/professores-fechamento.md)
+- **Relacionado:** [produtos-catalogo.md](produtos-catalogo.md), [pdv-nova-venda.md](pdv-nova-venda.md), [professores-fechamento.md](../operacao/professores-fechamento.md)
 
 ---
 
@@ -151,5 +154,6 @@ Sem `inventory`, a aba **Estoque** não aparece no hub Loja (`Inventory` retorna
 
 | Data | Autor | Mudança |
 |---|---|---|
+| 2026-10-09 | — | Atalho e tipo `saida_professor` (fechamento professores) |
 | 2026-06-25 | — | Fase 3: WAC snapshot, backfill, hints, banner inconsistência |
 | 2026-06-15 | — | Criação Fase 4 |
