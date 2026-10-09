@@ -1,7 +1,7 @@
 /**
  * Hub do agente e rotas administrativas (Vercel Hobby).
  * Sub-rotas: process, respond, ai-prompt, nl-action, inventory-adjust/query,
- * import-finance, import-finance-tx, import-bank-statement, academy-create, team-members, whatsapp-templates, academy-settings.
+ * import-finance, import-finance-tx, import-bank-statement, academy-create, team-members, whatsapp-templates, academy-settings, professor-compensation.
  * Import assistido de produtos (`ai_import_products`) permanece em api/leads.js (limite Hobby).
  */
 import { Client, Databases } from 'node-appwrite';
@@ -21,6 +21,7 @@ import academyCreateHandler from '../lib/server/academiesCreate.js';
 import teamMembersHandler from '../lib/server/teamMembers.js';
 import academyWhatsappTemplatesHandler from '../lib/server/academyWhatsappTemplatesHandler.js';
 import academySettingsHandler from '../lib/server/academySettingsHandler.js';
+import professorCompensationHandler from '../lib/server/professorCompensationHandler.js';
 import followupCopilotHandler from '../lib/server/followupCopilotHandler.js';
 import followupInboundHandler from '../lib/server/followupInboundHandler.js';
 import followupEventsHandler from '../lib/server/followupEventsHandler.js';
@@ -97,6 +98,9 @@ export default async function handler(req, res) {
     }
     if (route === 'academy-settings' || url.includes('/academy/settings')) {
       return academySettingsHandler(req, res);
+    }
+    if (route === 'professor-compensation') {
+      return professorCompensationHandler(req, res);
     }
     if (route === 'followup-copilot' || route === 'followup_summary' || route === 'followup_draft' || route === 'lead-summary') {
       return followupCopilotHandler(req, res);
