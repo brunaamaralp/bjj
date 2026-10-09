@@ -3,7 +3,7 @@
 // Não tem relação com a assinatura do Nave — ver api/billing.js.
 /**
  * Hub financeiro (Vercel Hobby: uma função para tx, mensalidades, resumos, previsão e conciliação).
- * Rotas: ?route=tx | student-payments | summary | closing | forecast | bank-balances | overview | dre | dfc | cascade
+ * Rotas: ?route=tx | student-payments | summary | closing | forecast | bank-balances | overview | dre | dfc | cascade | professor-closing
  * Conciliação: ?finance_hub=bank-reconciliation&route=list|detail|import|…
  * Rewrites: /api/student-payments, /api/finance-tx, /api/finance/*, /api/bank-reconciliation
  */
@@ -83,6 +83,12 @@ export default async function handler(req, res) {
   }
   if (route === 'cascade') {
     return financeCascadeHandler(req, res);
+  }
+  if (route === 'professor-closing' || route === 'professor_closing') {
+    const { default: professorClosingHandler } = await import(
+      '../lib/server/professorClosingHandler.js'
+    );
+    return professorClosingHandler(req, res);
   }
   if (req.method === 'GET' && !route) {
     return financeSummaryHandler(req, res);
