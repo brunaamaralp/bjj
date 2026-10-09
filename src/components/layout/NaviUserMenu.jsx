@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Building2, ChevronDown, LogOut, Plug, User, Users } from 'lucide-react';
+import { Building2, ChevronDown, GraduationCap, LogOut, Plug, User, Users } from 'lucide-react';
 import { matchNavTarget } from '../../lib/naviMenu.js';
 import { useDismissibleMenu } from '../../hooks/useDismissibleMenu';
 import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition.js';
@@ -119,6 +119,10 @@ export default function NaviUserMenu({
             <button type="button" role="menuitem" className={menuItemClass('/equipe')} onClick={() => go('/equipe')}>
               <Users size={16} strokeWidth={1.75} aria-hidden />
               Equipe
+            </button>
+            <button type="button" role="menuitem" className={menuItemClass('/professores')} onClick={() => go('/professores')}>
+              <GraduationCap size={16} strokeWidth={1.75} aria-hidden />
+              Professores
             </button>
             <button type="button" role="menuitem" className={menuItemClass('/integracoes')} onClick={() => go('/integracoes')}>
               <Plug size={16} strokeWidth={1.75} aria-hidden />

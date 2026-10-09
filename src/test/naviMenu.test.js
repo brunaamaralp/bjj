@@ -108,6 +108,7 @@ describe('naviMenu', () => {
   it('isDirectNavPath for flat routes', () => {
     expect(isDirectNavPath('/students')).toBe(true);
     expect(isDirectNavPath('/agente-ia')).toBe(true);
+    expect(isDirectNavPath('/professores')).toBe(true);
     expect(isDirectNavPath('/automacoes')).toBe(false);
   });
 

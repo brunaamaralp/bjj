@@ -113,6 +113,7 @@ const DIRECT_NAV_PATHS = new Set([
   '/recepcao',
   '/reports',
   '/agente-ia',
+  '/professores',
 ]);
 
 export function isDirectNavPath(pathname) {
@@ -132,7 +133,7 @@ function isFinanceiroHubPath(pathname) {
 export function getAccordionIdForLocation({ pathname }) {
   const p = String(pathname || '');
   if (p === '/automacoes') return NAV_ACCORDION_IDS.AUTOMACOES;
-  if (p === '/equipe' || p === '/integracoes') return null;
+  if (p === '/equipe' || p === '/professores' || p === '/integracoes') return null;
   if (p === '/loja' || p === '/vendas' || p === '/produtos' || p === '/estoque')
     return NAV_ACCORDION_IDS.LOJA;
   if (isFinanceiroHubPath(p)) return NAV_ACCORDION_IDS.FINANCEIRO;

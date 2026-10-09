@@ -31,6 +31,7 @@ describe('mobileMoreNav', () => {
     expect(member.some((i) => i.id === 'financeiro')).toBe(false);
     expect(member.some((i) => i.id === 'mensalidades')).toBe(false);
     expect(member.some((i) => i.id === 'equipe')).toBe(false);
+    expect(member.some((i) => i.id === 'professores')).toBe(true);
 
     const ownerPendingWa = buildMobileMoreItems({
       modules: { finance: false, sales: true, inventory: false },

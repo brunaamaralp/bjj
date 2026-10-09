@@ -1,0 +1,159 @@
+/* Professores — fechamento mensal */
+
+.professores-page {
+  padding-bottom: var(--space-8, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+}
+
+.professores-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3, 12px);
+  justify-content: space-between;
+}
+
+.professores-toolbar__month {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.professores-toolbar__month label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b7280);
+}
+
+.professores-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.professores-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.professores-status--aberto {
+  background: var(--v50, #eef6f8);
+  color: var(--v700, #0f4c5c);
+}
+
+.professores-status--pago {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.professores-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+
+.professores-sheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+}
+
+.professores-sheet__title {
+  margin: 0;
+  font-size: var(--font-lg, 1.125rem);
+  font-weight: 650;
+}
+
+.professores-sheet__meta {
+  margin: 4px 0 0;
+}
+
+.professores-breakdown {
+  display: grid;
+  gap: var(--space-3, 12px);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.professores-breakdown__item {
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface, #fff);
+}
+
+.professores-breakdown__label {
+  display: block;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 4px;
+}
+
+.professores-breakdown__value {
+  font-size: var(--font-md, 1rem);
+  font-weight: 650;
+}
+
+.professores-sheet__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.professores-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  padding: var(--space-4, 16px);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface, #fff);
+}
+
+.professores-config__title {
+  margin: 0;
+  font-size: var(--font-md, 1rem);
+  font-weight: 650;
+}
+
+.professores-config__grid {
+  display: grid;
+  gap: var(--space-3, 12px);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.professores-config__overrides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.professores-config__override-row {
+  display: grid;
+  gap: var(--space-2, 8px);
+  grid-template-columns: minmax(140px, 1.4fr) repeat(2, minmax(100px, 1fr)) auto;
+  align-items: end;
+}
+
+@media (max-width: 720px) {
+  .professores-config__override-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.professores-page .report-data-table tbody tr.report-data-table__row--selected {
+  background: var(--v50, #eef6f8);
+}

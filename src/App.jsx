@@ -67,6 +67,7 @@ const Products = lazyWithRetry(() => import('./pages/Products'));
 const Sales = lazyWithRetry(() => import('./pages/Sales'));
 const Loja = lazyWithRetry(() => import('./pages/Loja'));
 const Equipe = lazyWithRetry(() => import('./pages/Equipe'));
+const Professores = lazyWithRetry(() => import('./pages/Professores'));
 const Integracoes = lazyWithRetry(() => import('./pages/Integracoes'));
 const Attendance = lazyWithRetry(() => import('./pages/Attendance'));
 const Recepcao = lazyWithRetry(() => import('./pages/Recepcao'));
@@ -1242,7 +1243,7 @@ const App = () => {
           <main className="main-content">
             <OnboardingBanner />
             {(() => {
-              const bootstrapPaths = ['/empresa', '/conta', '/equipe', '/integracoes', '/inbox'];
+              const bootstrapPaths = ['/empresa', '/conta', '/equipe', '/professores', '/integracoes', '/inbox'];
               const showRoutesWhileBootstrap =
                 academyReady || bootstrapPaths.includes(location.pathname);
               if (!showRoutesWhileBootstrap) {
@@ -1299,6 +1300,7 @@ const App = () => {
                   <Route path="/planos" element={<PlanosRedirect />} />
                   <Route path="/empresa" element={<AcademySettings />} />
                   <Route path="/equipe" element={<Equipe />} />
+                  <Route path="/professores" element={<Professores />} />
                   <Route path="/integracoes" element={<Integracoes />} />
                   <Route path="/presenca" element={<Attendance />} />
                   <Route path="/recepcao" element={<Recepcao />} />
