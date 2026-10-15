@@ -440,9 +440,26 @@ button.student-profile-hd__avatar--upload:disabled .student-profile-hd__avatar-o
   color: var(--warning, #c2410c);
 }
 
+.student-pay-situation__ctas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (min-width: 480px) {
+  .student-pay-situation__ctas {
+    flex-direction: row;
+  }
+
+  .student-pay-situation__ctas .student-pay-situation__cta {
+    flex: 1;
+  }
+}
+
 .student-pay-situation__cta {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 0;
   padding: 11px 14px;
   border: none;
   border-radius: 10px;
@@ -454,8 +471,19 @@ button.student-profile-hd__avatar--upload:disabled .student-profile-hd__avatar-o
   cursor: pointer;
 }
 
+.student-pay-situation__cta--secondary {
+  background: transparent;
+  color: var(--petroleo, var(--color-primary));
+  border: 1.5px solid var(--petroleo, var(--color-primary));
+}
+
 .student-pay-situation__cta:hover {
   filter: brightness(1.05);
+}
+
+.student-pay-situation__cta--secondary:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--petroleo, var(--color-primary)) 8%, transparent);
 }
 
 .student-pay-situation__freeze {

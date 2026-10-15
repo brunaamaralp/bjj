@@ -64,7 +64,7 @@ flowchart TD
 | 6 | Nova venda | Cliente avulso | Nome + telefone | Sem `aluno_id` |
 | 7 | Checkout | Formas de pagamento | PIX, dinheiro, cartão, split | `SalesPaymentBlock` sempre visível; atalhos F2–F4 no PDV |
 | 7b | Checkout | Cobrança mista | Aluno + mensalidade/pacote/taxa | `MixedCheckoutChargeForm`; submit via `submitMixedCheckout` |
-| 8 | Checkout | Venda a prazo | Toggle visível + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias; bloqueado se houver cobranças |
+| 8 | Checkout | Venda a prazo | Toggle **Venda a prazo** (+ apoio “sem pagamento agora”) + data vencimento (`DateInputField` → `e.target.value`) | `deferred: true`; default +30 dias; bloqueado se houver cobranças |
 | 9 | Checkout | **Concluir venda** | Submit | `createSale`; toast; comprovante |
 | 10 | Toolbar | **Modo PDV** | `?pdv=1` | UI fullscreen; hotkeys F2–F4 |
 | 11 | PDV | Suspender carrinho | Pausar atendimento | `suspendCart` / retomar |

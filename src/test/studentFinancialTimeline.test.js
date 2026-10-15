@@ -175,7 +175,7 @@ describe('studentFinancialTimeline', () => {
       paymentStatus: { status: 'paid' },
     });
     expect(summary.productDebt).toBe(65);
-    expect(summary.productDebtLabel).toMatch(/Dívida em produtos/);
+    expect(summary.productDebtLabel).toMatch(/Em aberto em produtos/);
     expect(summary.productDebtLabel).toMatch(/65/);
   });
 

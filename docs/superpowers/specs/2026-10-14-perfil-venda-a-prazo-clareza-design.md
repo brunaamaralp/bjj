@@ -1,7 +1,7 @@
 # Clareza: venda a prazo e em aberto no perfil do aluno
 
 **Data:** 2026-10-14  
-**Status:** aprovado (design) — aguardando plano de implementação  
+**Status:** implementado — ver plano `docs/superpowers/plans/2026-10-14-perfil-venda-a-prazo-clareza.md`  
 **Origem:** revisão do perfil — operador só via “Pagamento” e não encontrava venda a prazo / em aberto.
 
 **Specs / fluxos relacionados:**

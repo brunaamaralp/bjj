@@ -373,6 +373,7 @@ function SituationHero({
   summary,
   freezeActive,
   onRegisterPayment,
+  onNewSale,
   onOpenHistoricalCoverage,
   showFreezeBtn,
   onOpenFreeze,
@@ -386,6 +387,8 @@ function SituationHero({
         : summary.situationTone === 'warning'
           ? 'soon'
           : 'muted';
+
+  const showCtas = !freezeActive && (onRegisterPayment || onNewSale);
 
   return (
     <div className={`student-pay-situation student-pay-situation--${tone}`}>
@@ -403,14 +406,27 @@ function SituationHero({
           {summary.finalLabel ? ` · ${summary.finalLabel}` : ''}
         </div>
       ) : null}
-      {!freezeActive && onRegisterPayment ? (
-        <button
-          type="button"
-          className="student-pay-situation__cta"
-          onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
-        >
-          + Registrar pagamento
-        </button>
+      {showCtas ? (
+        <div className="student-pay-situation__ctas">
+          {onRegisterPayment ? (
+            <button
+              type="button"
+              className="student-pay-situation__cta"
+              onClick={() => onRegisterPayment(PAYMENT_CATEGORY.PLAN)}
+            >
+              + Registrar pagamento
+            </button>
+          ) : null}
+          {onNewSale ? (
+            <button
+              type="button"
+              className="student-pay-situation__cta student-pay-situation__cta--secondary"
+              onClick={onNewSale}
+            >
+              + Nova venda
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {!freezeActive && onOpenHistoricalCoverage ? (
         <button
@@ -460,6 +476,7 @@ export default function StudentFinancialTimeline({
   error,
   onRetry,
   onRegisterPayment,
+  onNewSale,
   onOpenHistoricalCoverage,
   onGoMensalidades,
   onGoSales,
@@ -628,6 +645,7 @@ export default function StudentFinancialTimeline({
         summary={summary}
         freezeActive={freezeActive}
         onRegisterPayment={onRegisterPayment}
+        onNewSale={onNewSale}
         onOpenHistoricalCoverage={onOpenHistoricalCoverage}
         showFreezeBtn={showFreezeBtn}
         onOpenFreeze={onOpenFreeze}

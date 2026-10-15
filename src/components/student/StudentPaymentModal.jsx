@@ -128,6 +128,8 @@ export default function StudentPaymentModal({
   requireBankAccountForSave = false,
   canConfigureBankAccounts = false,
   receiptPayment = null,
+  /** `'payment'` = mensalidade/taxa; `'product'` = Nova venda (sem seletor de tipo). */
+  entryMode = 'payment',
 }) {
   const navigate = useNavigate();
   const creatingSale = useSalesStore((s) => s.creating);
@@ -173,13 +175,16 @@ export default function StudentPaymentModal({
 
   const requestClose = useCallback(() => {
     if (saving || creatingSale) return;
-    const isProductFlow = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
+    const isProductFlow =
+      entryMode === 'product' ||
+      payForm.payment_type === PAYMENT_MODAL_PRODUCT ||
+      productStep;
     if (isProductFlow && productDirty) {
       setShowDiscardProductDialog(true);
       return;
     }
     handleClose();
-  }, [saving, creatingSale, payForm.payment_type, productStep, productDirty, handleClose]);
+  }, [saving, creatingSale, entryMode, payForm.payment_type, productStep, productDirty, handleClose]);
 
   const handleProductNavigateAway = useCallback(
     (path) => {
@@ -197,7 +202,10 @@ export default function StudentPaymentModal({
 
   if (!open || !student) return null;
 
-  const isProduct = payForm.payment_type === PAYMENT_MODAL_PRODUCT || productStep;
+  const isProduct =
+    entryMode === 'product' ||
+    payForm.payment_type === PAYMENT_MODAL_PRODUCT ||
+    productStep;
   const isPlan = payForm.payment_type === PAYMENT_CATEGORY.PLAN;
   const isBundle = payForm.payment_type === PAYMENT_CATEGORY.BUNDLE;
   const isFee = payForm.payment_type === PAYMENT_CATEGORY.FEE;
@@ -213,18 +221,18 @@ export default function StudentPaymentModal({
   const typeOptions = [
     { value: PAYMENT_CATEGORY.PLAN, label: 'Mensalidade' },
     { value: PAYMENT_CATEGORY.BUNDLE, label: 'Plano com cobertura' },
-    ...(salesEnabled ? [{ value: PAYMENT_MODAL_PRODUCT, label: 'Produto' }] : []),
     { value: PAYMENT_CATEGORY.FEE, label: 'Taxa / avulso' },
     { value: PAYMENT_CATEGORY.OTHER, label: 'Outro' },
   ];
 
+  const productOnly = entryMode === 'product' || payForm.payment_type === PAYMENT_MODAL_PRODUCT;
   const showReceipt = Boolean(receiptPayment?.$id);
   const modalTitle = showReceipt
     ? editingPaymentId
       ? 'Pagamento atualizado'
       : 'Pagamento registrado'
     : isProduct
-      ? 'Venda de produto'
+      ? 'Nova venda'
       : editingPaymentId
         ? 'Editar pagamento'
         : 'Registrar pagamento';
@@ -358,11 +366,16 @@ export default function StudentPaymentModal({
           <StudentProductSaleStep
             student={student}
             hideSubmitButton
+            showTypeSwitch={!productOnly}
             onVariantPickerChange={setProductVariantPickerOpen}
             onDirtyChange={setProductDirty}
             onSubmitStateChange={setProductSubmitState}
             onNavigateAway={handleProductNavigateAway}
             onBack={() => {
+              if (productOnly) {
+                requestClose();
+                return;
+              }
               setProductStep(false);
               setPayForm((p) => ({ ...p, payment_type: PAYMENT_CATEGORY.PLAN }));
             }}
@@ -402,11 +415,6 @@ export default function StudentPaymentModal({
                           checked={payForm.payment_type === opt.value}
                           disabled={Boolean(editingPaymentId)}
                           onChange={() => {
-                            if (opt.value === PAYMENT_MODAL_PRODUCT) {
-                              setProductStep(true);
-                              setPayForm((p) => ({ ...p, payment_type: PAYMENT_MODAL_PRODUCT }));
-                              return;
-                            }
                             setPayForm((p) => ({
                               ...p,
                               payment_type: opt.value,

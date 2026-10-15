@@ -457,6 +457,8 @@ export default function StudentProfile() {
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [paymentsError, setPaymentsError] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    /** `'payment'` | `'product'` — separates Registrar pagamento vs Nova venda. */
+    const [paymentModalEntryMode, setPaymentModalEntryMode] = useState('payment');
     const [historicalCoverageOpen, setHistoricalCoverageOpen] = useState(false);
     const [historicalCoverageBusy, setHistoricalCoverageBusy] = useState(false);
     const [editingPaymentId, setEditingPaymentId] = useState(null);
@@ -588,6 +590,7 @@ export default function StudentProfile() {
                 note: d.note || '',
                 status: 'paid',
             });
+            setPaymentModalEntryMode('payment');
             setShowPaymentModal(true);
         };
         window.addEventListener(NL_PAYMENT_PREFILL_EVENT, onNlPaymentPrefill);
@@ -1543,6 +1546,7 @@ export default function StudentProfile() {
 
     const closePaymentModal = useCallback(() => {
         setShowPaymentModal(false);
+        setPaymentModalEntryMode('payment');
         setEditingPaymentId(null);
         setPayFormError('');
         setPayFormErrors({});
@@ -1556,13 +1560,30 @@ export default function StudentProfile() {
 
     const openPaymentModal = useCallback((presetType = PAYMENT_CATEGORY.PLAN) => {
         if (!student) return;
+        const type =
+            presetType === PAYMENT_MODAL_PRODUCT ? PAYMENT_CATEGORY.PLAN : presetType;
         setEditingPaymentId(null);
         setPayFormError('');
         setPayFormErrors({});
         setReceiptAfterSave(null);
-        setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: presetType });
+        setPaymentModalEntryMode('payment');
+        setPayForm({ ...buildDefaultPayForm(student, financeConfig), payment_type: type });
         setShowPaymentModal(true);
     }, [student, financeConfig]);
+
+    const openNewSaleModal = useCallback(() => {
+        if (!student || modules?.sales !== true) return;
+        setEditingPaymentId(null);
+        setPayFormError('');
+        setPayFormErrors({});
+        setReceiptAfterSave(null);
+        setPaymentModalEntryMode('product');
+        setPayForm({
+            ...buildDefaultPayForm(student, financeConfig),
+            payment_type: PAYMENT_MODAL_PRODUCT,
+        });
+        setShowPaymentModal(true);
+    }, [student, financeConfig, modules?.sales]);
 
     const handleHistoricalCoverageConfirm = useCallback(
         async ({ coverage_start_month, bundle_months, note, lead_id }) => {
@@ -1605,6 +1626,7 @@ export default function StudentProfile() {
             setPayFormError('');
             setPayFormErrors({});
             setReceiptAfterSave(null);
+            setPaymentModalEntryMode('payment');
             setPayForm(paymentFormFromDoc(payment, student, financeConfig));
             setShowPaymentModal(true);
         },
@@ -3285,7 +3307,16 @@ export default function StudentProfile() {
                         loading={loadingPayments}
                         error={paymentsError}
                         onRetry={() => void loadPayments()}
-                        onRegisterPayment={(presetType) => openPaymentModal(presetType)}
+                        onRegisterPayment={
+                            canManagePayments
+                                ? (presetType) => openPaymentModal(presetType)
+                                : undefined
+                        }
+                        onNewSale={
+                            canManagePayments && modules?.sales === true
+                                ? () => openNewSaleModal()
+                                : undefined
+                        }
                         onOpenHistoricalCoverage={
                             canManagePayments ? () => setHistoricalCoverageOpen(true) : undefined
                         }
@@ -3603,6 +3634,7 @@ export default function StudentProfile() {
                 onClose={closePaymentModal}
                 onSave={saveStudentPayment}
                 salesEnabled={modules?.sales === true}
+                entryMode={paymentModalEntryMode}
                 onSaleComplete={() => void loadPayments()}
                 editingPaymentId={editingPaymentId}
                 formError={payFormError}

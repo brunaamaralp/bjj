@@ -1556,7 +1556,8 @@ export default function SalesNewSaleTab({
                   }}
                 />
                 <span className="sales-collab-toggle__text">
-                  Vender a prazo (sem pagamento agora)
+                  Venda a prazo
+                  <span className="text-muted"> (sem pagamento agora)</span>
                   {chargeLines.length > 0 ? ' — indisponível com cobranças' : ''}
                 </span>
               </label>

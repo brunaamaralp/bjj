@@ -30,7 +30,7 @@ export const FINANCE_TERM_HINTS = {
   confirmarNoCaixa:
     'O dinheiro já entrou ou saiu da conta. O lançamento entra imediatamente no saldo do caixa.',
   receberDepois:
-    'Registra a pendência (conta a receber/pagar). Não é o mesmo que «Receber depois» na venda — use aqui para lançamentos avulsos no caixa.',
+    'Registra a pendência (conta a receber/pagar). Não é o mesmo que «Venda a prazo» na venda de produto — use aqui para lançamentos avulsos no caixa.',
   cobrancaFila:
     'Mensalidades vencidas acumuladas nos últimos 12 meses. Independente do mês de referência em Mensalidades.',
   aPagar:

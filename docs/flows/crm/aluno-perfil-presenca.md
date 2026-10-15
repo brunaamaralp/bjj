@@ -19,6 +19,7 @@
 - [2026-09-21-student-profile-historico-narrativo-design.md](../../superpowers/specs/2026-09-21-student-profile-historico-narrativo-design.md) — aba **Pagamentos** = histórico misto (default Todos + copy narrativa)
 - [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — **Valor acordado** (`plan_price`); troca de plano atualiza snapshot
 - [2026-09-22-trancamento-plano-semestral-design.md](../../superpowers/specs/2026-09-22-trancamento-plano-semestral-design.md) — trancamento também para plano semestral (45 dias / ciclo ~182)
+- [2026-10-14-perfil-venda-a-prazo-clareza-design.md](../../superpowers/specs/2026-10-14-perfil-venda-a-prazo-clareza-design.md) — CTAs **Registrar pagamento** / **Nova venda**; **Venda a prazo**; **Em aberto em produtos**
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
@@ -66,7 +67,7 @@ flowchart TD
 | 5 | `/recepcao` | `Recepcao.jsx` | Abrir recepção (link interno ou menu) | Painel ao vivo + histórico Control iD |
 | 6 | `/students?tab=contratos` | `ContractsPageContent` | Tab Contratos (módulo finance) | Lista de contratos da academia |
 | 7 | `/student/:id` | `StudentProfile.jsx` | Ver dados e timeline | Perfil completo com status, badges, resumo do plano, campo **Valor acordado** (`plan_price`) e desconto individual quando existir |
-| 8 | `/student/:id` | Seção financeira | Registrar pagamento / produto | `StudentPaymentModal` (+ **Recebido via** em cartão) |
+| 8 | `/student/:id` | Seção financeira | **Registrar pagamento** ou **Nova venda** | `StudentPaymentModal` (`entryMode` payment|product; a prazo no checkout) |
 | 9 | `/student/:id` | Presença | Check-in manual | Evento de presença na timeline |
 | 10 | `/student/:id` | Plano | Trancar / retomar / trocar plano | `PlanFreezeModal`; troca de plano atualiza `plan_price` com confirmação se o valor mudar |
 | 11 | `/student/:id` | Menu ações | Desativar ou reativar aluno | Status atualizado; confirmação via `ConfirmDialog` |
@@ -107,7 +108,9 @@ flowchart TD
 9b. [ ] Pagamento **pago/parcial** espelha em Financeiro → Lançamentos; badge **No Caixa** no perfil (link) ou **Caixa pendente** se falhar
 9c. [ ] Taxa/avulso **pago** classificado como **Outras receitas** no Caixa (não Mensalidade)
 9d. [ ] Excluir pagamento com troco cancela entrada e saída de troco no Caixa
-9e. [ ] Aba **Pagamentos**: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTA registrar logo abaixo
+9e. [ ] Aba **Pagamentos**: faixa no topo **Em dia / Em atraso** (ou Coberto/Trancado); CTAs **+ Registrar pagamento** e **+ Nova venda** (este último se módulo `sales`)
+9e1. [ ] **Nova venda** abre checkout de produto (título **Nova venda**); toggle **Venda a prazo**; sem radio Produto em **Registrar pagamento**
+9e1b. [ ] Com venda pendente/parcial: hero mostra **Em aberto em produtos: R$ …** mesmo se o plano estiver em dia
 9e2. [ ] Owner/admin: **Cobertura histórica** no perfil — N meses (1–24) como `covered` / R$ 0 / sem Caixa; pula meses já pagos
 9f. [ ] Lista em linhas compactas (ações só ao expandir); default **Todos · 3 meses** (histórico de mensalidades, pacotes, compras, taxas); títulos narrativos (`Pagou…` / `Comprou…`); sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
 9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba

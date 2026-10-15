@@ -56,6 +56,8 @@ export default function StudentProductSaleStep({
   onComplete,
   formId = STUDENT_PRODUCT_SALE_FORM_ID,
   hideSubmitButton = false,
+  /** When false (Nova venda CTA), hide «Trocar tipo» — entry is product-only. */
+  showTypeSwitch = true,
   onVariantPickerChange,
   onDirtyChange,
   onSubmitStateChange,
@@ -558,7 +560,7 @@ export default function StudentProductSaleStep({
     addToast({
       type: 'success',
       message: receiveLater
-        ? 'Venda registrada — pagamento pendente.'
+        ? 'Venda a prazo registrada'
         : paymentValid.partial
           ? 'Venda registrada — pagamento parcial; saldo em aberto.'
           : 'Venda registrada.',
@@ -578,9 +580,11 @@ export default function StudentProductSaleStep({
   return (
     <div className="student-product-sale">
       <div className="student-product-sale__toolbar">
-        <button type="button" className="btn-ghost student-product-sale__back" onClick={requestBack}>
-          ← Trocar tipo
-        </button>
+        {showTypeSwitch ? (
+          <button type="button" className="btn-ghost student-product-sale__back" onClick={requestBack}>
+            ← Trocar tipo
+          </button>
+        ) : null}
         <p className="student-product-sale__context">
           Para <strong>{studentName}</strong>
         </p>
@@ -676,7 +680,7 @@ export default function StudentProductSaleStep({
                     setLocalError('');
                   }}
                 />
-                <span className="sales-collab-toggle__text">Receber depois</span>
+                <span className="sales-collab-toggle__text">Venda a prazo</span>
               </label>
 
               {receiveLater ? (

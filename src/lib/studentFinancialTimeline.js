@@ -364,7 +364,7 @@ export function buildFinancialSummary({
     productDebt > 0.009
       ? {
           productDebt,
-          productDebtLabel: `Dívida em produtos: ${productDebt.toLocaleString('pt-BR', {
+          productDebtLabel: `Em aberto em produtos: ${productDebt.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
           })}`,
