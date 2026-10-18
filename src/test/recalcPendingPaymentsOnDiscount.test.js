@@ -62,6 +62,20 @@ describe('recalcPendingPaymentsOnDiscount', () => {
     ).toBe(180);
   });
 
+  it('pendingPlanPaymentAmount honors plan_price snapshot', () => {
+    expect(
+      pendingPlanPaymentAmount(
+        {
+          plan: 'Mensal',
+          planPrice: 180,
+          discount_type: 'fixed',
+          discount_amount: 30,
+        },
+        financeConfig
+      )
+    ).toBe(150);
+  });
+
   it('skips when discount unchanged', async () => {
     const student = { plan: 'Mensal', discount_type: 'fixed', discount_amount: 30 };
     const result = await recalcPendingPaymentsOnDiscountChange({

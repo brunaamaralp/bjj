@@ -199,6 +199,18 @@ export function formatMensalidadeDueDateBr(
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+/**
+ * Se o doc de cobrança ficou com expected/amount de catálogo após o aluno ganhar desconto,
+ * não cobrar acima do valor vivo do plano (plan_price − desconto).
+ */
+export function capAmountByLivePlanPrice(amount, student, financeConfig, payment = null) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return n;
+  const live = resolveStudentPlanFinalPrice(student, financeConfig, payment);
+  if (Number.isFinite(live) && live > 0 && n > live + 0.004) return live;
+  return Math.round(n * 100) / 100;
+}
+
 export function openAmountForStudent(student, payment, financeConfig) {
   if (isStudentOnExemptPlan(student, financeConfig, payment)) return 0;
   const hasExplicitAmount = Object.prototype.hasOwnProperty.call(payment || {}, 'amount');
@@ -208,7 +220,7 @@ export function openAmountForStudent(student, payment, financeConfig) {
   }
   const expectedFromPayment = Number(payment?.expected_amount);
   if (Number.isFinite(expectedFromPayment) && expectedFromPayment > 0) {
-    return expectedFromPayment;
+    return capAmountByLivePlanPrice(expectedFromPayment, student, financeConfig, payment);
   }
   const finalPrice = resolveStudentPlanFinalPrice(student, financeConfig, payment);
   if (Number.isFinite(finalPrice) && finalPrice > 0) return finalPrice;

@@ -133,7 +133,7 @@ describe('paymentStatus', () => {
     ).toBe(170);
   });
 
-  it('expectedAmountForStudent keeps explicit expected_amount precedence over discount', () => {
+  it('expectedAmountForStudent keeps explicit expected_amount when lower than live discount price', () => {
     const discountedStudent = { plan: 'Mensal', dueDay: 15, discount_amount: 30 };
     expect(
       expectedAmountForStudent(discountedStudent, financeConfig, {
@@ -141,6 +141,39 @@ describe('paymentStatus', () => {
         expected_amount: 140,
       })
     ).toBe(140);
+  });
+
+  it('expectedAmountForStudent não usa expected_amount stale acima do valor com desconto', () => {
+    const discountedStudent = {
+      plan: 'Mensal',
+      dueDay: 15,
+      discount_amount: 30,
+      discount_type: 'fixed',
+    };
+    // Pending materializado com preço de catálogo antes do desconto
+    expect(
+      expectedAmountForStudent(discountedStudent, financeConfig, {
+        status: 'pending',
+        amount: 0,
+        expected_amount: 200,
+      })
+    ).toBe(170);
+  });
+
+  it('openAmountForStudent cap expected_amount stale pelo valor com desconto', () => {
+    const discountedStudent = {
+      plan: 'Mensal',
+      dueDay: 15,
+      discount_amount: 30,
+      discount_type: 'fixed',
+    };
+    expect(
+      openAmountForStudent(
+        discountedStudent,
+        { amount: 0, expected_amount: 200, status: 'pending' },
+        financeConfig
+      )
+    ).toBe(170);
   });
 
   it('expectedAmountForStudent retorna 0 para plano isento', () => {

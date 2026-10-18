@@ -3,7 +3,13 @@
  * + status derivados de calendário: soon | none
  */
 import { parseCurrencyBRL } from './masks.js';
-import { getPaymentRowStatus, openAmountForStudent, studentDueDay, dueDateInMonth } from './collectionOverdue.js';
+import {
+  getPaymentRowStatus,
+  openAmountForStudent,
+  capAmountByLivePlanPrice,
+  studentDueDay,
+  dueDateInMonth,
+} from './collectionOverdue.js';
 import { isStudentOnExemptPlan } from './planBilling.js';
 import { effectivePaymentForBundleCoverage } from './bundleCoverage.js';
 import {
@@ -115,7 +121,10 @@ export function expectedAmountForStudent(student, financeConfig, payment) {
   const st = String(payment?.status || '').toLowerCase();
   if (st === 'covered' || st === 'frozen') return 0;
   const fromPayment = Number(payment?.expected_amount);
-  if (Number.isFinite(fromPayment) && fromPayment > 0) return fromPayment;
+  if (Number.isFinite(fromPayment) && fromPayment > 0) {
+    // Pending materializado com preço cheio não pode “ganhar” de desconto vivo do aluno.
+    return capAmountByLivePlanPrice(fromPayment, student, financeConfig, payment);
+  }
   return openAmountForStudent(student, payment, financeConfig);
 }
 

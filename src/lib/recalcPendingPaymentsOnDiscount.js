@@ -1,10 +1,9 @@
 import { Query } from 'appwrite';
 import { databases, DB_ID } from './appwrite.js';
 import {
-  calcFinalPrice,
   getStudentDiscountAmount,
   normalizeDiscountType,
-  resolveStudentPlan,
+  resolveStudentPlanFinalPrice,
 } from './planBilling.js';
 import { PAYMENT_CATEGORY, normalizePaymentCategory } from './paymentCategories.js';
 import { updatePayment } from './studentPayments.js';
@@ -21,6 +20,7 @@ export function didStudentDiscountChange(before = {}, after = {}) {
 function studentForBilling(student = {}) {
   return {
     plan: student.plan,
+    plan_price: student.planPrice ?? student.plan_price,
     discount_amount: student.discountAmount ?? student.discount_amount ?? 0,
     discount_type: student.discountType ?? student.discount_type,
     dueDay: student.dueDay ?? student.due_day,
@@ -29,8 +29,7 @@ function studentForBilling(student = {}) {
 
 export function pendingPlanPaymentAmount(student, financeConfig) {
   const billingStudent = studentForBilling(student);
-  const plan = resolveStudentPlan(billingStudent, financeConfig);
-  return calcFinalPrice(plan?.price, billingStudent);
+  return resolveStudentPlanFinalPrice(billingStudent, financeConfig);
 }
 
 async function listPendingPlanPayments(studentId, academyId) {
