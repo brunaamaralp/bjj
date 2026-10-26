@@ -27,6 +27,8 @@ export const OPTIONAL_STUDENT_PATCH_ATTRS = [
   'responsavel',
   'cpf_responsavel',
   'payer_aliases_json',
+  'belt_history_json',
+  'belt_since',
   'custom_answers_json',
   'exit_reason',
   'exit_date',

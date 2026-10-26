@@ -1,6 +1,7 @@
 import { normalizeStudentStatus } from './studentStatus.js';
 import { normalizeSexo } from './leadSexo.js';
 import { parsePayerAliasesJson } from './studentPayerAliases.js';
+import { deriveBeltFields, parseBeltHistoryJson } from './beltHistory.js';
 import {
   STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY,
 } from './leadStudentPayload.js';
@@ -66,6 +67,12 @@ export function mapAppwriteDocToStudent(doc) {
       customAnswers[STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY] ||
       'Sim',
     belt: doc.belt || '',
+    beltHistory: parseBeltHistoryJson(doc.belt_history_json),
+    beltSince: (() => {
+      const fromAttr = String(doc.belt_since || '').trim().slice(0, 10);
+      if (fromAttr) return fromAttr;
+      return deriveBeltFields(parseBeltHistoryJson(doc.belt_history_json)).beltSince;
+    })(),
     customAnswers,
     createdAt: doc.$createdAt,
     convertedAt: doc.converted_at || doc.convertedAt || null,

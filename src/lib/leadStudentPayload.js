@@ -7,6 +7,7 @@
 
 import { formatLocalYmd } from './studentEnrollmentDate.js';
 import { DISCOUNT_TYPES, normalizeDiscountType } from './planBilling.js';
+import { serializeBeltHistory } from './beltHistory.js';
 
 /** Chave em custom_answers_json para histórico de qualificação do funil. */
 export const STUDENT_CUSTOM_ANSWER_FIRST_EXPERIENCE_KEY = 'primeira_experiencia';
@@ -128,6 +129,14 @@ export function buildStudentPayloadFromDoc(doc, overrides = {}) {
 
   if (turma) payload.turma = turma;
   if (dueDay != null) payload.due_day = dueDay;
+
+  if (d.belt_history_json != null && String(d.belt_history_json).trim() !== '') {
+    payload.belt_history_json = String(d.belt_history_json);
+  } else if (Array.isArray(d.beltHistory) && d.beltHistory.length > 0) {
+    payload.belt_history_json = serializeBeltHistory(d.beltHistory);
+  }
+  const beltSince = String(d.belt_since ?? d.beltSince ?? '').trim().slice(0, 10);
+  if (beltSince) payload.belt_since = beltSince;
   if (
     hasExplicitDiscountAmount ||
     hasExplicitDiscountSnake ||

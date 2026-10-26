@@ -9,6 +9,7 @@ import { getAcademyContext, permissionContextFromAcademy } from '../lib/academyC
 import { STUDENT_STATUS, filterMappedStudentsByListStatus } from '../lib/studentStatus.js';
 import { stripUnknownStudentPatch } from '../lib/studentAppwritePatch.js';
 import { serializePayerAliases } from '../lib/studentPayerAliases.js';
+import { serializeBeltHistory } from '../lib/beltHistory.js';
 import { fetchStudentsList } from '../lib/studentsApi.js';
 import {
   findActiveStudentByPhone,
@@ -202,6 +203,16 @@ function updatesToStudentPatch(updates) {
     patch.custom_answers_json = JSON.stringify(u.customAnswers || {});
   }
   if (u.belt !== undefined) copyIf('belt', u.belt);
+  if (u.beltHistory !== undefined) {
+    patch.belt_history_json = serializeBeltHistory(u.beltHistory);
+  } else if (u.belt_history_json !== undefined) {
+    copyIf('belt_history_json', u.belt_history_json);
+  }
+  if (u.beltSince !== undefined) {
+    copyIf('belt_since', String(u.beltSince || '').trim().slice(0, 10));
+  } else if (u.belt_since !== undefined) {
+    copyIf('belt_since', String(u.belt_since || '').trim().slice(0, 10));
+  }
   if (u.studentStatus !== undefined) {
     copyIf('student_status', String(u.studentStatus || '').trim() || STUDENT_STATUS.ACTIVE);
   }
