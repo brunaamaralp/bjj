@@ -1,10 +1,12 @@
 /**
- * Cria o bucket Appwrite `inbox_media` (mídia permanente do Inbox / webhook Zapster).
+ * Verifica se o bucket único Appwrite `files` existe.
+ * NÃO cria nem altera buckets (plano Free / migração unificada).
  *
  * Uso: npm run provision:inbox-media-bucket
  *      node --env-file=.env scripts/ensure-inbox-media-bucket.mjs
  */
-import { Client, Storage, Permission, Role } from 'node-appwrite';
+import { Client, Storage } from 'node-appwrite';
+import { STORAGE_BUCKET_ID } from '../lib/storageBuckets.js';
 
 const ENDPOINT =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1';
@@ -15,33 +17,7 @@ const PROJECT =
   process.env.VITE_APPWRITE_PROJECT ||
   '';
 const KEY = process.env.APPWRITE_API_KEY || '';
-const BUCKET_ID =
-  process.env.APPWRITE_MEDIA_BUCKET_ID ||
-  process.env.APPWRITE_INBOX_MEDIA_BUCKET_ID ||
-  'inbox_media';
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = [
-  'jpg',
-  'jpeg',
-  'png',
-  'webp',
-  'gif',
-  'ogg',
-  'mp3',
-  'm4a',
-  'mp4',
-  'webm',
-  'aac',
-  'wav',
-  'pdf',
-  'doc',
-  'docx',
-  'xls',
-  'xlsx',
-  'zip',
-  'bin',
-];
+const BUCKET_ID = STORAGE_BUCKET_ID;
 
 if (!ENDPOINT || !PROJECT || !KEY) {
   console.error('Defina APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID e APPWRITE_API_KEY no .env');
@@ -53,26 +29,22 @@ const storage = new Storage(client);
 
 try {
   const existing = await storage.getBucket(BUCKET_ID);
-  console.log('Bucket já existe:', existing.$id, `(max ${existing.maximumFileSize} bytes)`);
-} catch {
-  const created = await storage.createBucket(
-    BUCKET_ID,
-    'inbox_media',
-    [
-      Permission.read(Role.any()),
-      Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
-    ],
-    false,
-    true,
-    MAX_FILE_SIZE,
-    ALLOWED_EXTENSIONS
+  console.log('OK: bucket existe:', existing.$id, `(name=${existing.name}, max ${existing.maximumFileSize} bytes)`);
+  console.log('fileSecurity:', existing.fileSecurity);
+} catch (err) {
+  console.error(
+    `ERRO: bucket \`${BUCKET_ID}\` não encontrado.\n` +
+      `Crie no console Appwrite com ID customizado exatamente \`${BUCKET_ID}\` (não só o nome).\n` +
+      `Detalhe: ${err?.message || err}`
   );
-  console.log('Bucket criado:', created.$id);
+  process.exit(1);
 }
 
-console.log('\nVariáveis sugeridas no .env e na Vercel:');
+console.log('\nVariáveis sugeridas (Vercel + Appwrite Functions) — todas = files:');
 console.log(`APPWRITE_MEDIA_BUCKET_ID=${BUCKET_ID}`);
 console.log(`APPWRITE_INBOX_MEDIA_BUCKET_ID=${BUCKET_ID}`);
 console.log(`VITE_APPWRITE_INBOX_MEDIA_BUCKET_ID=${BUCKET_ID}`);
+console.log(`APPWRITE_PRODUCT_IMAGES_BUCKET_ID=${BUCKET_ID}`);
+console.log(`VITE_APPWRITE_PRODUCT_IMAGES_BUCKET_ID=${BUCKET_ID}`);
+console.log(`VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID=${BUCKET_ID}`);
+console.log(`APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID=${BUCKET_ID}`);

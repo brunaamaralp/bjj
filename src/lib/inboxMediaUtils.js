@@ -1,4 +1,6 @@
-const INBOX_MEDIA_BUCKET = String(import.meta.env.VITE_APPWRITE_INBOX_MEDIA_BUCKET_ID || '').trim();
+import { STORAGE_BUCKET_ID } from '../../lib/storageBuckets.js';
+
+const INBOX_MEDIA_BUCKET = STORAGE_BUCKET_ID;
 const APPWRITE_ENDPOINT = String(import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://sfo.cloud.appwrite.io/v1').replace(
   /\/+$/,
   ''

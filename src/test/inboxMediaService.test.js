@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const storageMocks = vi.hoisted(() => ({
-  createFile: vi.fn().mockResolvedValue({ $id: 'file-abc' })
+  createFile: vi.fn().mockResolvedValue({ $id: 'inb_unique-id' })
 }));
 
 vi.mock('node-appwrite', () => ({
@@ -32,7 +32,7 @@ describe('inboxMediaService', () => {
   beforeEach(() => {
     vi.resetModules();
     storageMocks.createFile.mockClear();
-    process.env.APPWRITE_INBOX_MEDIA_BUCKET_ID = 'inbox_media';
+    storageMocks.createFile.mockResolvedValue({ $id: 'inb_unique-id' });
     process.env.APPWRITE_API_KEY = 'key';
     process.env.APPWRITE_PROJECT_ID = 'proj';
     process.env.APPWRITE_ENDPOINT = 'https://appwrite.test/v1';
@@ -43,8 +43,8 @@ describe('inboxMediaService', () => {
     vi.unstubAllGlobals();
   });
 
-  it('retorna null quando bucket não está configurado', async () => {
-    delete process.env.APPWRITE_INBOX_MEDIA_BUCKET_ID;
+  it('retorna null quando storage não está configurado', async () => {
+    delete process.env.APPWRITE_API_KEY;
     const { downloadAndStoreMedia } = await import('../../lib/server/inboxMediaService.js');
     const out = await downloadAndStoreMedia({
       mediaUrl: 'https://cdn.example/a.jpg',
@@ -74,12 +74,11 @@ describe('inboxMediaService', () => {
     });
 
     expect(url).toBe(
-      'https://appwrite.test/v1/storage/buckets/inbox_media/files/file-abc/view?project=proj'
+      'https://appwrite.test/v1/storage/buckets/files/files/inb_unique-id/view?project=proj'
     );
   });
 
-  it('APPWRITE_MEDIA_BUCKET_ID tem prioridade sobre alias legado', async () => {
-    process.env.APPWRITE_MEDIA_BUCKET_ID = 'media_primary';
+  it('usa bucket único files com prefixo inb_', async () => {
     const body = new Uint8Array([1]);
     vi.stubGlobal(
       'fetch',
@@ -98,7 +97,12 @@ describe('inboxMediaService', () => {
       academyId: 'a3'
     });
 
-    expect(storageMocks.createFile).toHaveBeenCalledWith('media_primary', 'unique-id', expect.any(Object), expect.any(Array));
+    expect(storageMocks.createFile).toHaveBeenCalledWith(
+      'files',
+      'inb_unique-id',
+      expect.any(Object),
+      expect.any(Array)
+    );
   });
 
   it('faz upload e retorna URL permanente', async () => {
@@ -121,13 +125,13 @@ describe('inboxMediaService', () => {
     });
 
     expect(out).toEqual({
-      storageFileId: 'file-abc',
-      permanentUrl: 'https://appwrite.test/v1/storage/buckets/inbox_media/files/file-abc/view?project=proj',
+      storageFileId: 'inb_unique-id',
+      permanentUrl: 'https://appwrite.test/v1/storage/buckets/files/files/inb_unique-id/view?project=proj',
       mimeType: 'image/jpeg'
     });
     expect(storageMocks.createFile).toHaveBeenCalledWith(
-      'inbox_media',
-      'unique-id',
+      'files',
+      'inb_unique-id',
       expect.objectContaining({ name: expect.stringMatching(/acad-1_msg-1_\d+\.jpg/) }),
       expect.any(Array)
     );

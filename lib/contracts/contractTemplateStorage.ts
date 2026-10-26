@@ -1,7 +1,13 @@
 import { Client, Storage, ID } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
 import { API_KEY, ENDPOINT, PROJECT_ID } from '../server/appwriteCollections.js';
-const BUCKET_ID = () => String(process.env.APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID || '').trim();
+import {
+  STORAGE_BUCKET_ID,
+  STORAGE_FILE_PREFIX,
+  makeStorageFileId,
+} from '../storageBuckets.js';
+
+const BUCKET_ID = () => STORAGE_BUCKET_ID;
 
 let storageClient: Storage | null = null;
 
@@ -31,7 +37,8 @@ export async function uploadTemplatePdf(
 ): Promise<{ fileId: string; viewUrl: string }> {
   const storage = getStorage();
   const input = InputFile.fromBuffer(fileBuffer, filename, 'application/pdf');
-  const created = await storage.createFile(BUCKET_ID(), ID.unique(), input);
+  const fileId = makeStorageFileId(STORAGE_FILE_PREFIX.contract, () => ID.unique());
+  const created = await storage.createFile(BUCKET_ID(), fileId, input);
   const fileId = created.$id;
   return { fileId, viewUrl: buildTemplateFileViewUrl(fileId) };
 }

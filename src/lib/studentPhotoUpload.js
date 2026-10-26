@@ -1,17 +1,23 @@
 import { ID, Storage } from 'appwrite';
 import { client, DB_ID, STUDENTS_COL, APPWRITE_PROJECT, ENDPOINT } from './appwrite';
 import { databases } from './appwrite';
+import {
+  STORAGE_BUCKET_ID,
+  STORAGE_FILE_PREFIX,
+  makeStorageFileId,
+} from '../../lib/storageBuckets.js';
 
-const BUCKET_ID = String(import.meta.env.VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID || '').trim();
+const BUCKET_ID = STORAGE_BUCKET_ID;
 
 /**
- * Envia foto do aluno para Appwrite Storage (se bucket configurado).
- * @returns {Promise<string|null>} URL pública ou null se bucket ausente
+ * Envia foto do aluno para Appwrite Storage (bucket único `files`).
+ * @returns {Promise<string|null>} URL pública ou null se bucket/params ausentes
  */
 export async function uploadStudentPhoto(leadId, file) {
   if (!BUCKET_ID || !leadId || !file) return null;
   const storage = new Storage(client);
-  const created = await storage.createFile(BUCKET_ID, ID.unique(), file);
+  const fileId = makeStorageFileId(STORAGE_FILE_PREFIX.student, () => ID.unique());
+  const created = await storage.createFile(BUCKET_ID, fileId, file);
   const url = `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${created.$id}/view?project=${APPWRITE_PROJECT}`;
   return url;
 }

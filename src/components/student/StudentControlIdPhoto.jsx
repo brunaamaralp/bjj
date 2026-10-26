@@ -98,7 +98,7 @@ export default function StudentControlIdPhoto({
       if (!isStudentPhotoUploadConfigured()) {
         addToast({
           type: 'warning',
-          message: 'Bucket de fotos não configurado — defina VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID.',
+          message: 'Upload de fotos não disponível (bucket files).',
         });
         setUploading(false);
         return;

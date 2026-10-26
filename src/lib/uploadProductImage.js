@@ -1,7 +1,12 @@
 import { ID, Storage } from 'appwrite';
 import { client, APPWRITE_PROJECT, ENDPOINT } from './appwrite';
+import {
+  STORAGE_BUCKET_ID,
+  STORAGE_FILE_PREFIX,
+  makeStorageFileId,
+} from '../../lib/storageBuckets.js';
 
-const BUCKET_ID = String(import.meta.env.VITE_APPWRITE_PRODUCT_IMAGES_BUCKET_ID || '').trim();
+const BUCKET_ID = STORAGE_BUCKET_ID;
 const MAX_BYTES = 5 * 1024 * 1024;
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -37,7 +42,7 @@ export async function uploadProductImage(file) {
   if (!BUCKET_ID) {
     throw new ProductImageUploadError(
       'not_configured',
-      'Upload de imagem não configurado. Defina VITE_APPWRITE_PRODUCT_IMAGES_BUCKET_ID.'
+      'Upload de imagem não configurado (bucket files).'
     );
   }
   if (file.size > MAX_BYTES) {
@@ -50,7 +55,8 @@ export async function uploadProductImage(file) {
   }
 
   const storage = new Storage(client);
-  const created = await storage.createFile(BUCKET_ID, ID.unique(), file);
+  const fileId = makeStorageFileId(STORAGE_FILE_PREFIX.product, () => ID.unique());
+  const created = await storage.createFile(BUCKET_ID, fileId, file);
   const base = String(ENDPOINT).replace(/\/+$/, '');
   return `${base}/storage/buckets/${BUCKET_ID}/files/${created.$id}/view?project=${APPWRITE_PROJECT}`;
 }

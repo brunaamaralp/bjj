@@ -1,7 +1,12 @@
 import { ID, Storage } from 'appwrite';
 import { client, APPWRITE_PROJECT, ENDPOINT } from './appwrite';
+import {
+  STORAGE_BUCKET_ID,
+  STORAGE_FILE_PREFIX,
+  makeStorageFileId,
+} from '../../lib/storageBuckets.js';
 
-const BUCKET_ID = String(import.meta.env.VITE_APPWRITE_INBOX_MEDIA_BUCKET_ID || '').trim();
+const BUCKET_ID = STORAGE_BUCKET_ID;
 const MAX_BYTES = 16 * 1024 * 1024;
 
 const ALLOWED_MIME = new Set([
@@ -63,7 +68,8 @@ export async function uploadInboxMedia(file) {
   }
 
   const storage = new Storage(client);
-  const created = await storage.createFile(BUCKET_ID, ID.unique(), file);
+  const fileId = makeStorageFileId(STORAGE_FILE_PREFIX.inbox, () => ID.unique());
+  const created = await storage.createFile(BUCKET_ID, fileId, file);
   const mediaUrl = `${String(ENDPOINT).replace(/\/+$/, '')}/storage/buckets/${BUCKET_ID}/files/${created.$id}/view?project=${APPWRITE_PROJECT}`;
   return {
     mediaUrl,

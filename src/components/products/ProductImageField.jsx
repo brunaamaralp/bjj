@@ -38,7 +38,7 @@ export default function ProductImageField({ imageUrl, onImageUrlChange, disabled
     if (!isProductImageUploadConfigured()) {
       addToast({
         type: 'warning',
-        message: 'Upload não configurado — use um link ou defina VITE_APPWRITE_PRODUCT_IMAGES_BUCKET_ID.',
+        message: 'Upload não configurado — use um link ou verifique o bucket files.',
       });
       return;
     }

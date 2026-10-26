@@ -215,11 +215,11 @@ async function main() {
     }
   }
 
-  const bucketId = String(process.env.APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID || 'contract_templates').trim();
-  console.log('\n--- Appwrite: bucket de modelos (legado PDF) ---');
+  const bucketId = String(process.env.APPWRITE_CONTRACT_TEMPLATES_BUCKET_ID || 'files').trim();
+  console.log('\n--- Appwrite: bucket de storage (files) ---');
   try {
     await storage.getBucket(bucketId);
-    report('ok', `Bucket ${bucketId} existe (opcional para editor HTML)`);
+    report('ok', `Bucket ${bucketId} existe (opcional para editor HTML / PDF legado)`);
   } catch {
     report('warn', `Bucket ${bucketId} não encontrado — OK se só usar body_html`);
   }
