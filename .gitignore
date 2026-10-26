@@ -24,6 +24,7 @@ scripts/*
 !scripts/delete-lead-student-attrs.mjs
 !scripts/check-missing-imports.mjs
 !scripts/ensure-academy-attrs.mjs
+!scripts/ensure-student-belt-history-attrs.mjs
 !scripts/provision-task-templates-schema.mjs
 !scripts/ensure-lead-payment-attrs.js
 !scripts/provision-bank-reconciliation-schema.mjs
@@ -46,7 +47,13 @@ scripts/*
 !scripts/backfill-account-dre-dfc-mapping.mjs
 !scripts/restore-bank-account-definitions.mjs
 !scripts/ensure-inbox-media-bucket.mjs
+!scripts/migrate-buckets.mjs
+!scripts/update-file-refs.mjs
+!scripts/audit-inbox-media-refs.mjs
 !scripts/backfill-conversation-team-perms.mjs
+# Mapas gerados pela migração de buckets (não versionar)
+scripts/bucket-map.json
+scripts/bucket-map.planned.json
 !scripts/backfill-finance-tx-description.mjs
 !scripts/provision-financial-tx-ledger-regime.mjs
 !scripts/backfill-financial-tx-ledger-regime.mjs
