@@ -125,6 +125,32 @@ describe('applyStudentsListPipeline', () => {
     }, ctx);
     expect(result.map((s) => s.id)).toEqual(['s2']);
   });
+
+  it('filtra por tempo na faixa atual (beltSince)', () => {
+    const withBelts = [
+      { id: 'a', name: 'Ana', plan: 'Mensal', origin: 'WhatsApp', turma: 'Kids', beltSince: '2026-01-01' },
+      { id: 'b', name: 'Bruno', plan: 'Mensal', origin: 'WhatsApp', turma: 'Kids', beltSince: '2026-09-01' },
+      { id: 'c', name: 'Carla', plan: 'Mensal', origin: 'WhatsApp', turma: 'Kids', beltSince: '' },
+    ];
+    const ctx = {
+      serverSearchActive: false,
+      serverApplied: buildServerAppliedFlags({}),
+      todayYmd: '2026-10-26',
+    };
+    const result = applyStudentsListPipeline(
+      withBelts,
+      {
+        debouncedSearch: '',
+        filtroPlano: 'Todos',
+        filtroTurma: 'Todas',
+        filtroOrigem: 'Todas',
+        filtroTempoFaixa: '6',
+        ordenacao: 'az',
+      },
+      ctx
+    );
+    expect(result.map((s) => s.id)).toEqual(['a']);
+  });
 });
 
 describe('buildStudentsById / selectStudentById', () => {

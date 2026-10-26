@@ -29,6 +29,7 @@ import { useSessionUser } from '../hooks/useSessionUser.js';
 import StudentListCard from '../components/student/StudentListCard.jsx';
 import { maskCpfForExport } from '../lib/maskCpf.js';
 import PageHeader from '../components/layout/PageHeader.jsx';
+import { BELT_SINCE_MONTH_OPTIONS } from '../lib/studentsListFilters.js';
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -70,6 +71,8 @@ const Students = ({ embedded = false }) => {
         setFiltroTurma,
         filtroPlano,
         setFiltroPlano,
+        filtroTempoFaixa,
+        setFiltroTempoFaixa,
         ordenacao,
         setOrdenacao,
         showInactive,
@@ -452,6 +455,19 @@ const Students = ({ embedded = false }) => {
                                 ))}
                             </select>
                             {planFilterSelect}
+                            {showGraduationField ? (
+                                <select
+                                    value={filtroTempoFaixa}
+                                    onChange={(e) => setFiltroTempoFaixa(e.target.value)}
+                                    aria-label={`Tempo na ${String(terms.belt || 'faixa').toLowerCase()}`}
+                                >
+                                    {BELT_SINCE_MONTH_OPTIONS.map((o) => (
+                                        <option key={o.value || 'all'} value={o.value}>
+                                            {o.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : null}
                         </div>
                         <select
                             className="students-mobile-sort"
@@ -507,6 +523,21 @@ const Students = ({ embedded = false }) => {
                                 ))}
                             </select>
                             {planFilterSelect}
+                            {showGraduationField ? (
+                                <select
+                                    value={filtroTempoFaixa}
+                                    onChange={(e) => setFiltroTempoFaixa(e.target.value)}
+                                    aria-label={`Tempo na ${String(terms.belt || 'faixa').toLowerCase()}`}
+                                    className="form-input navi-control--toolbar"
+                                    style={{ color: 'var(--text-secondary)' }}
+                                >
+                                    {BELT_SINCE_MONTH_OPTIONS.map((o) => (
+                                        <option key={o.value || 'all'} value={o.value}>
+                                            {o.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : null}
                         </div>
                         <select
                             value={ordenacao}

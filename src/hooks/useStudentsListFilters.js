@@ -16,6 +16,7 @@ export function useStudentsListFilters({ financeConfig }) {
   const [filtroOrigem, setFiltroOrigem] = useState('Todas');
   const [filtroTurma, setFiltroTurma] = useState('Todas');
   const [filtroPlano, setFiltroPlano] = useState('Todos');
+  const [filtroTempoFaixa, setFiltroTempoFaixa] = useState('');
   const [ordenacao, setOrdenacao] = useState('az');
   const [showInactive, setShowInactive] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(() => {
@@ -39,10 +40,19 @@ export function useStudentsListFilters({ financeConfig }) {
       filtroOrigem,
       filtroTurma,
       filtroPlano,
+      filtroTempoFaixa,
       showInactive,
       ordenacao,
     }),
-    [debouncedSearch, filtroOrigem, filtroTurma, filtroPlano, showInactive, ordenacao]
+    [
+      debouncedSearch,
+      filtroOrigem,
+      filtroTurma,
+      filtroPlano,
+      filtroTempoFaixa,
+      showInactive,
+      ordenacao,
+    ]
   );
 
   const serverFetchOpts = useMemo(
@@ -62,6 +72,7 @@ export function useStudentsListFilters({ financeConfig }) {
     setFiltroOrigem('Todas');
     setFiltroTurma('Todas');
     setFiltroPlano('Todos');
+    setFiltroTempoFaixa('');
     setOrdenacao('az');
     setShowInactive(false);
   };
@@ -71,6 +82,7 @@ export function useStudentsListFilters({ financeConfig }) {
     filtroOrigem !== 'Todas' ||
     filtroTurma !== 'Todas' ||
     filtroPlano !== 'Todos' ||
+    Boolean(filtroTempoFaixa) ||
     ordenacao !== 'az' ||
     showInactive;
 
@@ -79,9 +91,10 @@ export function useStudentsListFilters({ financeConfig }) {
     if (filtroOrigem !== 'Todas') n += 1;
     if (filtroTurma !== 'Todas') n += 1;
     if (filtroPlano !== 'Todos') n += 1;
+    if (filtroTempoFaixa) n += 1;
     if (ordenacao !== 'az') n += 1;
     return n;
-  }, [filtroOrigem, filtroTurma, filtroPlano, ordenacao]);
+  }, [filtroOrigem, filtroTurma, filtroPlano, filtroTempoFaixa, ordenacao]);
 
   return {
     searchTerm,
@@ -93,6 +106,8 @@ export function useStudentsListFilters({ financeConfig }) {
     setFiltroTurma,
     filtroPlano,
     setFiltroPlano,
+    filtroTempoFaixa,
+    setFiltroTempoFaixa,
     ordenacao,
     setOrdenacao,
     showInactive,

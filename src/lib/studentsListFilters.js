@@ -1,6 +1,17 @@
 import { STUDENT_STATUS } from './studentStatus.js';
+import { studentMatchesBeltSinceMonths } from './beltHistory.js';
+import { formatLocalYmd } from './studentEnrollmentDate.js';
 
 export const SEM_TURMA_FILTER = 'Sem turma';
+
+/** Opções do filtro “tempo na faixa atual” (meses mínimos). */
+export const BELT_SINCE_MONTH_OPTIONS = [
+  { value: '', label: 'Tempo na faixa' },
+  { value: '3', label: '≥ 3 meses na faixa' },
+  { value: '6', label: '≥ 6 meses na faixa' },
+  { value: '12', label: '≥ 12 meses na faixa' },
+  { value: '24', label: '≥ 24 meses na faixa' },
+];
 
 function normalizePhone(v) {
   return String(v || '').replace(/\D/g, '');
@@ -106,7 +117,13 @@ export function studentMatchesClientFilters(student, filters, ctx) {
     filtroPlano === 'Todos' ||
     String(student.plan || '').trim() === filtroPlano;
 
-  return matchBusca && matchOrigem && matchTurma && matchPlano;
+  const minMonthsRaw = filters.filtroTempoFaixa;
+  const minMonths =
+    minMonthsRaw === '' || minMonthsRaw == null ? null : Number(minMonthsRaw);
+  const todayYmd = ctx.todayYmd || formatLocalYmd(new Date());
+  const matchTempoFaixa = studentMatchesBeltSinceMonths(student, minMonths, todayYmd);
+
+  return matchBusca && matchOrigem && matchTurma && matchPlano && matchTempoFaixa;
 }
 
 export function sortStudents(students, ordenacao) {
