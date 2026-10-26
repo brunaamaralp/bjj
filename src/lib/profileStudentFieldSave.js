@@ -1,6 +1,6 @@
 import { maskCPF, maskPhone } from './masks.js';
 import { turmaValueFromForm } from './academyTurmas.js';
-import { normalizeBeltValue } from './beltGradesConfig.js';
+import { graduationsActive, normalizeBeltValue } from './beltGradesConfig.js';
 import { validatePreferredPaymentAccount } from './bankAccounts.js';
 import { findDuplicateStudentCpf } from './validations.js';
 import {
@@ -172,6 +172,11 @@ export async function saveStudentProfileField({
       break;
     }
     case 'belt': {
+      if (graduationsActive(academySettingsRaw)) {
+        throw new Error(
+          `A ${String(graduationLabel || 'graduação').toLowerCase()} é editada no histórico de promoções.`
+        );
+      }
       const invalidMessage = `Selecione uma ${String(graduationLabel || 'graduação').toLowerCase()} válida.`;
       const belt = normalizeBeltValue(draftValue, academySettingsRaw, student.belt, { invalidMessage });
       patch = { belt };

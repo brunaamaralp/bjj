@@ -15,6 +15,7 @@ import {
   normalizeBeltValue,
   resolveBeltOptions,
 } from '../lib/beltGradesConfig.js';
+import { buildBeltHistoryPatch, seedBeltHistoryFromLegacy } from '../lib/beltHistory.js';
 
 function financeConfigHasPlans(cfg) {
   return Array.isArray(cfg?.plans) && cfg.plans.length > 0;
@@ -131,6 +132,10 @@ export function useStudentsCreateForm({
         }
       }
       const planPrice = snapshotPlanPriceFromCatalog(financeConfig, planName);
+      const enrollmentDate = formatLocalYmd(new Date());
+      const beltSeed = belt
+        ? buildBeltHistoryPatch(seedBeltHistoryFromLegacy({ belt, enrollmentDate }))
+        : null;
       const created = await addStudent({
         name,
         phone: cleanPhone,
@@ -141,9 +146,17 @@ export function useStudentsCreateForm({
         plan: planName,
         ...(planPrice != null ? { planPrice } : {}),
         dueDay: new Date().getDate(),
-        enrollmentDate: formatLocalYmd(new Date()),
+        enrollmentDate,
         studentStatus: STUDENT_STATUS.ACTIVE,
-        ...(belt ? { belt } : {}),
+        ...(beltSeed?.ok
+          ? {
+              belt: beltSeed.patch.belt,
+              beltHistory: beltSeed.patch.beltHistory,
+              beltSince: beltSeed.patch.beltSince,
+            }
+          : belt
+            ? { belt }
+            : {}),
       });
       await performEnrollment({
         lead: created,

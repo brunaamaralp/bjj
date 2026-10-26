@@ -124,6 +124,7 @@ import BankAccountSelect from '../components/finance/BankAccountSelect.jsx';
 import SexoSelect from '../components/shared/SexoSelect.jsx';
 import TurmaSelect from '../components/shared/TurmaSelect.jsx';
 import GraduationSelect from '../components/students/GraduationSelect.jsx';
+import StudentBeltHistorySection from '../components/student/StudentBeltHistorySection.jsx';
 import {
     graduationsActive,
     isGraduationReadOnly,
@@ -131,6 +132,10 @@ import {
     resolveBeltOptions,
     shouldShowStudentGraduation,
 } from '../lib/beltGradesConfig.js';
+import {
+    buildBeltHistoryPatch,
+    ensureBeltHistorySeeded,
+} from '../lib/beltHistory.js';
 import { useAcademyTurmas } from '../hooks/useAcademyTurmas.js';
 import { useAcademyControlId } from '../hooks/useAcademyControlId.js';
 import StudentControlIdPhoto from '../components/student/StudentControlIdPhoto.jsx';
@@ -500,10 +505,19 @@ export default function StudentProfile() {
         [academySettingsDoc?.settings, academyDocFromList?.settings]
     );
 
-    const graduationReadOnly = useMemo(
-        () => isGraduationReadOnly(academySettingsRaw, student?.belt),
-        [academySettingsRaw, student?.belt]
+    const graduationManagedByHistory = useMemo(
+        () => graduationsActive(academySettingsRaw),
+        [academySettingsRaw]
     );
+
+    const graduationReadOnly = useMemo(
+        () =>
+            isGraduationReadOnly(academySettingsRaw, student?.belt) || graduationManagedByHistory,
+        [academySettingsRaw, student?.belt, graduationManagedByHistory]
+    );
+
+    const [savingBeltHistory, setSavingBeltHistory] = useState(false);
+    const beltHistorySeedRef = useRef('');
 
     const beltSelectOptions = useMemo(
         () => resolveBeltOptions(academySettingsRaw, student?.belt),
@@ -540,6 +554,78 @@ export default function StudentProfile() {
             cancelled = true;
         };
     }, [id, fetchStudentById]);
+
+    useEffect(() => {
+        if (!student?.id || !graduationManagedByHistory || !canEditProfile) return undefined;
+        if (beltHistorySeedRef.current === student.id) return undefined;
+        const seeded = ensureBeltHistorySeeded(student);
+        if (!seeded.didSeed) {
+            beltHistorySeedRef.current = student.id;
+            return undefined;
+        }
+        beltHistorySeedRef.current = student.id;
+        let cancelled = false;
+        void (async () => {
+            const built = buildBeltHistoryPatch(seeded.entries);
+            if (!built.ok) return;
+            try {
+                await updateStudent(student.id, {
+                    beltHistory: built.patch.beltHistory,
+                    belt: built.patch.belt,
+                    beltSince: built.patch.beltSince,
+                });
+                if (!cancelled) {
+                    setDataForm((p) => ({ ...p, belt: built.patch.belt }));
+                }
+            } catch (err) {
+                beltHistorySeedRef.current = '';
+                console.warn('[StudentProfile] belt history seed failed:', err?.message || err);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [student, graduationManagedByHistory, canEditProfile, updateStudent]);
+
+    const saveBeltHistory = useCallback(
+        async (entries) => {
+            if (!student?.id || savingBeltHistory) return;
+            let normalized;
+            try {
+                normalized = (Array.isArray(entries) ? entries : []).map((e) => ({
+                    ...e,
+                    belt: normalizeBeltValue(e.belt, academySettingsRaw, e.belt, {
+                        invalidMessage: `Selecione uma ${terms.belt.toLowerCase()} válida.`,
+                    }),
+                }));
+            } catch (e) {
+                toast.show({ type: 'error', message: e?.message || 'Graduação inválida.' });
+                throw e;
+            }
+            const built = buildBeltHistoryPatch(normalized);
+            if (!built.ok) {
+                const err = new Error(built.error);
+                toast.show({ type: 'error', message: built.error });
+                throw err;
+            }
+            setSavingBeltHistory(true);
+            try {
+                await updateStudent(student.id, {
+                    beltHistory: built.patch.beltHistory,
+                    belt: built.patch.belt,
+                    beltSince: built.patch.beltSince,
+                });
+                setDataForm((p) => ({ ...p, belt: built.patch.belt }));
+                toast.success('Histórico de graduação salvo.');
+            } catch (e) {
+                toast.error(e, 'save');
+                throw e;
+            } finally {
+                setSavingBeltHistory(false);
+            }
+        },
+        [student?.id, savingBeltHistory, academySettingsRaw, terms.belt, updateStudent, toast]
+    );
 
     useEffect(() => {
         if (!id || !academyId) return;
@@ -1205,19 +1291,6 @@ export default function StudentProfile() {
                 }
             }
 
-            let belt = '';
-            if (shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)) {
-                try {
-                    belt = normalizeBeltValue(dataForm.belt, academySettingsRaw, student.belt, {
-                        invalidMessage: `Selecione uma ${terms.belt.toLowerCase()} válida.`,
-                    });
-                } catch (e) {
-                    toast.show({ type: 'error', message: e?.message || 'Graduação inválida.' });
-                    setSavingData(false);
-                    return;
-                }
-            }
-
             const planChanged =
                 String(dataForm.plan || '').trim() !== String(student.plan || '').trim();
             const currentAgreed = getStudentAgreedPlanPrice(student);
@@ -1263,9 +1336,6 @@ export default function StudentProfile() {
                           planPrice: nextAgreed,
                       }
                     : {}),
-                ...(shouldShowStudentGraduation(academySettingsRaw, student.belt) && graduationsActive(academySettingsRaw)
-                    ? { belt }
-                    : {}),
             });
             setEditingData(false);
             toast.success('Dados salvos com sucesso.');
@@ -1274,7 +1344,7 @@ export default function StudentProfile() {
         } finally {
             setSavingData(false);
         }
-    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, terms.belt, canViewFinance]);
+    }, [student, savingData, leadId, academyId, dataForm, payerAliases, updateStudent, toast, financeConfig, academySettingsRaw, canViewFinance]);
 
     const saveStudentFieldInline = useCallback(
         async (fieldKey, draftValue) => {
@@ -2905,15 +2975,31 @@ export default function StudentProfile() {
                             </button>
                         ) : null}
                     </div>
-                    {graduationReadOnly ? (
+                    {graduationReadOnly && !graduationManagedByHistory ? (
                         <StatusBanner variant="info" className="student-profile-graduation-legacy-banner">
                             Reative graduações em <strong>Empresa → Alunos → Graduações</strong> para editar a{' '}
                             {terms.belt.toLowerCase()} do aluno.
                         </StatusBanner>
                     ) : null}
+                    {graduationManagedByHistory ? (
+                        <p className="text-small text-muted" style={{ margin: '0 0 12px', lineHeight: 1.45 }}>
+                            A {terms.belt.toLowerCase()} atual é definida pelo histórico de promoções abaixo.
+                        </p>
+                    ) : null}
                     {editingData ? studentDataFields.map(renderStudentDataEditRow) : studentDataFields.map(renderStudentDataViewRow)}
                     {renderStudentDiscountSection()}
                 </div>
+
+                {shouldShowStudentGraduation(academySettingsRaw, student?.belt) && graduationManagedByHistory ? (
+                    <StudentBeltHistorySection
+                        entries={Array.isArray(student?.beltHistory) ? student.beltHistory : []}
+                        beltOptions={beltSelectOptions}
+                        beltLabel={terms.belt}
+                        disabled={!canEditProfile}
+                        saving={savingBeltHistory}
+                        onSave={saveBeltHistory}
+                    />
+                ) : null}
 
                 <div className="profile-section-block">
                     <h3 className="profile-section-heading">Contato de emergência</h3>

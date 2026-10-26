@@ -8,7 +8,7 @@
 | **rotas** | `/students`, `/students?tab=contratos`, `/recepcao`, `/student/:id` |
 | **pré-requisitos** | Alunos matriculados; módulo `finance` para aba Contratos; Control iD para presença ao vivo |
 | **status** | revisado (código); staging pendente |
-| **última revisão** | 2026-09-22 |
+| **última revisão** | 2026-10-26 |
 | **validação** | [VALIDATION.md](../VALIDATION.md) |
 
 **Specs relacionadas:**
@@ -20,6 +20,7 @@
 - [2026-07-23-plan-price-snapshot-design.md](../../superpowers/specs/2026-07-23-plan-price-snapshot-design.md) — **Valor acordado** (`plan_price`); troca de plano atualiza snapshot
 - [2026-09-22-trancamento-plano-semestral-design.md](../../superpowers/specs/2026-09-22-trancamento-plano-semestral-design.md) — trancamento também para plano semestral (45 dias / ciclo ~182)
 - [2026-10-14-perfil-venda-a-prazo-clareza-design.md](../../superpowers/specs/2026-10-14-perfil-venda-a-prazo-clareza-design.md) — CTAs **Registrar pagamento** / **Nova venda**; **Venda a prazo**; **Em aberto em produtos**
+- [2026-10-26-historico-graduacao-aluno-design.md](../../superpowers/specs/2026-10-26-historico-graduacao-aluno-design.md) — histórico de promoções + filtro por tempo na faixa
 
 **Harness relacionado:** `npm test -- studentStatus deactivateStudent academyTurmas`
 
@@ -60,7 +61,7 @@ flowchart TD
 | # | Rota | Componente | Ação do usuário | Resultado esperado |
 |---|---|---|---|---|
 | 1 | `/students` | `Alunos.jsx` + `Students.jsx` | Abrir **Alunos** na sidebar | Hub com tab **Lista** ativa |
-| 2 | `/students` | Barra de filtros | Buscar nome, filtrar status/plano/turma | Lista paginada atualiza |
+| 2 | `/students` | Barra de filtros | Buscar nome, filtrar status/plano/turma/tempo na faixa | Lista paginada atualiza |
 | 3 | `/students` | `StudentListCard` | Clicar no aluno | Navega para `/student/:id` |
 | 3b | `/students` | `StudentListCard` — ações rápidas | Ícone presença / conversa / perfil | Presença manual (se coleção configurada); atendimento no inbox; abrir perfil |
 | 4 | `/students` | Toolbar | Importar / exportar planilha | Planilha processada; toasts de progresso |
@@ -95,7 +96,8 @@ flowchart TD
 4c. [ ] Com graduações ativas e aluno com faixa preenchida: subtexto do card na lista exibe graduação (entre turma e telefone)
 5. [ ] Editar telefone, **turma** ou plano → salvar → toast de sucesso; dados persistem após reload; trocar plano atualiza **Valor acordado** (`plan_price`) com confirmação se o valor mudar
 5a. [ ] Campo **Valor acordado** editável (owner/admin) — altera snapshot sem mudar o catálogo de planos
-5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (select inline após turma)
+5b. [ ] Com **Graduações** salvas em Empresa → Alunos → Graduações: campo **Faixa/Evolução** visível no perfil (somente leitura); seção **Histórico de faixas/evolução** permite add/edit/delete e atualiza a faixa atual
+5b2. [ ] Lista Alunos: filtro **≥ 3/6/12/24 meses na faixa** (só com graduações ativas); alunos sem `belt_since` ficam fora do resultado
 5c. [ ] Sem graduações configuradas: campo **Faixa/Evolução** ausente no perfil (exceto aluno com valor legado — somente leitura + banner)
 5d. [ ] Seção **Quem costuma pagar**: campo de adicionar nome visível sem precisar de “Editar tudo”; aliases persistem ao adicionar/remover
 5e. [ ] Clique no **avatar** abre upload de foto; foto aparece no avatar após salvar (bucket `VITE_APPWRITE_STUDENT_PHOTOS_BUCKET_ID`)
