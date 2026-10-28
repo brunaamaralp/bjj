@@ -31,6 +31,19 @@ describe('financeConfigStorage', () => {
     expect(compact.price).toBe(150);
   });
 
+  it('compactPlanForStorage persiste billing anual/semestral/mensal', () => {
+    expect(compactPlanForStorage({ name: 'Gold', price: 200, billing: 'annual' }).billing).toBe(
+      'annual'
+    );
+    expect(compactPlanForStorage({ name: '6m', price: 200, billing: 'semestral' }).billing).toBe(
+      'semestral'
+    );
+    expect(compactPlanForStorage({ name: 'Mensal', price: 200, billing: 'monthly' }).billing).toBe(
+      'monthly'
+    );
+    expect(compactPlanForStorage({ name: 'X', price: 200 })).not.toHaveProperty('billing');
+  });
+
   it('compactPlanForStorage ignora plano embutido Isento', () => {
     expect(compactPlanForStorage({ name: 'Isento', price: 0, isExempt: true, builtin: true })).toBeNull();
   });

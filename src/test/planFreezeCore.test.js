@@ -121,6 +121,32 @@ describe('planFreezeCore (validação e cota)', () => {
     expect(canStartPlanFreeze({ plan: 'Mensal', enrollmentDate: '2026-01-01' })).toBe(false);
   });
 
+  it('detects annual via catalog billing (case-insensitive name)', () => {
+    const student = { plan: 'adulto', enrollmentDate: '2026-01-01', freeze_days_used: 0 };
+    const cfg = { plans: [{ name: 'Adulto', billing: 'annual', price: 250 }] };
+    expect(canStartPlanFreeze(student, cfg, new Date('2026-05-18T12:00:00'))).toBe(true);
+    expect(resolveFreezePlanKind(student, cfg)).toBe('annual');
+  });
+
+  it('detects annual via paid 12-month bundle payment', () => {
+    const student = { plan: 'Adulto', enrollmentDate: '2026-01-01', freeze_days_used: 0 };
+    const payments = [
+      {
+        $id: 'b1',
+        payment_category: 'bundle',
+        status: 'paid',
+        bundle_months: 12,
+      },
+    ];
+    expect(canStartPlanFreeze(student, null, new Date('2026-05-18T12:00:00'), payments)).toBe(
+      true
+    );
+  });
+
+  it('detects annual from plan name with 12 meses', () => {
+    expect(resolveFreezePlanKind({ plan: 'Pacote 12 meses' })).toBe('annual');
+  });
+
   it('validates duration within quota', () => {
     const student = { plan: 'Anual', enrollmentDate: '2024-01-15', freeze_days_used: 0 };
     const start = '2026-05-18';

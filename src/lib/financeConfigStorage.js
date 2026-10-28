@@ -303,6 +303,13 @@ export function compactPlanForStorage(plan) {
   if (enrollId) out.contractTemplateId = enrollId;
   const rescindId = String(plan.rescissionTemplateId ?? '').trim();
   if (rescindId) out.rescissionTemplateId = rescindId;
+  const billingRaw = String(plan.billing || plan.plan_billing || '').trim().toLowerCase();
+  if (billingRaw === 'annual' || billingRaw === 'anual') out.billing = 'annual';
+  else if (billingRaw === 'semestral' || billingRaw === 'semiannual' || billingRaw === 'semester') {
+    out.billing = 'semestral';
+  } else if (billingRaw === 'monthly' || billingRaw === 'mensal') {
+    out.billing = 'monthly';
+  }
   return out;
 }
 

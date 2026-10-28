@@ -54,6 +54,25 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
             </p>
           </div>
           <div className="form-group">
+            <label>Ciclo do plano</label>
+            <select
+              className="form-input"
+              value={pl.billing || ''}
+              onChange={(e) =>
+                onUpdate(idx, { billing: e.target.value ? e.target.value : undefined })
+              }
+            >
+              <option value="">Não definido</option>
+              <option value="monthly">Mensal</option>
+              <option value="semestral">Semestral</option>
+              <option value="annual">Anual</option>
+            </select>
+            <p className="text-small text-muted">
+              Anual e semestral liberam o botão Trancar matrícula no perfil (90 e 45 dias por
+              ciclo). Também detectamos pelo nome (ex.: &quot;Anual&quot;) ou pacote de 6/12 meses pago.
+            </p>
+          </div>
+          <div className="form-group">
             <label>Meta semanal de check-ins</label>
             <input
               className="form-input"

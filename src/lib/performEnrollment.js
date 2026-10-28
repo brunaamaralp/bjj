@@ -28,6 +28,7 @@ import {
   normalizeDiscountType,
   resolveEnrollmentPlanPrice,
 } from './planBilling.js';
+import { snapshotPlanBillingFromCatalog } from './planFreeze.js';
 import { loadMergedFinanceConfigForAcademy } from './prefetchFinanceConfig.js';
 
 const PLAN_PRICE_SNAPSHOT_MISSING_TOAST =
@@ -181,6 +182,10 @@ export async function performEnrollment({
     resolvedFinanceConfig,
     planName || lead.plan
   );
+  const planBilling = snapshotPlanBillingFromCatalog(
+    resolvedFinanceConfig,
+    planName || lead.plan
+  );
   if (planName && planPrice == null && !financeConfigHasPlans(resolvedFinanceConfig)) {
     warnPlanPriceSnapshotMissing({ addToast, onToast });
   }
@@ -207,19 +212,26 @@ export async function performEnrollment({
   if (source === 'direct') {
     student = lead;
     // Cadastro já criou o aluno; se plan_price ainda falta, grava o snapshot agora.
-    if (planPrice != null && getStudentAgreedPlanPrice(lead) == null) {
+    if (
+      (planPrice != null && getStudentAgreedPlanPrice(lead) == null) ||
+      (planBilling && !lead.plan_billing)
+    ) {
       try {
         await useStudentStore.getState().updateStudent(leadId, {
           ...(planName ? { plan: planName } : {}),
-          planPrice,
+          ...(planPrice != null && getStudentAgreedPlanPrice(lead) == null
+            ? { planPrice }
+            : {}),
+          ...(planBilling ? { plan_billing: planBilling } : {}),
         });
         student = {
           ...lead,
           ...(planName ? { plan: planName } : {}),
-          planPrice,
+          ...(planPrice != null ? { planPrice } : {}),
+          ...(planBilling ? { plan_billing: planBilling } : {}),
         };
       } catch (e) {
-        console.warn('[performEnrollment] direct planPrice snapshot:', e?.message || e);
+        console.warn('[performEnrollment] direct plan snapshot:', e?.message || e);
       }
     }
     await addStudentLifecycleEvent({
@@ -268,6 +280,7 @@ export async function performEnrollment({
           ...(enrollmentDateYmd ? { enrollmentDate: enrollmentDateYmd } : {}),
           ...(mergedCustomAnswers ? { customAnswers: mergedCustomAnswers } : {}),
           ...(planPrice != null ? { planPrice } : {}),
+          ...(planBilling ? { plan_billing: planBilling } : {}),
         },
         permissions: perms,
       });

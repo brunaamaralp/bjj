@@ -44,6 +44,11 @@ export {
   isAnnualPlanStudent,
   isSemesterPlanStudent,
   resolveFreezePlanKind,
+  resolveStudentPlanBilling,
+  snapshotPlanBillingFromCatalog,
+  enrichStudentFreezeBilling,
+  inferFreezeBillingFromPayments,
+  normalizePlanBilling,
   freezeQuotaMaxDays,
   freezePeriodDays,
   freezeLimitAlertDays,
@@ -69,6 +74,7 @@ export {
   toYmd,
   FREEZE_LIMIT_ALERT_MARKER,
   buildFreezeLimitAlertDescription,
+  PLAN_BILLING,
 } from '../../lib/planFreezeCore.js';
 
 /** Motivo do trancamento ativo (histórico plan_freezes). */

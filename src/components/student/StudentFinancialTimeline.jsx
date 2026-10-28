@@ -576,7 +576,7 @@ export default function StudentFinancialTimeline({
     [payments, sales, planFreezes]
   );
   const freezeActive = isFreezeActive(student);
-  const showFreezeBtn = canStartPlanFreeze(student, financeConfig);
+  const showFreezeBtn = canStartPlanFreeze(student, financeConfig, new Date(), payments);
   const freezeHistoryCount = (planFreezes || []).length;
   const activeFreezeReason = activeFreezeReasonFromHistory(planFreezes, student);
 

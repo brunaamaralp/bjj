@@ -11,6 +11,7 @@ import {
   freezeDaysRemaining,
   minRetroactiveStartYmd,
   validateFreezeRequest,
+  enrichStudentFreezeBilling,
   toYmd,
   formatFreezeDateBr,
 } from '../../lib/planFreeze.js';
@@ -314,17 +315,20 @@ function PlanFreezeModalForm({
 export default function PlanFreezeModal({
   open,
   student,
+  financeConfig = null,
+  payments = null,
   freezeReasons = [],
   onClose,
   onConfirm,
   busy = false,
 }) {
-  const daysAvailable = freezeDaysRemaining(student);
+  const enriched = enrichStudentFreezeBilling(student, financeConfig, payments);
+  const daysAvailable = freezeDaysRemaining(enriched, new Date(), financeConfig);
   if (!open) return null;
   return (
     <PlanFreezeModalForm
       key={`${student?.id || 'student'}-${daysAvailable}`}
-      student={student}
+      student={enriched}
       freezeReasons={freezeReasons}
       onClose={onClose}
       onConfirm={onConfirm}

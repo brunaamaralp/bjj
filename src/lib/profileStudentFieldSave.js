@@ -13,6 +13,7 @@ import {
 import { logProfileFieldUpdate } from './profileFieldAudit.js';
 import { applyRegisteredEmergencyToForm } from './studentEmergencyContact.js';
 import { snapshotPlanPriceFromCatalog } from './planBilling.js';
+import { snapshotPlanBillingFromCatalog } from './planFreeze.js';
 
 function displayForAudit(key, value, student) {
   if (key === 'phone' || key === 'emergencyPhone') {
@@ -155,8 +156,11 @@ export async function saveStudentProfileField({
     case 'plan': {
       const plan = String(draftValue || '').trim();
       const planPrice = snapshotPlanPriceFromCatalog(financeConfig, plan);
+      const planBilling = snapshotPlanBillingFromCatalog(financeConfig, plan);
       patch = { plan };
       if (planPrice != null) patch.planPrice = planPrice;
+      if (planBilling) patch.plan_billing = planBilling;
+      else patch.plan_billing = null;
       auditFrom = displayForAudit(key, prev(key), student);
       auditTo = planPrice != null ? `${plan} (${planPrice})` : plan;
       auditLabel = 'Plano';

@@ -6,6 +6,7 @@ import { STUDENT_STATUS } from '../lib/studentStatus.js';
 import { profileTypeFromTurma, turmaValueFromForm } from '../lib/academyTurmas.js';
 import { performEnrollment } from '../lib/performEnrollment.js';
 import { snapshotPlanPriceFromCatalog } from '../lib/planBilling.js';
+import { snapshotPlanBillingFromCatalog } from '../lib/planFreeze.js';
 import { loadMergedFinanceConfigForAcademy } from '../lib/prefetchFinanceConfig.js';
 import { maskPhone } from '../lib/masks.js';
 import { friendlyError } from '../lib/errorMessages.js';
@@ -132,6 +133,7 @@ export function useStudentsCreateForm({
         }
       }
       const planPrice = snapshotPlanPriceFromCatalog(financeConfig, planName);
+      const planBilling = snapshotPlanBillingFromCatalog(financeConfig, planName);
       const enrollmentDate = formatLocalYmd(new Date());
       const beltSeed = belt
         ? buildBeltHistoryPatch(seedBeltHistoryFromLegacy({ belt, enrollmentDate }))
@@ -145,6 +147,7 @@ export function useStudentsCreateForm({
         origin: newStudent.origin || 'Cadastro manual',
         plan: planName,
         ...(planPrice != null ? { planPrice } : {}),
+        ...(planBilling ? { plan_billing: planBilling } : {}),
         dueDay: new Date().getDate(),
         enrollmentDate,
         studentStatus: STUDENT_STATUS.ACTIVE,

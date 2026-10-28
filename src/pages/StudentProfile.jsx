@@ -31,6 +31,7 @@ import {
     canStartPlanFreeze,
     isFreezeActive,
     activeFreezeReasonFromHistory,
+    snapshotPlanBillingFromCatalog,
 } from '../lib/planFreeze.js';
 import StudentPaymentModal, {
     buildDefaultPayForm,
@@ -1307,12 +1308,14 @@ export default function StudentProfile() {
             }
             skipPlanPriceConfirmRef.current = false;
 
+            const nextPlanBilling = snapshotPlanBillingFromCatalog(financeConfig, dataForm.plan);
             await updateStudent(leadId, {
                 name,
                 type: student.type || 'Adulto',
                 turma: turmaValueFromForm(dataForm.turmaSelect, dataForm.turmaOther),
                 sexo: dataForm.sexo || '',
                 plan: dataForm.plan,
+                plan_billing: nextPlanBilling,
                 enrollmentDate: dataForm.enrollmentDate,
                 birthDate: dataForm.birthDate,
                 responsavel: dataForm.responsavel,
@@ -2521,7 +2524,7 @@ export default function StudentProfile() {
                         >
                             {endFreezeBusy ? 'Encerrando…' : 'Encerrar trancamento'}
                         </button>
-                    ) : canStartPlanFreeze(student, financeConfig) ? (
+                    ) : canStartPlanFreeze(student, financeConfig, new Date(), payments) ? (
                         <button
                             type="button"
                             onClick={() => setFreezeModalOpen(true)}
@@ -2550,6 +2553,7 @@ export default function StudentProfile() {
                     ) : String(student.plan || '').trim() ? (
                         <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                             Trancamento disponível para planos anuais (até 90 dias/ciclo) e semestrais (até 45 dias/ciclo).
+                            Em Financeiro → Planos, defina o ciclo do plano como Anual ou Semestral.
                         </p>
                     ) : null}
                 </>
@@ -3693,6 +3697,8 @@ export default function StudentProfile() {
             <PlanFreezeModal
                 open={freezeModalOpen}
                 student={student}
+                financeConfig={financeConfig}
+                payments={payments}
                 freezeReasons={freezeReasons}
                 busy={freezeBusy}
                 onClose={() => !freezeBusy && setFreezeModalOpen(false)}
