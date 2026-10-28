@@ -44,10 +44,11 @@ describe('planFreezeCore (validação e cota)', () => {
     ).toBe(true);
   });
 
-  it('resolveFreezePlanKind prefers annual over semester naming collision', () => {
+  it('resolveFreezePlanKind prefers semester; demais planos usam cota anual', () => {
     expect(resolveFreezePlanKind({ plan: 'Anual' })).toBe('annual');
     expect(resolveFreezePlanKind({ plan: 'Semestral' })).toBe('semester');
-    expect(resolveFreezePlanKind({ plan: 'Mensal' })).toBe(null);
+    expect(resolveFreezePlanKind({ plan: 'Mensal' })).toBe('annual');
+    expect(resolveFreezePlanKind({ plan: 'Adulto' })).toBe('annual');
   });
 
   it('canStartPlanFreeze allows semester with remaining quota', () => {
@@ -117,8 +118,13 @@ describe('planFreezeCore (validação e cota)', () => {
     expect(used).toBe(0);
   });
 
-  it('does not allow freeze for monthly plan', () => {
-    expect(canStartPlanFreeze({ plan: 'Mensal', enrollmentDate: '2026-01-01' })).toBe(false);
+  it('allows freeze for monthly and unnamed plans with annual quota', () => {
+    const today = new Date('2026-05-18T12:00:00');
+    expect(
+      canStartPlanFreeze({ plan: 'Mensal', enrollmentDate: '2026-01-01' }, null, today)
+    ).toBe(true);
+    expect(canStartPlanFreeze({ plan: '', enrollmentDate: '2026-01-01' }, null, today)).toBe(true);
+    expect(freezeQuotaMaxDays({ plan: 'Mensal' })).toBe(FREEZE_MAX_DAYS_PER_YEAR);
   });
 
   it('detects annual via catalog billing (case-insensitive name)', () => {

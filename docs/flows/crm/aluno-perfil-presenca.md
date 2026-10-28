@@ -117,7 +117,7 @@ flowchart TD
 9f. [ ] Lista em linhas compactas (ações só ao expandir); default **Todos · 3 meses** (histórico de mensalidades, pacotes, compras, taxas); títulos narrativos (`Pagou…` / `Comprou…`); sem lista duplicada do extrato; expand mostra um único **Baixar recibo**; após Registrar no modal, o mesmo botão aparece sem fechar o diálogo
 9g. [ ] Card de status na coluna esquerda usa as **mesmas labels** que a SituationHero; some ao abrir a aba Pagamentos; clique abre a aba
 9h. [ ] Sem presença configurada: `StatusBanner` com ação **Abrir Recepção** (sem botão de check-in morto)
-10. [ ] Trancar plano — anual (90 dias/ciclo) ou semestral (45 dias/ciclo); datas e motivo salvos; badge de trancado no perfil
+10. [ ] Trancar plano — qualquer plano (semestral 45 dias/ciclo; demais 90 dias/ciclo); datas e motivo salvos; badge de trancado no perfil
 11. [ ] Desativar aluno — confirmação; some de filtros "Ativos"
 11b. [ ] Excluir aluno — `ConfirmDialog` (mesmo padrão de excluir lançamento)
 12. [ ] Trocar academia — lista mostra só alunos da academia atual

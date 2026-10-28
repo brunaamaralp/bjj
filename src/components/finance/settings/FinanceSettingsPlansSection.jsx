@@ -68,8 +68,8 @@ function PlanListItem({ pl, idx, expanded, onToggle, onUpdate, onRemove, enrollm
               <option value="annual">Anual</option>
             </select>
             <p className="text-small text-muted">
-              Anual e semestral liberam o botão Trancar matrícula no perfil (90 e 45 dias por
-              ciclo). Também detectamos pelo nome (ex.: &quot;Anual&quot;) ou pacote de 6/12 meses pago.
+              Usado na cota de trancamento: semestral até 45 dias por ciclo; anual e demais planos
+              até 90 dias. Qualquer plano pode trancar matrícula no perfil.
             </p>
           </div>
           <div className="form-group">

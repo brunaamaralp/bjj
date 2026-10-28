@@ -2550,12 +2550,11 @@ export default function StudentProfile() {
                         >
                             <PauseCircle size={16} /> Trancar matrícula
                         </button>
-                    ) : String(student.plan || '').trim() ? (
+                    ) : (
                         <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            Trancamento disponível para planos anuais (até 90 dias/ciclo) e semestrais (até 45 dias/ciclo).
-                            Em Financeiro → Planos, defina o ciclo do plano como Anual ou Semestral.
+                            Cota de trancamento esgotada neste ciclo (até 90 dias; planos semestrais até 45).
                         </p>
-                    ) : null}
+                    )}
                 </>
             ) : isInactiveStudent(student) ? (
                 <>

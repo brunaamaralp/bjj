@@ -111,7 +111,7 @@ const ERROR_MAP = {
   'Aluno não está com trancamento ativo.':
     'Este aluno não está com trancamento ativo. Recarregue a página.',
   student_already_frozen: 'Este aluno já está com a matrícula trancada.',
-  plan_not_eligible_for_freeze: 'Este plano não permite trancamento de matrícula.',
+  plan_not_eligible_for_freeze: 'Não foi possível trancar esta matrícula.',
   access_denied: 'Sem permissão para esta ação.',
 };
 
