@@ -37,8 +37,8 @@ export async function uploadTemplatePdf(
 ): Promise<{ fileId: string; viewUrl: string }> {
   const storage = getStorage();
   const input = InputFile.fromBuffer(fileBuffer, filename, 'application/pdf');
-  const fileId = makeStorageFileId(STORAGE_FILE_PREFIX.contract, () => ID.unique());
-  const created = await storage.createFile(BUCKET_ID(), fileId, input);
+  const requestedId = makeStorageFileId(STORAGE_FILE_PREFIX.contract, () => ID.unique());
+  const created = await storage.createFile(BUCKET_ID(), requestedId, input);
   const fileId = created.$id;
   return { fileId, viewUrl: buildTemplateFileViewUrl(fileId) };
 }
