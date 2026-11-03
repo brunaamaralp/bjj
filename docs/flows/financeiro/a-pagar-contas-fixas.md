@@ -49,7 +49,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 8. [ ] Sidebar **A pagar** linka para contas fixas
 9. [ ] Recepção Comercial: **Lembretes financeiros** mostra contas do dia/semana/atrasadas **sem valor**; com módulo finance, clique abre A pagar
 10. [ ] Conta com vencimento **hoje** mostra badge **Vence hoje**; filtro de vencimento em select na Contas fixas
-11. [ ] Contas fixas separa **A pagar agora** (instâncias pendentes) de **Programadas** (templates); grupo vazio omitido
+11. [ ] Contas fixas separa **A pagar agora** (instâncias pendentes) de **Programadas** (templates); grupo vazio omitido; linhas de **Programadas** também têm **Pagar** (gera a instância do mês e liquida)
 12. [ ] Aba **Cadastro** lista templates ativos com grade mensal (pontos: pago / em aberto / vencido / vazio); sem ações de pagar
 
 ---
@@ -58,6 +58,7 @@ O gestor programa contas fixas (água, luz, telefone, aluguel), acompanha vencim
 
 | Data | Mudança |
 |---|---|
+| 2026-11-03 | Restaurado botão **Pagar** em **Programadas** (regressão de 2026-10-08) |
 | 2026-10-08 | Contas fixas/Cadastro: UI menos densa (tabela 4 colunas, selects, grade por pontos) |
 | 2026-10-08 | Aba Cadastro: grade consultiva 6+1+2 meses |
 | 2026-09-22 | Fila operacional: grupos A pagar agora / Programadas |

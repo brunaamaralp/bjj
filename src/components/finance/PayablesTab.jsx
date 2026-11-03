@@ -223,7 +223,8 @@ function PayableItemsTable({
               item.source === PAYABLE_SOURCE.LANCAMENTO ||
               item.source === PAYABLE_SOURCE.TEMPLATE ||
               item.source === PAYABLE_SOURCE.RECORRENCIA;
-            const showPay = canAct && item.source !== PAYABLE_SOURCE.TEMPLATE;
+            // Template (conta fixa sem parcela do mês) também paga: backend materializa a instância via settle_payable_from_template.
+            const showPay = canAct;
             return (
               <tr key={item.id}>
                 <td>
